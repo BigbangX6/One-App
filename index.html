@@ -15,7 +15,7 @@
             --text-primary: #1d1d1f;
             --text-secondary: #86868b;
             --border-color: #d2d2d7;
-            --accent-color: #8b5cf6; /* Violet vibrant (fini le bleu Microsoft) */
+            --accent-color: #8b5cf6; /* Violet vibrant */
             --accent-hover: #7c3aed;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
@@ -64,24 +64,12 @@
             margin-bottom: 16px;
         }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin: 0 0 8px 0;
-        }
-
-        p.subtitle {
-            color: var(--text-secondary);
-            font-size: 15px;
-            margin: 0 0 32px 0;
-        }
+        h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
+        p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
 
         /* --- VUES --- */
-        #authenticated-view {
-            display: none; /* Masqué par défaut tant que l'utilisateur n'est pas connecté */
-            text-align: left;
-        }
-
+        #authenticated-view { display: none; text-align: left; }
+        
         .empty-state {
             padding: 30px 20px;
             color: var(--text-secondary);
@@ -92,40 +80,30 @@
             text-align: center;
         }
 
-        .google-btn-wrapper {
-            display: flex;
-            justify-content: center;
-            width: 100%;
-        }
-
-        /* Styles pour la vue connectée (Profil et liste) */
-        .user-header {
+        /* Bouton de connexion personnalisé */
+        .custom-btn {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 12px;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--border-color);
+            width: 100%;
+            transition: background 0.2s;
         }
+        .custom-btn:hover { background-color: var(--bg-color); }
 
-        .user-info h2 {
-            font-size: 16px;
-            margin: 0;
-        }
-
-        .user-info p {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin: 0;
-        }
-
-        .section-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
+        .loader {
+            display: none;
+            color: var(--accent-color);
+            margin-top: 15px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -139,79 +117,160 @@
         <h1>One App</h1>
         <p class="subtitle">Votre Personal Cloud décentralisé</p>
 
-        <div id="g_id_onload"
-             data-client_id="1053233256059-m7f20fggtrdl7utd8hpanr5vsb49i3vk.apps.googleusercontent.com" 
-             data-context="signin"
-             data-ux_mode="popup"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
-
-        <div class="google-btn-wrapper">
-            <div class="g_id_signin"
-                 data-type="standard"
-                 data-shape="rectangular"
-                 data-theme="outline"
-                 data-text="signin_with"
-                 data-size="large"
-                 data-logo_alignment="left">
-            </div>
-        </div>
+        <button class="custom-btn" onclick="authorizeAndConnect()">
+            <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Se connecter avec Google
+        </button>
+        <div id="loading-msg" class="loader">Création de l'espace de travail en cours...</div>
     </div>
 
     <div id="authenticated-view" class="app-container">
-        <div class="user-header">
-            <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;">
-                <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
-            </svg>
-            <div class="user-info">
-                <h2 id="user-greeting">Mon Compte</h2>
-                <p id="user-email">email@google.com</p>
-            </div>
-        </div>
-
-        <div class="section-title">Espace de travail</div>
+        <h1 style="color: var(--accent-color);">Fichiers d'exemple créés !</h1>
+        <p class="subtitle">Votre espace Drive est prêt.</p>
+        
         <div class="empty-state">
-            Aucune One App installée pour le moment.
+            Allez vérifier votre Google Drive. Un dossier "One App" a été créé avec vos premiers fichiers de test.
         </div>
     </div>
 
     <script>
-        // Fonction appelée automatiquement par Google lors de la connexion réussie
-        function handleCredentialResponse(response) {
-            // 1. Décodage du jeton JWT renvoyé par Google pour récupérer les infos de l'utilisateur
-            const responsePayload = decodeJwtResponse(response.credential);
-            
-            // 2. Mise à jour dynamique de l'interface
-            document.getElementById('user-greeting').innerText = responsePayload.name || responsePayload.given_name;
-            document.getElementById('user-email').innerText = responsePayload.email;
-            
-            // 3. Bascule des vues (Single Page Application)
-            document.getElementById('unauthenticated-view').style.display = 'none';
-            document.getElementById('authenticated-view').style.display = 'block';
+        // --- CONFIGURATION ---
+        const CLIENT_ID = '1053233256059-m7f20fggtrdl7utd8hpanr5vsb49i3vk.apps.googleusercontent.com'; // À REMPLACER
+        
+        // C'est ce paramètre (Scope) qui donne au Moteur le droit de créer/modifier des fichiers
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        
+        const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
+        const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 
-            // Prochaine étape : Analyser l'URL (ex: ?id=...) et interroger l'API Drive ici
-            checkUrlForSharedFile();
+        let tokenClient;
+        let globalAccessToken;
+
+        // 1. Initialisation au chargement de la page
+        window.onload = function () {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        globalAccessToken = tokenResponse.access_token;
+                        document.getElementById('loading-msg').style.display = 'block';
+                        // On lance la création des fichiers d'exemple sur le Drive
+                        setupOneAppWorkspace(globalAccessToken);
+                    }
+                }
+            });
+        };
+
+        // 2. Déclenchement de la connexion (Au clic sur le bouton)
+        function authorizeAndConnect() {
+            // Force la pop-up de consentement Google
+            tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        // Utilitaire standard pour décoder le jeton de sécurité Google
-        function decodeJwtResponse(token) {
-            let base64Url = token.split('.')[1];
-            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            let jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            return JSON.parse(jsonPayload);
-        }
+        // 3. Logique de création de l'espace de travail Drive
+        async function setupOneAppWorkspace(accessToken) {
+            console.log("Recherche du dossier 'One App'...");
+            
+            const query = encodeURIComponent("name = 'One App' and mimeType = 'application/vnd.google-apps.folder' and trashed = false");
+            
+            try {
+                let response = await fetch(`${DRIVE_API_URL}?q=${query}`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                let data = await response.json();
 
-        // Vérification de l'URL pour la gestion du "Lien Magique" (?id=...)
-        function checkUrlForSharedFile() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const fileId = urlParams.get('id');
-            if (fileId) {
-                console.log("Lien magique détecté ! ID du fichier cible :", fileId);
-                // Ici, le Moteur déclenchera plus tard le téléchargement du .onefile via l'API Drive
+                let folderId;
+                if (data.files && data.files.length > 0) {
+                    console.log("Dossier One App trouvé ! ID:", data.files[0].id);
+                    folderId = data.files[0].id;
+                } else {
+                    console.log("Dossier introuvable. Création en cours...");
+                    folderId = await createFolder("One App", accessToken);
+                }
+
+                // 4. Générer nos fichiers d'entraînement dans ce dossier
+                await createDummyFiles(folderId, accessToken);
+                
+                // 5. Bascule de l'interface
+                document.getElementById('unauthenticated-view').style.display = 'none';
+                document.getElementById('authenticated-view').style.display = 'block';
+                
+            } catch (error) {
+                console.error("Erreur critique Drive :", error);
+                alert("Une erreur est survenue avec Google Drive. Regardez la console.");
             }
+        }
+
+        // Utilitaire pour créer le dossier
+        async function createFolder(folderName, accessToken) {
+            const metadata = {
+                name: folderName,
+                mimeType: "application/vnd.google-apps.folder"
+            };
+
+            let response = await fetch(DRIVE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(metadata)
+            });
+            let folder = await response.json();
+            return folder.id;
+        }
+
+        // Injection des fichiers d'exemples
+        async function createDummyFiles(parentFolderId, accessToken) {
+            const dummyFiles = [
+                { 
+                  name: "Super Block Note.oneapp", 
+                  content: '{"app_metadata": {"name": "Super Block Note", "version": "1.0"}}' 
+                },
+                { 
+                  name: "Mes Recettes.onefile", 
+                  content: '{"oneapp_metadata": {"app_name": "Carnet de Recettes"}, "app_data": [{"id": "1", "title": "Tarte aux pommes"}]}' 
+                },
+                { 
+                  name: "Script_Projet.onefile", 
+                  content: '{"oneapp_metadata": {"app_name": "Cinéma - Découpage"}, "app_data": [{"id": "A1", "type": "Plan Large"}]}' 
+                }
+            ];
+
+            for (let file of dummyFiles) {
+                console.log(`Création du fichier : ${file.name}`);
+                
+                // Format "Multipart" requis par Google Drive pour envoyer Métadonnées + Contenu JSON
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = {
+                    name: file.name,
+                    mimeType: "application/json",
+                    parents: [parentFolderId] // On force l'injection dans notre dossier !
+                };
+
+                const multipartRequestBody =
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    file.content +
+                    close_delim;
+
+                await fetch(UPLOAD_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': `multipart/related; boundary=${boundary}`
+                    },
+                    body: multipartRequestBody
+                });
+            }
+            console.log("Les 3 fichiers de test ont été créés avec succès !");
         }
     </script>
 </body>
