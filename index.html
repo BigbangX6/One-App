@@ -8,14 +8,14 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
-        /* --- VARIABLES CSS (Thème clair et sombre automatique) --- */
+        /* --- VARIABLES CSS --- */
         :root {
             --bg-color: #f5f5f7;
             --surface-color: #ffffff;
             --text-primary: #1d1d1f;
             --text-secondary: #86868b;
             --border-color: #d2d2d7;
-            --accent-color: #8b5cf6; /* Violet vibrant */
+            --accent-color: #8b5cf6; 
             --accent-hover: #7c3aed;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
@@ -33,120 +33,127 @@
 
         /* --- STYLES GLOBAUX --- */
         body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            margin: 0; padding: 0; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: var(--bg-color); color: var(--text-primary);
+            display: flex; justify-content: center; align-items: flex-start;
             transition: background-color 0.3s ease, color 0.3s ease;
+            padding-top: 40px; box-sizing: border-box;
         }
 
-        /* --- CONTENEUR PRINCIPAL --- */
         .app-container {
-            background-color: var(--surface-color);
-            border-radius: 20px;
-            box-shadow: var(--shadow);
-            padding: 40px;
-            width: 100%;
-            max-width: 450px;
-            text-align: center;
-            border: 1px solid var(--border-color);
-            box-sizing: border-box;
-            margin: 20px;
+            background-color: var(--surface-color); border-radius: 20px;
+            box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
+            border: 1px solid var(--border-color); box-sizing: border-box;
         }
 
-        .logo-svg {
-            color: var(--accent-color);
-            margin-bottom: 16px;
-        }
-
+        /* --- VUES --- */
+        #unauthenticated-view { text-align: center; }
+        #authenticated-view { display: none; }
+        
+        .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
         h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
         p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
 
-        /* --- VUES --- */
-        #authenticated-view { display: none; text-align: left; }
-        
-        .empty-state {
-            padding: 30px 20px;
-            color: var(--text-secondary);
-            font-size: 15px;
-            border: 2px dashed var(--border-color);
-            border-radius: 12px;
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        /* Bouton de connexion personnalisé */
         .custom-btn {
-            background-color: var(--surface-color);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            width: 100%;
+            background-color: var(--surface-color); color: var(--text-primary);
+            border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
+            font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; gap: 12px; width: 100%;
             transition: background 0.2s;
         }
         .custom-btn:hover { background-color: var(--bg-color); }
+        
+        .primary-btn {
+            background-color: var(--accent-color); color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .primary-btn:hover { background-color: var(--accent-hover); }
 
-        .loader {
-            display: none;
-            color: var(--accent-color);
-            margin-top: 15px;
-            font-weight: bold;
+        .loader { display: none; color: var(--accent-color); margin-top: 15px; font-weight: bold; text-align: center;}
+
+        /* --- TABLEAU DE BORD --- */
+        .user-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+            padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
+        }
+        .user-info h2 { font-size: 16px; margin: 0; }
+        .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
+
+        /* Grille des applications */
+        #app-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
+        }
+        .app-card {
+            background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px;
+            padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
+        .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
+        .app-card span { display: block; font-size: 13px; font-weight: 600; }
+
+        /* Modal d'installation */
+        #install-section {
+            display: none; background: var(--bg-color); padding: 20px; border-radius: 12px;
+            border: 1px solid var(--border-color); margin-top: 20px;
+        }
+        textarea {
+            width: 100%; height: 150px; background: var(--surface-color); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
+            font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
         }
     </style>
 </head>
 <body>
 
     <div id="unauthenticated-view" class="app-container">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64">
-            <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/>
-        </svg>
-        
+        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
         <h1>One App</h1>
         <p class="subtitle">Votre Personal Cloud décentralisé</p>
-
-        <button class="custom-btn" onclick="authorizeAndConnect()">
-            <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Se connecter avec Google
-        </button>
-        <div id="loading-msg" class="loader">Création de l'espace de travail en cours...</div>
+        <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
     </div>
 
     <div id="authenticated-view" class="app-container">
-        <h1 style="color: var(--accent-color);">Fichiers d'exemple créés !</h1>
-        <p class="subtitle">Votre espace Drive est prêt.</p>
-        
-        <div class="empty-state">
-            Allez vérifier votre Google Drive. Un dossier "One App" a été créé avec vos premiers fichiers de test.
+        <div class="user-header">
+            <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+            <div class="user-info">
+                <h2 id="user-greeting">Mon Compte</h2>
+                <p id="user-email">Chargement...</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <div class="section-title">Mes Applications</div>
+            <button class="primary-btn" onclick="toggleInstallSection()">+ Installer</button>
+        </div>
+
+        <div id="app-grid">
+            </div>
+        <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
+
+        <div id="install-section">
+            <div class="section-title" style="margin-bottom: 10px;">Coller le manifeste (.oneapp)</div>
+            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Super Block Note"...}}'></textarea>
+            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Créer l'Application</button>
+            <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
         </div>
     </div>
 
     <script>
         // --- CONFIGURATION ---
-        const CLIENT_ID = '1053233256059-m7f20fggtrdl7utd8hpanr5vsb49i3vk.apps.googleusercontent.com'; // À REMPLACER
-        
-        // C'est ce paramètre (Scope) qui donne au Moteur le droit de créer/modifier des fichiers
+        const CLIENT_ID = 'TON_CLIENT_ID_ICI.apps.googleusercontent.com'; // À REMPLACER
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 
         let tokenClient;
         let globalAccessToken;
+        let rootFolderId = null; // Stocke l'ID du dossier racine "One App"
 
-        // 1. Initialisation au chargement de la page
+        // 1. Initialisation Google OAuth
         window.onload = function () {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -154,123 +161,152 @@
                 callback: (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
                         globalAccessToken = tokenResponse.access_token;
-                        document.getElementById('loading-msg').style.display = 'block';
-                        // On lance la création des fichiers d'exemple sur le Drive
-                        setupOneAppWorkspace(globalAccessToken);
+                        document.getElementById('unauthenticated-view').style.display = 'none';
+                        document.getElementById('authenticated-view').style.display = 'block';
+                        // Récupérer les infos utilisateur (Optionnel via OAuth, ici simulé visuellement)
+                        document.getElementById('user-email').innerText = "Connecté à Google Drive";
+                        
+                        // Lancer la routine de démarrage
+                        initializeAppSystem();
                     }
                 }
             });
         };
 
-        // 2. Déclenchement de la connexion (Au clic sur le bouton)
-        function authorizeAndConnect() {
-            // Force la pop-up de consentement Google
-            tokenClient.requestAccessToken({prompt: 'consent'});
+        function authorizeAndConnect() { tokenClient.requestAccessToken({prompt: 'consent'}); }
+
+        // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
+
+        async function initializeAppSystem() {
+            // 1. Trouver ou créer le dossier racine
+            rootFolderId = await getOrCreateFolder("One App", "root");
+            // 2. Lister les applications
+            await listInstalledApps();
         }
 
-        // 3. Logique de création de l'espace de travail Drive
-        async function setupOneAppWorkspace(accessToken) {
-            console.log("Recherche du dossier 'One App'...");
+        // Utilitaire : Trouver ou créer un dossier
+        async function getOrCreateFolder(folderName, parentId) {
+            const query = encodeURIComponent(`name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`);
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
+            let data = await response.json();
             
-            const query = encodeURIComponent("name = 'One App' and mimeType = 'application/vnd.google-apps.folder' and trashed = false");
-            
-            try {
-                let response = await fetch(`${DRIVE_API_URL}?q=${query}`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
+            if (data.files && data.files.length > 0) {
+                return data.files[0].id; // Dossier trouvé
+            } else {
+                // Création du dossier
+                const metadata = { name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] };
+                let createRes = await fetch(DRIVE_API_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(metadata)
                 });
-                let data = await response.json();
-
-                let folderId;
-                if (data.files && data.files.length > 0) {
-                    console.log("Dossier One App trouvé ! ID:", data.files[0].id);
-                    folderId = data.files[0].id;
-                } else {
-                    console.log("Dossier introuvable. Création en cours...");
-                    folderId = await createFolder("One App", accessToken);
-                }
-
-                // 4. Générer nos fichiers d'entraînement dans ce dossier
-                await createDummyFiles(folderId, accessToken);
-                
-                // 5. Bascule de l'interface
-                document.getElementById('unauthenticated-view').style.display = 'none';
-                document.getElementById('authenticated-view').style.display = 'block';
-                
-            } catch (error) {
-                console.error("Erreur critique Drive :", error);
-                alert("Une erreur est survenue avec Google Drive. Regardez la console.");
+                let newFolder = await createRes.json();
+                return newFolder.id;
             }
         }
 
-        // Utilitaire pour créer le dossier
-        async function createFolder(folderName, accessToken) {
-            const metadata = {
-                name: folderName,
-                mimeType: "application/vnd.google-apps.folder"
-            };
+        // Chercher tous les fichiers .oneapp dans le Drive de l'utilisateur
+        async function listInstalledApps() {
+            document.getElementById('loading-apps').style.display = 'block';
+            document.getElementById('app-grid').innerHTML = '';
 
-            let response = await fetch(DRIVE_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(metadata)
+            // On cherche tous les fichiers qui se terminent par .oneapp
+            const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name)`, { 
+                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
-            let folder = await response.json();
-            return folder.id;
+            let data = await response.json();
+            
+            document.getElementById('loading-apps').style.display = 'none';
+
+            if (data.files && data.files.length > 0) {
+                data.files.forEach(file => {
+                    // Nettoyer le nom pour l'affichage (enlever ".oneapp")
+                    let displayName = file.name.replace('.oneapp', '');
+                    let card = document.createElement('div');
+                    card.className = 'app-card';
+                    card.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
+                        <span>${displayName}</span>
+                    `;
+                    card.onclick = () => openApp(file.id, displayName);
+                    document.getElementById('app-grid').appendChild(card);
+                });
+            } else {
+                document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
+            }
         }
 
-        // Injection des fichiers d'exemples
-        async function createDummyFiles(parentFolderId, accessToken) {
-            const dummyFiles = [
-                { 
-                  name: "Super Block Note.oneapp", 
-                  content: '{"app_metadata": {"name": "Super Block Note", "version": "1.0"}}' 
-                },
-                { 
-                  name: "Mes Recettes.onefile", 
-                  content: '{"oneapp_metadata": {"app_name": "Carnet de Recettes"}, "app_data": [{"id": "1", "title": "Tarte aux pommes"}]}' 
-                },
-                { 
-                  name: "Script_Projet.onefile", 
-                  content: '{"oneapp_metadata": {"app_name": "Cinéma - Découpage"}, "app_data": [{"id": "A1", "type": "Plan Large"}]}' 
-                }
-            ];
+        // Action quand on clique sur une App (Prochaine étape du projet)
+        function openApp(fileId, appName) {
+            console.log(`Lancement de l'application : ${appName} (ID: ${fileId})`);
+            alert(`C'est ici que nous coderons le téléchargement et l'injection du Sandbox pour l'application : ${appName}`);
+            // Dans la prochaine étape, on injectera le srcdoc de l'iframe !
+        }
 
-            for (let file of dummyFiles) {
-                console.log(`Création du fichier : ${file.name}`);
-                
-                // Format "Multipart" requis par Google Drive pour envoyer Métadonnées + Contenu JSON
+        // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
+
+        function toggleInstallSection() {
+            const section = document.getElementById('install-section');
+            section.style.display = section.style.display === 'block' ? 'none' : 'block';
+        }
+
+        async function installAppFromJson() {
+            const jsonText = document.getElementById('json-input').value.trim();
+            if (!jsonText) return alert("Veuillez coller un manifeste JSON.");
+
+            let appData;
+            try {
+                appData = JSON.parse(jsonText);
+            } catch (e) {
+                return alert("Erreur : Le texte collé n'est pas un JSON valide.");
+            }
+
+            // Vérification basique du Manifeste One App
+            if (!appData.app_metadata || !appData.app_metadata.name) {
+                return alert("Erreur : Le JSON ne semble pas être un .oneapp valide (metadata manquantes).");
+            }
+
+            const appName = appData.app_metadata.name;
+            const fileName = `${appName}.oneapp`;
+
+            document.getElementById('install-loader').style.display = 'block';
+
+            try {
+                // 1. Créer le sous-dossier au nom de l'app dans le dossier racine
+                console.log(`Création du sous-dossier "${appName}"...`);
+                const appFolderId = await getOrCreateFolder(appName, rootFolderId);
+
+                // 2. Créer (Uploader) le fichier .oneapp dans ce sous-dossier
+                console.log(`Upload du fichier ${fileName}...`);
                 const boundary = '-------314159265358979323846';
                 const delimiter = "\r\n--" + boundary + "\r\n";
                 const close_delim = "\r\n--" + boundary + "--";
 
-                const metadata = {
-                    name: file.name,
-                    mimeType: "application/json",
-                    parents: [parentFolderId] // On force l'injection dans notre dossier !
-                };
-
+                const metadata = { name: fileName, mimeType: "application/json", parents: [appFolderId] };
                 const multipartRequestBody =
-                    delimiter +
-                    'Content-Type: application/json\r\n\r\n' +
-                    JSON.stringify(metadata) +
-                    delimiter +
-                    'Content-Type: application/json\r\n\r\n' +
-                    file.content +
-                    close_delim;
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(appData) + close_delim;
 
                 await fetch(UPLOAD_API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': `multipart/related; boundary=${boundary}`
-                    },
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
                     body: multipartRequestBody
                 });
+
+                alert(`L'application "${appName}" a été installée avec succès !`);
+                
+                // 3. Rafraîchir l'interface
+                document.getElementById('json-input').value = '';
+                toggleInstallSection();
+                document.getElementById('install-loader').style.display = 'none';
+                await listInstalledApps();
+
+            } catch (error) {
+                console.error(error);
+                alert("Erreur lors de l'installation sur Google Drive.");
+                document.getElementById('install-loader').style.display = 'none';
             }
-            console.log("Les 3 fichiers de test ont été créés avec succès !");
         }
     </script>
 </body>
