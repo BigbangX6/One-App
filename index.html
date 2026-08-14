@@ -6,6 +6,9 @@
     <title>One App - Personal Cloud</title>
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <script src="config.js"></script>
+
 
     <style>
         /* --- VARIABLES CSS --- */
@@ -144,7 +147,8 @@
 
     <script>
         // --- CONFIGURATION ---
-        const CLIENT_ID = 'TON_CLIENT_ID_ICI.apps.googleusercontent.com'; // À REMPLACER
+        const CLIENT_ID = ONEAPP_CONFIG.GOOGLE_CLIENT_ID; // Va chercher l'ID automatiquement dans config.js
+
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
