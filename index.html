@@ -152,6 +152,18 @@
         </div>
     </div>
 
+    <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
+        <header style="background: var(--surface-color); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" width="24" height="24" style="color: var(--accent-color);"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <h2 id="running-app-title" style="margin: 0; font-size: 18px;">Application</h2>
+            </div>
+            <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 8px 16px; border-color: #ef4444; color: #ef4444;">Fermer l'App</button>
+        </header>
+        <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
+            </div>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         // Sécurisation : On vérifie que config.js a bien été chargé
@@ -285,11 +297,97 @@
             }
         }
 
-        // Action quand on clique sur une App (Prochaine étape du projet)
-        function openApp(fileId, appName) {
-            console.log(`Lancement de l'application : ${appName} (ID: ${fileId})`);
-            alert(`C'est ici que nous coderons le téléchargement et l'injection du Sandbox pour l'application : ${appName}`);
-            // Dans la prochaine étape, on injectera le srcdoc de l'iframe !
+        // --- LE PONT DE COMMUNICATION (API Interne / Abstraction OS) ---
+        const apiBridgeScript = "window.OneAppAPI = { loadData: function() { return new Promise((resolve) => { const listener = (event) => { if(event.data.type === 'LOAD_DATA_RESPONSE') { window.removeEventListener('message', listener); resolve(event.data.payload); } }; window.addEventListener('message', listener); window.parent.postMessage({ type: 'LOAD_DATA_REQUEST' }, '*'); }); }, saveData: function(data) { window.parent.postMessage({ type: 'SAVE_DATA_REQUEST', payload: data }, '*'); }, askGemini: function(promptText) { window.parent.postMessage({ type: 'ASK_GEMINI_REQUEST', payload: promptText }, '*'); } };";
+
+        let currentRunningApp = null; // Stocke les infos de l'app en cours d'exécution
+
+        // Le "Gardien" du Moteur : Écoute les requêtes de l'Iframe
+        window.addEventListener('message', async (event) => {
+            // Sécurité : On ignore les messages qui ne viennent pas de notre iframe
+            if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
+
+            if (event.data.type === 'LOAD_DATA_REQUEST') {
+                console.log("MOTEUR : L'application demande ses données.");
+                // Pour l'instant on ouvre une "nouvelle" app vide.
+                // Prochaine étape : envoyer le contenu du .onefile ici !
+                event.source.postMessage({
+                    type: 'LOAD_DATA_RESPONSE',
+                    payload: { readOnly: false, app_data: [] }
+                }, '*');
+            } 
+            else if (event.data.type === 'SAVE_DATA_REQUEST') {
+                console.log("MOTEUR : Demande de sauvegarde interceptée !", event.data.payload);
+                // Le moteur s'occupe de tout : 
+                // C'est ici que nous coderons le fait d'écraser le fichier .onefile sur Google Drive (ou localement si pas d'internet)
+                alert("Le Moteur a bien reçu l'ordre de sauvegarder " + event.data.payload.length + " éléments. (Lien Drive à suivre)");
+            }
+            else if (event.data.type === 'ASK_GEMINI_REQUEST') {
+                // Abstraction pour l'avenir : L'app demande à utiliser l'IA du système
+                console.log("MOTEUR : L'app demande à parler à l'IA :", event.data.payload);
+            }
+        });
+
+        // Action quand on clique sur une App (La Grande Fusion)
+        async function openApp(fileId, appName) {
+            console.log("Lancement de l'application : " + appName);
+            
+            // 1. Afficher un chargement
+            document.getElementById('loading-apps').innerText = "Téléchargement de l'application depuis Drive...";
+            document.getElementById('loading-apps').style.display = 'block';
+
+            try {
+                // 2. Télécharger le JSON de l'application depuis Drive via son ID
+                let response = await fetch(DRIVE_API_URL + '/' + fileId + '?alt=media', {
+                    headers: { 'Authorization': 'Bearer ' + globalAccessToken }
+                });
+                let appJson = await response.json();
+
+                // 3. Construire le HTML complet avec le pont sécurisé
+                const fullHTML = "<!DOCTYPE html><html><head><style>" + 
+                    (appJson.frontend.css || "") + 
+                    "</style><script>" + 
+                    apiBridgeScript + 
+                    "<\/script></head><body>" + 
+                    (appJson.frontend.html || "") + 
+                    "<script>" + 
+                    (appJson.logic || "") + 
+                    "<\/script></body></html>";
+
+                // 4. Créer l'Iframe isolée
+                const iframe = document.createElement('iframe');
+                iframe.sandbox = "allow-scripts"; // Bloque l'accès au Moteur
+                iframe.srcdoc = fullHTML;
+                iframe.style.width = "100%";
+                iframe.style.height = "100%";
+                iframe.style.border = "none";
+
+                // 5. Injecter l'Iframe dans l'interface et basculer la vue
+                const container = document.getElementById('iframe-container');
+                container.innerHTML = '';
+                container.appendChild(iframe);
+                
+                document.getElementById('running-app-title').innerText = appName;
+                document.getElementById('authenticated-view').style.display = 'none';
+                document.getElementById('execution-view').style.display = 'flex';
+                
+                currentRunningApp = appJson;
+
+            } catch (error) {
+                console.error("Erreur au chargement de l'app :", error);
+                alert("Impossible de télécharger le fichier .oneapp depuis Google Drive.");
+            } finally {
+                document.getElementById('loading-apps').style.display = 'none';
+                document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+            }
+        }
+
+        // Fermer l'application et revenir au tableau de bord
+        function closeApp() {
+            document.getElementById('execution-view').style.display = 'none';
+            document.getElementById('iframe-container').innerHTML = ''; // Nettoyage de la RAM
+            document.getElementById('authenticated-view').style.display = 'block';
+            currentRunningApp = null;
         }
 
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
