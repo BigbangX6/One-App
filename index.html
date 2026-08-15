@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -176,6 +177,34 @@
             </div>
     </div>
 
+    <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
+        <header style="background: var(--surface-color); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow); flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 id="edit-app-title" style="margin: 0; font-size: 16px;">Éditeur</h2>
+            </div>
+            <div style="display: flex; gap: 5px; flex: 1; justify-content: center;">
+                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;">⬅️</button>
+                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;">➡️</button>
+                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px;">⚡ Appliquer</button>
+                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px;">📋 Instructions IA</button>
+            </div>
+            <button class="custom-btn" onclick="closeAppEditor()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">Fermer</button>
+        </header>
+        
+        <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary);" id="editor-status">Prêt.</div>
+
+        <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; gap: 10px; overflow: hidden;">
+            <div style="display: flex; flex-direction: column; flex: 0.4;">
+                <div class="section-title" style="font-size: 11px;">Changements IA (Format STRICT)</div>
+                <textarea id="editor-diff-input" placeholder="<<<<&#10;Code à trouver&#10;====&#10;Nouveau code&#10;>>>>" style="flex: 1; border-color: var(--accent-color);"></textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; flex: 0.6;">
+                <div class="section-title" style="font-size: 11px;">Code Complet (JSON)</div>
+                <textarea id="editor-full-code" placeholder="Chargement du code..." style="flex: 1; color: #a6e22e; background: #222;"></textarea>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         // Sécurisation : On vérifie que config.js a bien été chargé
@@ -334,6 +363,7 @@
                 <div class="submenu-header">
                     <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
                     <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')">+ Nouveau</button>
+                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="width: auto; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">⚙️ Modifier</button>
                 </div>
                 <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
                 <div class="file-list" id="submenu-file-list"></div>
@@ -621,6 +651,203 @@
                 document.getElementById('install-loader').style.display = 'none';
             }
         }
+
+        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
+        let editorHistory = [];
+        let editorCurrentIndex = -1;
+        let editingAppFileId = null;
+
+        const diffInput = document.getElementById('editor-diff-input');
+        const fullCodeInput = document.getElementById('editor-full-code');
+        const editorStatusMsg = document.getElementById('editor-status');
+
+        function showEditorStatus(msg) {
+            editorStatusMsg.innerText = msg;
+            setTimeout(() => { if (editorStatusMsg.innerText === msg) editorStatusMsg.innerText = "Prêt."; }, 4000);
+        }
+
+        function saveEditorState(newCode) {
+            if (editorCurrentIndex < editorHistory.length - 1) {
+                editorHistory = editorHistory.slice(0, editorCurrentIndex + 1);
+            }
+            editorHistory.push(newCode);
+            if (editorHistory.length > 50) editorHistory.shift();
+            editorCurrentIndex = editorHistory.length - 1;
+        }
+
+        fullCodeInput.addEventListener('change', () => {
+            if (fullCodeInput.value !== editorHistory[editorCurrentIndex]) {
+                saveEditorState(fullCodeInput.value);
+                showEditorStatus("Sauvegarde manuelle dans l'historique.");
+            }
+        });
+
+        async function openAppEditor(fileId, appName) {
+            console.log(`Ouverture de l'éditeur pour : ${appName}`);
+            editingAppFileId = fileId;
+            editorHistory = [];
+            editorCurrentIndex = -1;
+            
+            document.getElementById('loading-apps').innerText = "Téléchargement du code source...";
+            document.getElementById('loading-apps').style.display = 'block';
+
+            try {
+                let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+                });
+                
+                if (!response.ok) throw new Error("Erreur de téléchargement");
+                
+                let appData = await response.json();
+                let jsonString = JSON.stringify(appData, null, 2);
+                
+                fullCodeInput.value = jsonString;
+                saveEditorState(jsonString);
+                
+                document.getElementById('edit-app-title').innerText = `Édition : ${appName}`;
+                document.getElementById('authenticated-view').style.display = 'none';
+                document.getElementById('edit-app-view').style.display = 'flex';
+                
+            } catch (error) {
+                console.error("Erreur éditeur :", error);
+                alert("Impossible de charger le code source depuis Drive.");
+            } finally {
+                document.getElementById('loading-apps').style.display = 'none';
+            }
+        }
+
+        function closeAppEditor() {
+            document.getElementById('edit-app-view').style.display = 'none';
+            document.getElementById('authenticated-view').style.display = 'block';
+            fullCodeInput.value = '';
+            diffInput.value = '';
+            editingAppFileId = null;
+        }
+
+        function copyCodeForAI() {
+            const currentCode = fullCodeInput.value;
+            const aiPrompt = `Voici le code source de mon application One App :\n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nJe vais te demander une modification. Pour l'appliquer, tu dois STRICTEMENT utiliser le format Auto-Patcher suivant (ne réécris jamais le code entier). Le texte à chercher doit correspondre exactement aux espaces et sauts de ligne :\n\n\`\`\`text\n<<<<\n[Code exact à trouver]\n====\n[Nouveau code]\n>>>>\n\`\`\`\n\nQuelle est ta modification ?`;
+            
+            navigator.clipboard.writeText(aiPrompt).then(() => {
+                alert("Code et instructions copiés ! Ouvrez Gemini, collez ce texte, et demandez votre modification.");
+            }).catch(err => {
+                alert("Erreur lors de la copie.");
+            });
+        }
+
+        async function applyEditorPatch() {
+            let currentCode = fullCodeInput.value;
+            const diffText = diffInput.value;
+
+            if (!currentCode || !diffText) return showEditorStatus("Les deux champs doivent être remplis.");
+
+            const diffRegex = /<<<<\n([\s\S]*?)\n====\n([\s\S]*?)\n>>>>/g;
+            let match;
+            let appliedCount = 0;
+            let newCode = currentCode;
+            let failedBlocks = [];
+
+            while ((match = diffRegex.exec(diffText)) !== null) {
+                const oldBlock = match[1];
+                const newBlock = match[2];
+
+                if (newCode.includes(oldBlock)) {
+                    newCode = newCode.split(oldBlock).join(newBlock);
+                    appliedCount++;
+                } else {
+                    failedBlocks.push(match[0]); // Stocke le bloc complet en échec
+                }
+            }
+
+            if (failedBlocks.length > 0) {
+                // Le fameux "Smart Fail"
+                let aiErrorMessage = `L'Auto-Patcher a échoué. Il n'a pas trouvé ce(s) bloc(s) exact(s) dans mon code actuel :\n\n`;
+                failedBlocks.forEach(block => { aiErrorMessage += "```text\n" + block + "\n```\n\n"; });
+                aiErrorMessage += `Voici l'intégralité de mon code actuel. S'il te plaît, analyse mon indentation exacte et regénère STRICTEMENT le patch :\n\n\`\`\`json\n${currentCode}\n\`\`\``;
+
+                navigator.clipboard.writeText(aiErrorMessage).then(() => {
+                    alert("Échec de la modification. Un message d'erreur incluant votre code complet a été copié. Collez-le directement à l'IA pour corriger le tir !");
+                });
+                return; // On bloque la sauvegarde !
+            }
+
+            if (appliedCount > 0) {
+                // Patch réussi : on met à jour l'UI
+                fullCodeInput.value = newCode;
+                diffInput.value = ''; 
+                saveEditorState(newCode);
+                showEditorStatus(`Application de ${appliedCount} modif(s). Sauvegarde cloud en cours...`);
+                
+                // Sauvegarde immédiate sur Google Drive
+                await saveAppToDrive(newCode);
+            }
+        }
+
+        async function saveAppToDrive(jsonString) {
+            if (!editingAppFileId) return;
+
+            try {
+                // On vérifie que c'est un JSON valide avant d'écraser l'ancien
+                JSON.parse(jsonString); 
+
+                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=media`;
+                await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${globalAccessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: jsonString
+                });
+                showEditorStatus("Succès ! Application mise à jour sur Drive.");
+            } catch (e) {
+                console.error(e);
+                showEditorStatus("Erreur : JSON invalide ou échec Drive.");
+                alert("Erreur de sauvegarde : Le code n'est pas un JSON valide ou un problème de réseau est survenu.");
+            }
+        }
+
+        function editorUndo() {
+            if (editorCurrentIndex > 0) {
+                editorCurrentIndex--;
+                fullCodeInput.value = editorHistory[editorCurrentIndex];
+                showEditorStatus("Annulation. N'oubliez pas d'appliquer pour sauvegarder sur Drive.");
+            }
+        }
+
+        function editorRedo() {
+            if (editorCurrentIndex < editorHistory.length - 1) {
+                editorCurrentIndex++;
+                fullCodeInput.value = editorHistory[editorCurrentIndex];
+                showEditorStatus("Rétablissement. N'oubliez pas d'appliquer pour sauvegarder sur Drive.");
+            }
+        }
+
+        // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
+        document.addEventListener('keydown', (e) => {
+            // Vérifie si Ctrl (Windows/Linux) ou Cmd (Mac) est pressé
+            const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+            if (isCmdOrCtrl && e.key.toLowerCase() === 'z') {
+                if (e.shiftKey) {
+                    // Ctrl + Shift + Z = Redo
+                    if (document.getElementById('edit-app-view').style.display === 'flex') {
+                        e.preventDefault(); editorRedo();
+                    }
+                } else {
+                    // Ctrl + Z = Undo
+                    if (document.getElementById('edit-app-view').style.display === 'flex') {
+                        e.preventDefault(); editorUndo();
+                    }
+                }
+            } else if (isCmdOrCtrl && e.key.toLowerCase() === 'y') {
+                // Ctrl + Y = Redo (alternative courante)
+                if (document.getElementById('edit-app-view').style.display === 'flex') {
+                    e.preventDefault(); editorRedo();
+                }
+            }
+        });
+
     </script>
 </body>
 </html>
