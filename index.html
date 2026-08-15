@@ -154,7 +154,8 @@
 
     <script>
         // --- CONFIGURATION ---
-        const CLIENT_ID = ONEAPP_CONFIG.GOOGLE_CLIENT_ID; // Va chercher l'ID automatiquement dans config.js
+        // Sécurisation : On vérifie que config.js a bien été chargé
+        const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
@@ -163,27 +164,36 @@
         let globalAccessToken;
         let rootFolderId = null; // Stocke l'ID du dossier racine "One App"
 
-        // 1. Initialisation Google OAuth
-        window.onload = function () {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse && tokenResponse.access_token) {
-                        globalAccessToken = tokenResponse.access_token;
-                        document.getElementById('unauthenticated-view').style.display = 'none';
-                        document.getElementById('authenticated-view').style.display = 'block';
-                        // Récupérer les infos utilisateur (Optionnel via OAuth, ici simulé visuellement)
-                        document.getElementById('user-email').innerText = "Connecté à Google Drive";
-                        
-                        // Lancer la routine de démarrage
-                        initializeAppSystem();
-                    }
-                }
-            });
-        };
+        // 1. Initialisation Google OAuth (Sécurisée au clic)
+        function authorizeAndConnect() {
+            if (!CLIENT_ID) {
+                alert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
+                return;
+            }
+            if (typeof google === 'undefined') {
+                alert("Erreur : Le script Google ne s'est pas chargé. Désactivez votre bloqueur de publicités ou vérifiez votre connexion.");
+                return;
+            }
 
-        function authorizeAndConnect() { tokenClient.requestAccessToken({prompt: 'consent'}); }
+            if (!tokenClient) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            globalAccessToken = tokenResponse.access_token;
+                            document.getElementById('unauthenticated-view').style.display = 'none';
+                            document.getElementById('authenticated-view').style.display = 'block';
+                            document.getElementById('user-email').innerText = "Connecté à Google Drive";
+                            
+                            initializeAppSystem();
+                        }
+                    }
+                });
+            }
+            
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
 
