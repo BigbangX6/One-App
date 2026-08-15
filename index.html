@@ -164,7 +164,27 @@
         let globalAccessToken;
         let rootFolderId = null; // Stocke l'ID du dossier racine "One App"
 
-        // 1. Initialisation Google OAuth (Sécurisée au clic)
+        // 1. Initialisation Google OAuth (Sécurisée et persistante)
+        window.onload = function() {
+            const savedToken = localStorage.getItem('oneapp_gdrive_token');
+            const savedExpire = localStorage.getItem('oneapp_gdrive_expire');
+
+            if (savedToken && savedExpire) {
+                if (Date.now() < parseInt(savedExpire)) {
+                    console.log("Jeton Drive actif trouvé !");
+                    globalAccessToken = savedToken;
+                    document.getElementById('unauthenticated-view').style.display = 'none';
+                    document.getElementById('authenticated-view').style.display = 'block';
+                    document.getElementById('user-email').innerText = "Connecté à Google Drive (Session active)";
+                    initializeAppSystem();
+                } else {
+                    console.log("Jeton expiré. Changement de l'interface.");
+                    document.querySelector('#unauthenticated-view .subtitle').innerText = "Votre session de sécurité (1h) a expiré.";
+                    document.querySelector('#unauthenticated-view button').innerHTML = "Renouveler la session en 1 clic";
+                }
+            }
+        };
+
         function authorizeAndConnect() {
             if (!CLIENT_ID) {
                 alert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
@@ -182,6 +202,12 @@
                     callback: (tokenResponse) => {
                         if (tokenResponse && tokenResponse.access_token) {
                             globalAccessToken = tokenResponse.access_token;
+                            
+                            // Sauvegarde du jeton en local (Il est valide 1 heure)
+                            const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
+                            localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
+                            localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
+
                             document.getElementById('unauthenticated-view').style.display = 'none';
                             document.getElementById('authenticated-view').style.display = 'block';
                             document.getElementById('user-email').innerText = "Connecté à Google Drive";
@@ -192,7 +218,9 @@
                 });
             }
             
-            tokenClient.requestAccessToken({prompt: 'consent'});
+            // On retire le "prompt: 'consent'" forcé. 
+            // Si l'utilisateur a déjà consenti par le passé, Google renouvellera le jeton de manière quasi-invisible.
+            tokenClient.requestAccessToken();
         }
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
