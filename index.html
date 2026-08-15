@@ -113,7 +113,20 @@
         .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
         .file-item:hover { border-color: var(--accent-color); }
         .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
-        .file-item-date { font-size: 11px; color: var(--text-secondary); }
+        .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
+        .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
+        .file-item-menu:hover { color: var(--text-primary); }
+        .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
+        .file-item-dropdown.active { display: flex; }
+        .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .file-item-dropdown button:hover { background: var(--bg-color); }
+        .file-item-dropdown button.danger { color: #ef4444; }
+        
+        /* Utilitaires Responsive */
+        @media (max-width: 600px) {
+            .hide-on-mobile { display: none !important; }
+            .show-on-mobile-inline { display: inline !important; }
+        }
 
         /* Modal d'installation */
         #install-section {
@@ -149,7 +162,7 @@
 
         <div class="header-actions">
             <div class="section-title">Mes Applications</div>
-            <button class="primary-btn" onclick="toggleInstallSection()">+ Installer</button>
+            <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
         </div>
 
         <div id="app-grid">
@@ -157,9 +170,13 @@
         <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
 
         <div id="install-section">
-            <div class="section-title" style="margin-bottom: 10px;">Coller le manifeste (.oneapp)</div>
-            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Super Block Note"...}}'></textarea>
-            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Créer l'Application</button>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
+                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat ici.
+            </div>
+            <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
+            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
+            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Mon App"...}}'></textarea>
+            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Installer l'Application</button>
             <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
         </div>
     </div>
@@ -168,9 +185,12 @@
         <header style="background: var(--surface-color); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow);">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <svg viewBox="0 0 24 24" width="24" height="24" style="color: var(--accent-color);"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <h2 id="running-app-title" style="margin: 0; font-size: 18px;">Application</h2>
+                <h2 id="running-app-title" style="margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">Application</h2>
             </div>
-            <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 8px 16px; border-color: #ef4444; color: #ef4444;">Fermer l'App</button>
+            <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 8px 16px; border-color: #ef4444; color: #ef4444;">
+                <span class="hide-on-mobile">Fermer l'App</span>
+                <span style="display:none;" class="show-on-mobile-inline">✕</span>
+            </button>
         </header>
         <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
             </div>
@@ -184,17 +204,17 @@
             <div style="display: flex; gap: 5px; flex: 1; justify-content: center;">
                 <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;">⬅️</button>
                 <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;">➡️</button>
-                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px;">⚡ Appliquer</button>
-                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px;">📋 Instructions IA</button>
+                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px;">3. ⚡ <span class="hide-on-mobile">Appliquer au logiciel</span></button>
+                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px; background: #e8f0fe; border-color: #1a73e8; color: #1a73e8;">1. 📋 <span class="hide-on-mobile">Copier le code pour l'IA</span></button>
             </div>
-            <button class="custom-btn" onclick="closeAppEditor()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">Fermer</button>
+            <button class="custom-btn" onclick="closeAppEditor()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">✕</button>
         </header>
         
         <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary);" id="editor-status">Prêt.</div>
 
         <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; gap: 10px; overflow: hidden;">
             <div style="display: flex; flex-direction: column; flex: 0.4;">
-                <div class="section-title" style="font-size: 11px;">Changements IA (Format STRICT)</div>
+                <div class="section-title" style="font-size: 11px; margin-bottom: 5px;">2. Collez la réponse de l'IA ici (Format Auto-Patcher)</div>
                 <textarea id="editor-diff-input" placeholder="<<<<&#10;Code à trouver&#10;====&#10;Nouveau code&#10;>>>>" style="flex: 1; border-color: var(--accent-color);"></textarea>
             </div>
             <div style="display: flex; flex-direction: column; flex: 0.6;">
@@ -361,8 +381,12 @@
                 <div style="font-weight:bold; color:var(--accent-color);">${appName} - Fichiers</div>
                 <div class="submenu-header">
                     <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
-                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')">+ Nouveau</button>
-                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="width: auto; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">⚙️ Modifier</button>
+                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')">
+                        <span class="hide-on-mobile">+ Nouveau</span><span style="display:none;" class="show-on-mobile-inline">➕</span>
+                    </button>
+                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="width: auto; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
+                        <span class="hide-on-mobile">⚙️ Modifier</span><span style="display:none;" class="show-on-mobile-inline">⚙️</span>
+                    </button>
                 </div>
                 <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
                 <div class="file-list" id="submenu-file-list"></div>
@@ -378,6 +402,13 @@
                     const name = item.querySelector('.file-item-name').innerText.toLowerCase();
                     item.style.display = name.includes(term) ? 'flex' : 'none';
                 });
+            });
+
+            // Gérer la fermeture des menus kebab quand on clique ailleurs
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.file-item-menu')) {
+                    document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
+                }
             });
 
             loadAppFiles(appFolderId, appFileId, appName);
@@ -403,8 +434,18 @@
                         
                         let item = document.createElement('div');
                         item.className = 'file-item';
-                        item.innerHTML = `<div class="file-item-name">${fName}</div><div class="file-item-date">${dateStr}</div>`;
-                        item.onclick = () => openAppEnvironment(appFileId, appName, f.id, fName);
+                        item.innerHTML = `
+                            <div class="file-item-name" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${f.id}', '${fName.replace(/'/g, "\\'")}')">${fName}</div>
+                            <div class="file-item-date" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${f.id}', '${fName.replace(/'/g, "\\'")}')">${dateStr}</div>
+                            <div class="file-item-menu" onclick="toggleFileMenu('${f.id}')">
+                                ⠇
+                                <div class="file-item-dropdown" id="dropdown-${f.id}">
+                                    <button onclick="window.open('https://drive.google.com/drive/folders/${folderId}', '_blank')">↗️ Ouvrir le dossier</button>
+                                    <button onclick="renameFile('${f.id}', '${fName.replace(/'/g, "\\'")}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">✏️ Renommer</button>
+                                    <button class="danger" onclick="deleteFile('${f.id}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
+                                </div>
+                            </div>
+                        `;
                         listContainer.appendChild(item);
                     });
                 } else {
@@ -413,6 +454,68 @@
             } catch (e) {
                 console.error(e);
             }
+        }
+
+        function toggleFileMenu(fileId) {
+            // Ferme tous les autres avant
+            document.querySelectorAll('.file-item-dropdown').forEach(d => {
+                if(d.id !== `dropdown-${fileId}`) d.classList.remove('active');
+            });
+            document.getElementById(`dropdown-${fileId}`).classList.toggle('active');
+        }
+
+        async function renameFile(fileId, oldName, folderId, appFileId, appName) {
+            let newName = prompt("Nouveau nom :", oldName);
+            if (!newName || newName.trim() === "" || newName === oldName) return;
+            
+            document.getElementById('submenu-loader').style.display = 'block';
+            try {
+                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: `${newName}.onefile` })
+                });
+                // On rafraîchit la liste
+                document.getElementById('submenu-file-list').innerHTML = '';
+                loadAppFiles(folderId, appFileId, appName);
+            } catch (e) {
+                alert("Erreur lors du renommage.");
+                document.getElementById('submenu-loader').style.display = 'none';
+            }
+        }
+
+        async function deleteFile(fileId, folderId, appFileId, appName) {
+            if (!confirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?")) return;
+            
+            document.getElementById('submenu-loader').style.display = 'block';
+            try {
+                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trashed: true })
+                });
+                document.getElementById('submenu-file-list').innerHTML = '';
+                loadAppFiles(folderId, appFileId, appName);
+            } catch (e) {
+                alert("Erreur lors de la suppression.");
+                document.getElementById('submenu-loader').style.display = 'none';
+            }
+        }
+
+        function copyAppGenerationPrompt() {
+            const prompt = `Tu es le moteur "One App". Je veux créer une nouvelle application. 
+Voici les règles stricts de conception d'un .oneapp (qui est un fichier JSON) :
+
+1. "app_metadata": Identité de l'app (name, version_timestamp).
+2. "frontend": Code UI pur (html et css) sans le tag <html> ou <body>. 
+3. "logic": Code JS brut (en texte). Il doit obligatoirement inclure un appel à 'window.OneAppAPI.loadData().then(...)' au lancement pour récupérer les données, et appeler 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
+
+Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].
+Génère UNIQUEMENT le code JSON valide.`;
+            
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le JSON ici.");
+            });
         }
 
         async function createNewFile(appFileId, appName, folderId) {
