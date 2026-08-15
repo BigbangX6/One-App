@@ -325,6 +325,8 @@
             const submenu = document.createElement('div');
             submenu.className = 'app-submenu';
             submenu.dataset.appId = appFileId;
+            submenu.dataset.appName = appName;
+            submenu.dataset.folderId = appFolderId;
             submenu.style.display = 'flex';
 
             submenu.innerHTML = `
@@ -542,6 +544,17 @@
             currentRunningApp = null;
             currentActiveOneFileId = null;
             currentOneFileMetadata = null;
+
+            // Rafraîchir la liste des fichiers du sous-menu actif pour afficher les nouveaux fichiers
+            if (activeSubmenu) {
+                const appId = activeSubmenu.dataset.appId;
+                const appName = activeSubmenu.dataset.appName;
+                const folderId = activeSubmenu.dataset.folderId;
+                
+                document.getElementById('submenu-loader').style.display = 'block';
+                document.getElementById('submenu-file-list').innerHTML = '';
+                loadAppFiles(folderId, appId, appName);
+            }
         }
 
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
