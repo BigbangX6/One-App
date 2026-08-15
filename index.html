@@ -103,6 +103,18 @@
         .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
         .app-card span { display: block; font-size: 13px; font-weight: 600; }
 
+        /* Sous-menu App (Espace de travail) */
+        .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .submenu-header { display: flex; gap: 10px; }
+        .submenu-search { flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
+        .submenu-search:focus { border-color: var(--accent-color); }
+        .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+        .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
+        .file-item:hover { border-color: var(--accent-color); }
+        .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
+        .file-item-date { font-size: 11px; color: var(--text-secondary); }
+
         /* Modal d'installation */
         #install-section {
             display: none;
@@ -269,10 +281,11 @@
         async function listInstalledApps() {
             document.getElementById('loading-apps').style.display = 'block';
             document.getElementById('app-grid').innerHTML = '';
+            if(activeSubmenu) activeSubmenu = null; // Reset submenu state
 
-            // On cherche tous les fichiers qui se terminent par .oneapp
+            // On cherche les .oneapp ET on récupère leur dossier parent (parents)
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name)`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents)`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -281,15 +294,16 @@
 
             if (data.files && data.files.length > 0) {
                 data.files.forEach(file => {
-                    // Nettoyer le nom pour l'affichage (enlever ".oneapp")
                     let displayName = file.name.replace('.oneapp', '');
+                    let parentFolderId = file.parents ? file.parents[0] : null;
                     let card = document.createElement('div');
                     card.className = 'app-card';
                     card.innerHTML = `
                         <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
                         <span>${displayName}</span>
                     `;
-                    card.onclick = () => openApp(file.id, displayName);
+                    // Le clic ouvre désormais le sous-menu de l'Espace de travail
+                    card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
                 });
             } else {
@@ -297,53 +311,197 @@
             }
         }
 
-        // --- LE PONT DE COMMUNICATION (API Interne / Abstraction OS) ---
+        let activeSubmenu = null;
+
+        async function toggleAppMenu(cardElement, appFileId, appName, appFolderId) {
+            // Fermer si déjà ouvert sur la même app
+            if (activeSubmenu && activeSubmenu.dataset.appId === appFileId) {
+                activeSubmenu.remove();
+                activeSubmenu = null;
+                return;
+            }
+            if (activeSubmenu) activeSubmenu.remove();
+
+            const submenu = document.createElement('div');
+            submenu.className = 'app-submenu';
+            submenu.dataset.appId = appFileId;
+            submenu.style.display = 'flex';
+
+            submenu.innerHTML = `
+                <div style="font-weight:bold; color:var(--accent-color);">${appName} - Fichiers</div>
+                <div class="submenu-header">
+                    <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
+                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')">+ Nouveau</button>
+                </div>
+                <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
+                <div class="file-list" id="submenu-file-list"></div>
+            `;
+
+            document.getElementById('app-grid').appendChild(submenu);
+            activeSubmenu = submenu;
+
+            // Fonctionnalité de recherche (Filtre visuel)
+            document.getElementById('submenu-search').addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.file-item').forEach(item => {
+                    const name = item.querySelector('.file-item-name').innerText.toLowerCase();
+                    item.style.display = name.includes(term) ? 'flex' : 'none';
+                });
+            });
+
+            loadAppFiles(appFolderId, appFileId, appName);
+        }
+
+        async function loadAppFiles(folderId, appFileId, appName) {
+            // Recherche des .onefile dans le dossier de cette application spécifique
+            const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
+            try {
+                let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime)&orderBy=modifiedTime desc`, {
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+                });
+                let data = await response.json();
+                
+                const listContainer = document.getElementById('submenu-file-list');
+                document.getElementById('submenu-loader').style.display = 'none';
+
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(f => {
+                        let dateObj = new Date(f.modifiedTime);
+                        let dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        let fName = f.name.replace('.onefile', '');
+                        
+                        let item = document.createElement('div');
+                        item.className = 'file-item';
+                        item.innerHTML = `<div class="file-item-name">${fName}</div><div class="file-item-date">${dateStr}</div>`;
+                        item.onclick = () => openAppEnvironment(appFileId, appName, f.id, fName);
+                        listContainer.appendChild(item);
+                    });
+                } else {
+                    listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); font-size:13px; padding:10px;">Aucun fichier récent. Créez-en un nouveau !</div>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function createNewFile(appFileId, appName, folderId) {
+            let fileName = prompt("Nom du nouveau fichier :");
+            if (!fileName || fileName.trim() === "") return;
+
+            document.getElementById('submenu-loader').style.display = 'block';
+            
+            // Création du JSON .onefile vierge standardisé
+            const newOneFile = {
+                oneapp_metadata: {
+                    app_name: appName,
+                    source_app_drive_id: appFileId,
+                    version_timestamp: new Date().toISOString()
+                },
+                app_data: []
+            };
+
+            const fullFileName = `${fileName}.onefile`;
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const metadata = { name: fullFileName, mimeType: "application/json", parents: [folderId] };
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
+
+            try {
+                let response = await fetch(UPLOAD_API_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: multipartRequestBody
+                });
+                let createdFile = await response.json();
+                // Ouverture immédiate de l'application avec ce nouveau fichier
+                openAppEnvironment(appFileId, appName, createdFile.id, fileName);
+            } catch(e) {
+                console.error(e);
+                alert("Erreur lors de la création du fichier sur Drive.");
+            }
+        }
+
+        // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
         const apiBridgeScript = "window.OneAppAPI = { loadData: function() { return new Promise((resolve) => { const listener = (event) => { if(event.data.type === 'LOAD_DATA_RESPONSE') { window.removeEventListener('message', listener); resolve(event.data.payload); } }; window.addEventListener('message', listener); window.parent.postMessage({ type: 'LOAD_DATA_REQUEST' }, '*'); }); }, saveData: function(data) { window.parent.postMessage({ type: 'SAVE_DATA_REQUEST', payload: data }, '*'); }, askGemini: function(promptText) { window.parent.postMessage({ type: 'ASK_GEMINI_REQUEST', payload: promptText }, '*'); } };";
 
-        let currentRunningApp = null; // Stocke les infos de l'app en cours d'exécution
+        let currentRunningApp = null;
+        let currentActiveOneFileId = null;
+        let currentOneFileMetadata = null;
 
-        // Le "Gardien" du Moteur : Écoute les requêtes de l'Iframe
+        // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
         window.addEventListener('message', async (event) => {
-            // Sécurité : On ignore les messages qui ne viennent pas de notre iframe
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
             if (event.data.type === 'LOAD_DATA_REQUEST') {
                 console.log("MOTEUR : L'application demande ses données.");
-                // Pour l'instant on ouvre une "nouvelle" app vide.
-                // Prochaine étape : envoyer le contenu du .onefile ici !
+                // Le Moteur injecte les données du .onefile précédemment téléchargé
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
-                    payload: { readOnly: false, app_data: [] }
+                    payload: { readOnly: false, app_data: window.currentLoadedAppData || [] }
                 }, '*');
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
-                console.log("MOTEUR : Demande de sauvegarde interceptée !", event.data.payload);
-                // Le moteur s'occupe de tout : 
-                // C'est ici que nous coderons le fait d'écraser le fichier .onefile sur Google Drive (ou localement si pas d'internet)
-                alert("Le Moteur a bien reçu l'ordre de sauvegarder " + event.data.payload.length + " éléments. (Lien Drive à suivre)");
-            }
-            else if (event.data.type === 'ASK_GEMINI_REQUEST') {
-                // Abstraction pour l'avenir : L'app demande à utiliser l'IA du système
-                console.log("MOTEUR : L'app demande à parler à l'IA :", event.data.payload);
+                console.log("MOTEUR : Demande de sauvegarde interceptée !");
+                saveActiveOneFile(event.data.payload);
             }
         });
 
-        // Action quand on clique sur une App (La Grande Fusion)
-        async function openApp(fileId, appName) {
-            console.log("Lancement de l'application : " + appName);
+        // --- LE MOTEUR DE SYNCHRONISATION GOOGLE DRIVE ---
+        async function saveActiveOneFile(appDataPayload) {
+            if (!currentActiveOneFileId || !currentOneFileMetadata) return;
+
+            // On met à jour l'horodatage de la modification
+            currentOneFileMetadata.version_timestamp = new Date().toISOString();
+
+            // On reconstitue le fichier standard .onefile
+            const updatedOneFile = {
+                oneapp_metadata: currentOneFileMetadata,
+                app_data: appDataPayload
+            };
+
+            // L'API Google Drive utilise la méthode PATCH pour écraser/mettre à jour un fichier existant
+            const url = `https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media`;
+
+            try {
+                await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${globalAccessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedOneFile)
+                });
+                console.log("MOTEUR : Fichier synchronisé avec succès sur Google Drive !");
+            } catch (e) {
+                console.error("Erreur de sauvegarde Cloud :", e);
+            }
+        }
+
+        // --- LE CHARGEUR D'APPLICATION ---
+        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
+            console.log(`Lancement du Sandbox : ${appName} - Fichier : ${oneFileName}`);
             
-            // 1. Afficher un chargement
-            document.getElementById('loading-apps').innerText = "Téléchargement de l'application depuis Drive...";
+            document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                // 2. Télécharger le JSON de l'application depuis Drive via son ID
-                let response = await fetch(DRIVE_API_URL + '/' + fileId + '?alt=media', {
-                    headers: { 'Authorization': 'Bearer ' + globalAccessToken }
-                });
-                let appJson = await response.json();
+                // 1. Télécharger le logiciel (.oneapp)
+                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let appJson = await appRes.json();
 
-                // 3. Construire le HTML complet avec le pont sécurisé
+                // 2. Télécharger les données (.onefile)
+                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let oneFileJson = await dataRes.json();
+
+                currentActiveOneFileId = oneFileId;
+                currentOneFileMetadata = oneFileJson.oneapp_metadata;
+                window.currentLoadedAppData = oneFileJson.app_data || []; // Stockage temporaire en RAM pour le pont de communication
+
+                // 3. Injection et Isolement (La Fusion)
                 const fullHTML = "<!DOCTYPE html><html><head><style>" + 
                     (appJson.frontend.css || "") + 
                     "</style><script>" + 
@@ -354,40 +512,36 @@
                     (appJson.logic || "") + 
                     "<\/script></body></html>";
 
-                // 4. Créer l'Iframe isolée
                 const iframe = document.createElement('iframe');
-                iframe.sandbox = "allow-scripts"; // Bloque l'accès au Moteur
+                iframe.sandbox = "allow-scripts"; 
                 iframe.srcdoc = fullHTML;
-                iframe.style.width = "100%";
-                iframe.style.height = "100%";
-                iframe.style.border = "none";
+                iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 
-                // 5. Injecter l'Iframe dans l'interface et basculer la vue
                 const container = document.getElementById('iframe-container');
-                container.innerHTML = '';
-                container.appendChild(iframe);
+                container.innerHTML = ''; container.appendChild(iframe);
                 
-                document.getElementById('running-app-title').innerText = appName;
+                document.getElementById('running-app-title').innerText = `${appName} - ${oneFileName}`;
                 document.getElementById('authenticated-view').style.display = 'none';
                 document.getElementById('execution-view').style.display = 'flex';
                 
                 currentRunningApp = appJson;
 
             } catch (error) {
-                console.error("Erreur au chargement de l'app :", error);
-                alert("Impossible de télécharger le fichier .oneapp depuis Google Drive.");
+                console.error(error);
+                alert("Erreur critique lors du téléchargement des fichiers.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
             }
         }
 
-        // Fermer l'application et revenir au tableau de bord
         function closeApp() {
             document.getElementById('execution-view').style.display = 'none';
-            document.getElementById('iframe-container').innerHTML = ''; // Nettoyage de la RAM
+            document.getElementById('iframe-container').innerHTML = ''; // Nettoyer la RAM et détruire l'iframe
             document.getElementById('authenticated-view').style.display = 'block';
             currentRunningApp = null;
+            currentActiveOneFileId = null;
+            currentOneFileMetadata = null;
         }
 
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
