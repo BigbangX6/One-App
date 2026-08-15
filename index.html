@@ -106,8 +106,8 @@
         /* Sous-menu App (Espace de travail) */
         .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .submenu-header { display: flex; gap: 10px; }
-        .submenu-search { flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
+        .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
+        .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
         .submenu-search:focus { border-color: var(--accent-color); }
         .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
         .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
@@ -201,16 +201,27 @@
             <div style="display: flex; align-items: center; gap: 10px;">
                 <h2 id="edit-app-title" style="margin: 0; font-size: 16px;">Éditeur</h2>
             </div>
-            <div style="display: flex; gap: 5px; flex: 1; justify-content: center;">
+            <div style="display: flex; gap: 5px; flex: 1; justify-content: center; flex-wrap: wrap;">
+                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px; background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: bold; white-space: nowrap;">
+                    1. 📋 <span class="hide-on-mobile">Copier pour l'IA</span>
+                </button>
+                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px; white-space: nowrap;">
+                    3. ⚡ <span class="hide-on-mobile">Appliquer le Patch</span>
+                </button>
                 <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;">⬅️</button>
                 <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;">➡️</button>
-                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px;">3. ⚡ <span class="hide-on-mobile">Appliquer au logiciel</span></button>
-                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px; background: #e8f0fe; border-color: #1a73e8; color: #1a73e8;">1. 📋 <span class="hide-on-mobile">Copier le code pour l'IA</span></button>
             </div>
             <button class="custom-btn" onclick="closeAppEditor()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">✕</button>
         </header>
+
+        <div style="padding: 12px; background: #e8f0fe; color: #1a73e8; font-size: 13px; text-align: center; border-bottom: 1px solid #d2e3fc; line-height: 1.4;">
+            <strong>Comment modifier l'application ?</strong><br>
+            <strong>Étape 1 :</strong> Cliquez sur "Copier pour l'IA", collez le texte à votre IA et demandez vos changements.<br>
+            <strong>Étape 2 :</strong> Collez la réponse de l'IA (au format exact Auto-Patcher) dans la case "Changements IA" ci-dessous.<br>
+            <strong>Étape 3 :</strong> Cliquez sur "Appliquer le Patch" pour fusionner et sauvegarder.
+        </div>
         
-        <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary);" id="editor-status">Prêt.</div>
+        <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
 
         <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; gap: 10px; overflow: hidden;">
             <div style="display: flex; flex-direction: column; flex: 0.4;">
@@ -381,11 +392,11 @@
                 <div style="font-weight:bold; color:var(--accent-color);">${appName} - Fichiers</div>
                 <div class="submenu-header">
                     <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
-                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')">
-                        <span class="hide-on-mobile">+ Nouveau</span><span style="display:none;" class="show-on-mobile-inline">➕</span>
+                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')" style="white-space: nowrap;">
+                        ➕ <span class="hide-on-mobile">Nouveau</span>
                     </button>
-                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="width: auto; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
-                        <span class="hide-on-mobile">⚙️ Modifier</span><span style="display:none;" class="show-on-mobile-inline">⚙️</span>
+                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="white-space: nowrap; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
+                        ⚙️ <span class="hide-on-mobile">Modifier</span>
                     </button>
                 </div>
                 <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
