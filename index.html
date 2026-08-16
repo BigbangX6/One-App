@@ -182,15 +182,27 @@
     </div>
 
     <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
-        <header style="background: var(--surface-color); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow);">
-            <div style="display: flex; align-items: center; gap: 10px;">
+        <header style="background: var(--surface-color); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow); flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                 <svg viewBox="0 0 24 24" width="24" height="24" style="color: var(--accent-color);"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <h2 id="running-app-title" style="margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">Application</h2>
+                <h2 id="running-app-title" style="margin: 0; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">Application</h2>
             </div>
-            <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 8px 16px; border-color: #ef4444; color: #ef4444;">
-                <span class="hide-on-mobile">Fermer l'App</span>
-                <span style="display:none;" class="show-on-mobile-inline">✕</span>
-            </button>
+            
+            <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;" title="Annuler (Ctrl+Z)">⬅️</button>
+                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;" title="Rétablir (Ctrl+Y)">➡️</button>
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 5px;"></div>
+                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 6px 12px; font-size: 14px; border-color: var(--accent-color); color: var(--accent-color);" title="Mode">
+                    ✏️ <span class="hide-on-mobile">Édition</span>
+                </button>
+            </div>
+
+            <div style="flex: 1; display: flex; justify-content: flex-end;">
+                <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">
+                    <span class="hide-on-mobile">Fermer l'App</span>
+                    <span style="display:none;" class="show-on-mobile-inline">✕</span>
+                </button>
+            </div>
         </header>
         <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
             </div>
@@ -571,56 +583,102 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
-        const apiBridgeScript = "window.OneAppAPI = { loadData: function() { return new Promise((resolve) => { const listener = (event) => { if(event.data.type === 'LOAD_DATA_RESPONSE') { window.removeEventListener('message', listener); resolve(event.data.payload); } }; window.addEventListener('message', listener); window.parent.postMessage({ type: 'LOAD_DATA_REQUEST' }, '*'); }); }, saveData: function(data) { window.parent.postMessage({ type: 'SAVE_DATA_REQUEST', payload: data }, '*'); }, askGemini: function(promptText) { window.parent.postMessage({ type: 'ASK_GEMINI_REQUEST', payload: promptText }, '*'); } };";
+        // Le Bridge inclut désormais l'écoute silencieuse des ordres du Moteur (RESTORE et READ_ONLY)
+        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
 
         let currentRunningApp = null;
         let currentActiveOneFileId = null;
         let currentOneFileMetadata = null;
+        
+        // La RAM (Le voyage dans le temps des données)
+        let appDataHistory = [];
+        let appDataCurrentIndex = -1;
+        let isAppReadOnly = false;
 
         // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
         window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
             if (event.data.type === 'LOAD_DATA_REQUEST') {
-                console.log("MOTEUR : L'application demande ses données.");
-                // Le Moteur injecte les données du .onefile précédemment téléchargé
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
-                    payload: { readOnly: false, app_data: window.currentLoadedAppData || [] }
+                    payload: { readOnly: isAppReadOnly, app_data: window.currentLoadedAppData || [] }
                 }, '*');
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
-                console.log("MOTEUR : Demande de sauvegarde interceptée !");
-                saveActiveOneFile(event.data.payload);
+                if (isAppReadOnly) return; // Sécurité : On bloque la sauvegarde si on est en lecture seule
+                
+                const newData = event.data.payload;
+                
+                // Mémorisation dans la RAM uniquement si les données ont changé
+                if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
+                    if (appDataCurrentIndex < appDataHistory.length - 1) {
+                        appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    }
+                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                    if (appDataHistory.length > 50) appDataHistory.shift();
+                    appDataCurrentIndex = appDataHistory.length - 1;
+                }
+
+                saveActiveOneFile(newData); // Synchronisation silencieuse Drive
             }
         });
+
+        // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
+        function appUndo() {
+            if (isAppReadOnly || appDataCurrentIndex <= 0) return;
+            appDataCurrentIndex--;
+            const oldData = appDataHistory[appDataCurrentIndex];
+            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
+            saveActiveOneFile(oldData); // On force la sauvegarde Drive pour être synchro
+        }
+
+        function appRedo() {
+            if (isAppReadOnly || appDataCurrentIndex >= appDataHistory.length - 1) return;
+            appDataCurrentIndex++;
+            const newData = appDataHistory[appDataCurrentIndex];
+            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
+            saveActiveOneFile(newData);
+        }
+
+        function toggleAppMode() {
+            isAppReadOnly = !isAppReadOnly;
+            const btn = document.getElementById('toggle-readonly-btn');
+            
+            if (isAppReadOnly) {
+                btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
+                btn.style.borderColor = "var(--text-secondary)";
+                btn.style.color = "var(--text-secondary)";
+            } else {
+                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+                btn.style.borderColor = "var(--accent-color)";
+                btn.style.color = "var(--accent-color)";
+            }
+            
+            // On crie le changement de mode à l'application
+            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
+        }
 
         // --- LE MOTEUR DE SYNCHRONISATION GOOGLE DRIVE ---
         async function saveActiveOneFile(appDataPayload) {
             if (!currentActiveOneFileId || !currentOneFileMetadata) return;
 
-            // On met à jour l'horodatage de la modification
             currentOneFileMetadata.version_timestamp = new Date().toISOString();
 
-            // On reconstitue le fichier standard .onefile
             const updatedOneFile = {
                 oneapp_metadata: currentOneFileMetadata,
                 app_data: appDataPayload
             };
 
-            // L'API Google Drive utilise la méthode PATCH pour écraser/mettre à jour un fichier existant
             const url = `https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media`;
 
             try {
                 await fetch(url, {
                     method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${globalAccessToken}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedOneFile)
                 });
-                console.log("MOTEUR : Fichier synchronisé avec succès sur Google Drive !");
+                console.log("MOTEUR : Fichier synchronisé avec succès !");
             } catch (e) {
                 console.error("Erreur de sauvegarde Cloud :", e);
             }
@@ -628,25 +686,31 @@ Génère UNIQUEMENT le code JSON valide.`;
 
         // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
-            console.log(`Lancement du Sandbox : ${appName} - Fichier : ${oneFileName}`);
-            
             document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                // 1. Télécharger le logiciel (.oneapp)
                 let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let appJson = await appRes.json();
 
-                // 2. Télécharger les données (.onefile)
                 let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let oneFileJson = await dataRes.json();
 
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
-                window.currentLoadedAppData = oneFileJson.app_data || []; // Stockage temporaire en RAM pour le pont de communication
+                window.currentLoadedAppData = oneFileJson.app_data || []; 
 
-                // 3. Injection et Isolement (La Fusion)
+                // Initialisation de la RAM (Point zéro)
+                appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
+                appDataCurrentIndex = 0;
+                
+                // Réinitialisation de l'UI
+                isAppReadOnly = false;
+                const btn = document.getElementById('toggle-readonly-btn');
+                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+                btn.style.borderColor = "var(--accent-color)";
+                btn.style.color = "var(--accent-color)";
+
                 const fullHTML = "<!DOCTYPE html><html><head><style>" + 
                     (appJson.frontend.css || "") + 
                     "</style><script>" + 
@@ -687,8 +751,9 @@ Génère UNIQUEMENT le code JSON valide.`;
             currentRunningApp = null;
             currentActiveOneFileId = null;
             currentOneFileMetadata = null;
+            appDataHistory = [];
+            appDataCurrentIndex = -1;
 
-            // Rafraîchir la liste des fichiers du sous-menu actif pour afficher les nouveaux fichiers
             if (activeSubmenu) {
                 const appId = activeSubmenu.dataset.appId;
                 const appName = activeSubmenu.dataset.appName;
@@ -944,20 +1009,17 @@ Génère UNIQUEMENT le code JSON valide.`;
             if (isCmdOrCtrl && e.key.toLowerCase() === 'z') {
                 if (e.shiftKey) {
                     // Ctrl + Shift + Z = Redo
-                    if (document.getElementById('edit-app-view').style.display === 'flex') {
-                        e.preventDefault(); editorRedo();
-                    }
+                    if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorRedo(); }
+                    else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
                 } else {
                     // Ctrl + Z = Undo
-                    if (document.getElementById('edit-app-view').style.display === 'flex') {
-                        e.preventDefault(); editorUndo();
-                    }
+                    if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorUndo(); }
+                    else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appUndo(); }
                 }
             } else if (isCmdOrCtrl && e.key.toLowerCase() === 'y') {
-                // Ctrl + Y = Redo (alternative courante)
-                if (document.getElementById('edit-app-view').style.display === 'flex') {
-                    e.preventDefault(); editorRedo();
-                }
+                // Ctrl + Y = Redo
+                if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorRedo(); }
+                else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
 
