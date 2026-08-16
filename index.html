@@ -221,36 +221,34 @@
                 </div>
             </div>
             
-            <div class="execution-center hide-on-mobile">
-                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 5px;"></div>
-                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 12px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
-                    ✏️ Édition
-                </button>
-            </div>
-
             <div class="execution-right">
-                <button class="primary-btn" onclick="alert('Le partage public générera un lien unique (prochaine étape !)')" style="border-radius: 20px; padding: 8px 16px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                    🔒 <span class="hide-on-mobile">Partager</span>
+                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
+                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+                
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+                
+                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
+                    ✏️ <span class="hide-on-mobile">Édition</span>
+                </button>
+                
+                <button class="primary-btn hide-on-mobile" onclick="alert('Le partage public générera un lien unique (prochaine étape !)')" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
+                    🔒 Partager
                 </button>
                 
                 <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 36px; height: 36px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="execution-header-menu">
-                        <div class="show-on-mobile-inline" style="display:none; padding: 8px 16px; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; background: var(--bg-color);">
-                            <button onclick="appUndo()" style="padding: 5px; font-size: 16px; display:inline-block; width:auto;">↩️</button>
-                            <button onclick="appRedo()" style="padding: 5px; font-size: 16px; display:inline-block; width:auto;">↪️</button>
-                            <button onclick="toggleAppMode()" id="mobile-toggle-mode" style="padding: 5px 10px; display:inline-block; width:auto; border: 1px solid var(--border-color); border-radius: 4px;">✏️ Mode</button>
-                        </div>
+                        <button class="primary-btn show-on-mobile-inline" onclick="alert('Le partage public générera un lien unique !')" style="display: none; border-radius: 8px; margin: 0 10px 10px 10px;">🔒 Partager</button>
                         <button onclick="alert('L\'application va s\'occuper de l\'export !')">📥 Exporter le contenu</button>
                         <button onclick="alert('Cela dupliquera le .onefile sur votre Drive.')">📄 Créer une copie</button>
-                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App</button>
                         <button onclick="alert('Affichera la liste des sauvegardes Drive des 30 derniers jours.')">🕒 Historique des versions</button>
-                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
                     </div>
                 </div>
+
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+                
+                <button class="custom-btn" onclick="closeApp()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
             </div>
         </header>
         <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
@@ -487,9 +485,13 @@
                 }
             });
 
+            loadAppFiles(appFolderId, appFileId, appName);
+        }
+
         // --- GESTION DU BANDEAU D'EXÉCUTION ---
         function toggleHeaderMenu() {
-            document.getElementById('execution-header-menu').classList.toggle('active');
+            const menu = document.getElementById('execution-header-menu');
+            if(menu) menu.classList.toggle('active');
         }
 
         async function renameActiveFile() {
@@ -512,9 +514,6 @@
             } catch (e) {
                 console.error("Erreur renommage en direct :", e);
             }
-        }
-
-            loadAppFiles(appFolderId, appFileId, appName);
         }
 
         async function loadAppFiles(folderId, appFileId, appName) {
@@ -724,16 +723,13 @@ Génère UNIQUEMENT le code JSON valide.`;
         function toggleAppMode() {
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
-            const mobileBtn = document.getElementById('mobile-toggle-mode');
             
             if (isAppReadOnly) {
-                btn.innerHTML = '👁️ Lecture';
+                btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
-                if(mobileBtn) mobileBtn.innerHTML = '👁️ Mode';
             } else {
-                btn.innerHTML = '✏️ Édition';
+                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                 btn.style.background = "transparent";
-                if(mobileBtn) mobileBtn.innerHTML = '✏️ Mode';
             }
             
             // On crie le changement de mode à l'application
