@@ -121,6 +121,28 @@
         .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
         .file-item-dropdown button:hover { background: var(--bg-color); }
         .file-item-dropdown button.danger { color: #ef4444; }
+
+        /* Bandeau d'exécution (Look Google Docs) */
+        .execution-header { background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
+        .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
+        .execution-title-input:hover { border-color: var(--border-color); }
+        .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+        
+        .execution-center { display: flex; gap: 4px; justify-content: center; align-items: center; }
+        .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+        
+        /* Menu Options du Bandeau */
+        .header-menu-container { position: relative; }
+        .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
+        .header-dropdown.active { display: flex; }
+        .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+        .header-dropdown button:hover { background: var(--bg-color); }
+
+        /* Vue Invitation */
+        #shared-invite-view { text-align: center; display: none; }
         
         /* Utilitaires Responsive */
         @media (max-width: 600px) {
@@ -149,6 +171,14 @@
         <h1>One App</h1>
         <p class="subtitle">Votre Personal Cloud décentralisé</p>
         <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
+    </div>
+
+    <div id="shared-invite-view" class="app-container">
+        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        <h1 id="invite-title">Fichier Partagé</h1>
+        <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
+        <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
+        <button class="custom-btn" onclick="alert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
     </div>
 
     <div id="authenticated-view" class="app-container">
@@ -182,26 +212,45 @@
     </div>
 
     <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
-        <header style="background: var(--surface-color); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow); flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                <svg viewBox="0 0 24 24" width="24" height="24" style="color: var(--accent-color);"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <h2 id="running-app-title" style="margin: 0; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">Application</h2>
+        <header class="execution-header">
+            <div class="execution-left">
+                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <div class="execution-title-wrapper">
+                    <span id="running-app-name" class="execution-app-name">App Name</span>
+                    <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
+                </div>
             </div>
             
-            <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
-                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;" title="Annuler (Ctrl+Z)">⬅️</button>
-                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;" title="Rétablir (Ctrl+Y)">➡️</button>
+            <div class="execution-center hide-on-mobile">
+                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
+                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
                 <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 5px;"></div>
-                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 6px 12px; font-size: 14px; border-color: var(--accent-color); color: var(--accent-color);" title="Mode">
-                    ✏️ <span class="hide-on-mobile">Édition</span>
+                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 12px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
+                    ✏️ Édition
                 </button>
             </div>
 
-            <div style="flex: 1; display: flex; justify-content: flex-end;">
-                <button class="custom-btn" onclick="closeApp()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">
-                    <span class="hide-on-mobile">Fermer l'App</span>
-                    <span style="display:none;" class="show-on-mobile-inline">✕</span>
+            <div class="execution-right">
+                <button class="primary-btn" onclick="alert('Le partage public générera un lien unique (prochaine étape !)')" style="border-radius: 20px; padding: 8px 16px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                    🔒 <span class="hide-on-mobile">Partager</span>
                 </button>
+                
+                <div class="header-menu-container">
+                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 36px; height: 36px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <div class="header-dropdown" id="execution-header-menu">
+                        <div class="show-on-mobile-inline" style="display:none; padding: 8px 16px; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; background: var(--bg-color);">
+                            <button onclick="appUndo()" style="padding: 5px; font-size: 16px; display:inline-block; width:auto;">↩️</button>
+                            <button onclick="appRedo()" style="padding: 5px; font-size: 16px; display:inline-block; width:auto;">↪️</button>
+                            <button onclick="toggleAppMode()" id="mobile-toggle-mode" style="padding: 5px 10px; display:inline-block; width:auto; border: 1px solid var(--border-color); border-radius: 4px;">✏️ Mode</button>
+                        </div>
+                        <button onclick="alert('L\'application va s\'occuper de l\'export !')">📥 Exporter le contenu</button>
+                        <button onclick="alert('Cela dupliquera le .onefile sur votre Drive.')">📄 Créer une copie</button>
+                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                        <button onclick="alert('Affichera la liste des sauvegardes Drive des 30 derniers jours.')">🕒 Historique des versions</button>
+                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+                    </div>
+                </div>
             </div>
         </header>
         <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
@@ -432,7 +481,38 @@
                 if (!e.target.closest('.file-item-menu')) {
                     document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
                 }
+                if (!e.target.closest('.header-menu-container')) {
+                    const headerMenu = document.getElementById('execution-header-menu');
+                    if(headerMenu) headerMenu.classList.remove('active');
+                }
             });
+
+        // --- GESTION DU BANDEAU D'EXÉCUTION ---
+        function toggleHeaderMenu() {
+            document.getElementById('execution-header-menu').classList.toggle('active');
+        }
+
+        async function renameActiveFile() {
+            if (!currentActiveOneFileId) return;
+            const input = document.getElementById('running-file-title');
+            const newName = input.value.trim();
+            if (!newName) {
+                input.value = "Fichier sans nom";
+                return;
+            }
+            
+            try {
+                // PATCH silencieux vers Google Drive pour changer juste le nom
+                await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: `${newName}.onefile` })
+                });
+                console.log("MOTEUR : Nom du fichier mis à jour avec succès.");
+            } catch (e) {
+                console.error("Erreur renommage en direct :", e);
+            }
+        }
 
             loadAppFiles(appFolderId, appFileId, appName);
         }
@@ -644,15 +724,16 @@ Génère UNIQUEMENT le code JSON valide.`;
         function toggleAppMode() {
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
+            const mobileBtn = document.getElementById('mobile-toggle-mode');
             
             if (isAppReadOnly) {
-                btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
-                btn.style.borderColor = "var(--text-secondary)";
-                btn.style.color = "var(--text-secondary)";
+                btn.innerHTML = '👁️ Lecture';
+                btn.style.background = "var(--bg-color)";
+                if(mobileBtn) mobileBtn.innerHTML = '👁️ Mode';
             } else {
-                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.borderColor = "var(--accent-color)";
-                btn.style.color = "var(--accent-color)";
+                btn.innerHTML = '✏️ Édition';
+                btn.style.background = "transparent";
+                if(mobileBtn) mobileBtn.innerHTML = '✏️ Mode';
             }
             
             // On crie le changement de mode à l'application
@@ -729,7 +810,9 @@ Génère UNIQUEMENT le code JSON valide.`;
                 const container = document.getElementById('iframe-container');
                 container.innerHTML = ''; container.appendChild(iframe);
                 
-                document.getElementById('running-app-title').innerText = `${appName} - ${oneFileName}`;
+                document.getElementById('running-app-name').innerText = appName;
+                document.getElementById('running-file-title').value = oneFileName;
+                
                 document.getElementById('authenticated-view').style.display = 'none';
                 document.getElementById('execution-view').style.display = 'flex';
                 
