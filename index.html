@@ -305,6 +305,18 @@
         let tokenClient;
         let globalAccessToken;
         let rootFolderId = null; // Stocke l'ID du dossier racine "One App"
+        let currentUserEmail = "Utilisateur"; // Identifiant pour le verrou
+
+        async function fetchUserProfile() {
+            try {
+                let res = await fetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
+                let info = await res.json();
+                if (info.email) {
+                    currentUserEmail = info.email;
+                    document.getElementById('user-email').innerText = currentUserEmail;
+                }
+            } catch(e) { console.error("Impossible de récupérer le profil"); }
+        }
 
         // 1. Initialisation Google OAuth (Sécurisée et persistante)
         window.onload = function() {
@@ -317,7 +329,8 @@
                     globalAccessToken = savedToken;
                     document.getElementById('unauthenticated-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
-                    document.getElementById('user-email').innerText = "Connecté à Google Drive (Session active)";
+                    document.getElementById('user-email').innerText = "Chargement du profil...";
+                    fetchUserProfile();
                     initializeAppSystem();
                 } else {
                     console.log("Jeton expiré. Changement de l'interface.");
@@ -352,8 +365,9 @@
 
                             document.getElementById('unauthenticated-view').style.display = 'none';
                             document.getElementById('authenticated-view').style.display = 'block';
-                            document.getElementById('user-email').innerText = "Connecté à Google Drive";
+                            document.getElementById('user-email').innerText = "Chargement du profil...";
                             
+                            fetchUserProfile();
                             initializeAppSystem();
                         }
                     }
@@ -669,12 +683,40 @@ Génère UNIQUEMENT le code JSON valide.`;
         let currentActiveOneFileId = null;
         let currentOneFileMetadata = null;
         
-        // La RAM Intelligente (Yjs + WebRTC)
+        // La RAM (Le voyage dans le temps des données)
+        let appDataHistory = [];
+        let appDataCurrentIndex = -1;
         let isAppReadOnly = false;
-        let ydoc = null;
-        let webrtcProvider = null;
-        let ymap = null;
-        let undoManager = null;
+        
+        // SYSTÈME DE VERROUILLAGE (HEARTBEAT LOCK)
+        let lockInterval = null;
+        let isFileLockedByOther = false;
+
+        async function updateFileLock(fileId, isLocking) {
+            const expireTime = isLocking ? (Date.now() + 60000).toString() : "0";
+            const lockedBy = isLocking ? currentUserEmail : "";
+            try {
+                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ appProperties: { lockedUntil: expireTime, lockedBy: lockedBy } })
+                });
+            } catch (e) { console.error("Erreur de verrouillage :", e); }
+        }
+
+        function startHeartbeat(fileId) {
+            if (lockInterval) clearInterval(lockInterval);
+            lockInterval = setInterval(() => {
+                if (!isFileLockedByOther && currentActiveOneFileId === fileId) {
+                    updateFileLock(fileId, true);
+                }
+            }, 30000);
+        }
+
+        function stopHeartbeat(fileId) {
+            if (lockInterval) { clearInterval(lockInterval); lockInterval = null; }
+            if (!isFileLockedByOther) updateFileLock(fileId, false); // Libération propre
+        }
 
         // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
         window.addEventListener('message', async (event) => {
@@ -683,34 +725,46 @@ Génère UNIQUEMENT le code JSON valide.`;
             if (event.data.type === 'LOAD_DATA_REQUEST') {
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
-                    payload: { readOnly: isAppReadOnly, app_data: window.currentLoadedAppData || [] }
+                    payload: { readOnly: isAppReadOnly || isFileLockedByOther, app_data: window.currentLoadedAppData || [] }
                 }, '*');
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
-                if (isAppReadOnly) return; // Sécurité : On bloque la sauvegarde si on est en lecture seule
+                if (isAppReadOnly || isFileLockedByOther) {
+                    console.warn("MOTEUR : Sauvegarde bloquée (Mode Lecture Seule)");
+                    return;
+                }
                 
                 const newData = event.data.payload;
                 
-                // Mémorisation dans le Cerveau Yjs (Diffusé instantanément via WebRTC)
-                if (ymap && JSON.stringify(ymap.get('app_data')) !== JSON.stringify(newData)) {
-                    ymap.set('app_data', newData);
+                // Mémorisation dans la RAM uniquement si les données ont changé
+                if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
+                    if (appDataCurrentIndex < appDataHistory.length - 1) {
+                        appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    }
+                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                    if (appDataHistory.length > 50) appDataHistory.shift();
+                    appDataCurrentIndex = appDataHistory.length - 1;
                 }
 
-                saveActiveOneFile(newData); // Synchronisation silencieuse Drive (À optimiser étape 3)
+                saveActiveOneFile(newData); // Synchronisation silencieuse Drive
             }
         });
 
         // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
         function appUndo() {
-            if (isAppReadOnly || !undoManager) return;
-            undoManager.undo();
-            saveActiveOneFile(ymap.get('app_data')); 
+            if (isAppReadOnly || isFileLockedByOther || appDataCurrentIndex <= 0) return;
+            appDataCurrentIndex--;
+            const oldData = appDataHistory[appDataCurrentIndex];
+            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
+            saveActiveOneFile(oldData); 
         }
 
         function appRedo() {
-            if (isAppReadOnly || !undoManager) return;
-            undoManager.redo();
-            saveActiveOneFile(ymap.get('app_data'));
+            if (isAppReadOnly || isFileLockedByOther || appDataCurrentIndex >= appDataHistory.length - 1) return;
+            appDataCurrentIndex++;
+            const newData = appDataHistory[appDataCurrentIndex];
+            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
+            saveActiveOneFile(newData);
         }
 
         function toggleAppMode() {
@@ -756,10 +810,23 @@ Génère UNIQUEMENT le code JSON valide.`;
 
         // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
-            document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
+            document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
+                // 1. Vérification du Verrou (Métadonnées)
+                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let fileMeta = await metaRes.json();
+                
+                let props = fileMeta.appProperties || {};
+                let lockedUntil = parseInt(props.lockedUntil || "0");
+                let lockedBy = props.lockedBy || "Quelqu'un";
+                
+                isFileLockedByOther = (lockedUntil > Date.now() && lockedBy !== currentUserEmail);
+
+                // 2. Téléchargements
+                document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
+                
                 let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let appJson = await appRes.json();
 
@@ -770,53 +837,30 @@ Génère UNIQUEMENT le code JSON valide.`;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
                 window.currentLoadedAppData = oneFileJson.app_data || []; 
 
-                // Chargement dynamique de Yjs et WebRTC (si pas encore fait)
-                if (!window.Y) {
-                    document.getElementById('loading-apps').innerText = "Connexion au réseau Peer-to-Peer...";
-                    // On force l'utilisation de la même instance mémoire pour Yjs
-                    window.Y = await import('https://esm.sh/yjs@13.6.1');
-                    const webrtc = await import('https://esm.sh/y-webrtc?deps=yjs@13.6.1');
-                    window.WebrtcProvider = webrtc.WebrtcProvider;
-                }
-
-                // Initialisation de la Salle WebRTC et du Cerveau Yjs
-                ydoc = new window.Y.Doc();
-                // Le nom de la salle est l'ID secret de ton fichier Google Drive !
-                const signalingServers = [
-                    'wss://signaling.yjs.dev',
-                    'wss://y-webrtc-signaling-eu.herokuapp.com',
-                    'wss://y-webrtc-signaling-us.herokuapp.com'
-                ];
-                webrtcProvider = new window.WebrtcProvider(oneFileId, ydoc, { signaling: signalingServers });
-                ymap = ydoc.getMap('oneapp_state');
+                // Initialisation de la RAM (Point zéro)
+                appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
+                appDataCurrentIndex = 0;
                 
-                webrtcProvider.on('synced', synced => {
-                    console.log("MOTEUR : Statut de connexion WebRTC ->", synced ? "Connecté avec succès" : "Déconnecté");
-                });
-                
-                // On met la donnée initiale
-                ymap.set('app_data', window.currentLoadedAppData);
-
-                // Configuration de l'historique (Undo/Redo) géré par Yjs
-                undoManager = new window.Y.UndoManager(ymap);
-                
-                // Écoute magique : Si quelqu'un d'autre modifie le document via WebRTC
-                ymap.observe((event) => {
-                    // Si l'événement vient du réseau ou de notre Undo/Redo local
-                    if (!event.transaction.local || event.transaction.origin === undoManager) {
-                        const syncedData = ymap.get('app_data');
-                        window.currentLoadedAppData = syncedData;
-                        const iframe = document.querySelector('#iframe-container iframe');
-                        if (iframe) iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: syncedData }, '*');
-                    }
-                });
-                
-                // Réinitialisation de l'UI
-                isAppReadOnly = false;
+                // Gestion de l'UI selon le verrou
                 const btn = document.getElementById('toggle-readonly-btn');
-                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.borderColor = "var(--accent-color)";
-                btn.style.color = "var(--accent-color)";
+                if (isFileLockedByOther) {
+                    isAppReadOnly = true;
+                    btn.innerHTML = '🔒 ' + lockedBy.split('@')[0];
+                    btn.style.borderColor = "#ef4444";
+                    btn.style.color = "#ef4444";
+                    btn.style.pointerEvents = "none";
+                    alert(`Ce fichier est actuellement modifié par ${lockedBy}. Vous êtes en mode lecture seule.`);
+                } else {
+                    isAppReadOnly = false;
+                    btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+                    btn.style.borderColor = "transparent";
+                    btn.style.color = "var(--text-primary)";
+                    btn.style.pointerEvents = "auto";
+                    
+                    // On prend le verrou et on lance le battement de coeur !
+                    await updateFileLock(oneFileId, true);
+                    startHeartbeat(oneFileId);
+                }
 
                 const fullHTML = "<!DOCTYPE html><html><head><style>" + 
                     (appJson.frontend.css || "") + 
@@ -836,6 +880,16 @@ Génère UNIQUEMENT le code JSON valide.`;
                 const container = document.getElementById('iframe-container');
                 container.innerHTML = ''; container.appendChild(iframe);
                 
+                let titleText = `${appName} - ${oneFileName}`;
+                if (isFileLockedByOther) {
+                    titleText += ` 🔒 (Lecture seule)`;
+                    setTimeout(() => {
+                        if (document.querySelector('#iframe-container iframe')) {
+                            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: true }, '*');
+                        }
+                    }, 1000);
+                }
+
                 document.getElementById('running-app-name').innerText = appName;
                 document.getElementById('running-file-title').value = oneFileName;
                 
@@ -854,18 +908,16 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         function closeApp() {
+            if (currentActiveOneFileId) stopHeartbeat(currentActiveOneFileId);
+
             document.getElementById('execution-view').style.display = 'none';
             document.getElementById('iframe-container').innerHTML = ''; // Nettoyer la RAM et détruire l'iframe
             document.getElementById('authenticated-view').style.display = 'block';
             currentRunningApp = null;
             currentActiveOneFileId = null;
             currentOneFileMetadata = null;
-            
-            // Fermeture de la connexion WebRTC
-            if (webrtcProvider) { webrtcProvider.destroy(); webrtcProvider = null; }
-            if (ydoc) { ydoc.destroy(); ydoc = null; }
-            ymap = null;
-            undoManager = null;
+            appDataHistory = [];
+            appDataCurrentIndex = -1;
 
             if (activeSubmenu) {
                 const appId = activeSubmenu.dataset.appId;
