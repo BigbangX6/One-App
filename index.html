@@ -782,8 +782,17 @@ Génère UNIQUEMENT le code JSON valide.`;
                 // Initialisation de la Salle WebRTC et du Cerveau Yjs
                 ydoc = new window.Y.Doc();
                 // Le nom de la salle est l'ID secret de ton fichier Google Drive !
-                webrtcProvider = new window.WebrtcProvider(oneFileId, ydoc, { signaling: ['wss://signaling.yjs.dev'] });
+                const signalingServers = [
+                    'wss://signaling.yjs.dev',
+                    'wss://y-webrtc-signaling-eu.herokuapp.com',
+                    'wss://y-webrtc-signaling-us.herokuapp.com'
+                ];
+                webrtcProvider = new window.WebrtcProvider(oneFileId, ydoc, { signaling: signalingServers });
                 ymap = ydoc.getMap('oneapp_state');
+                
+                webrtcProvider.on('synced', synced => {
+                    console.log("MOTEUR : Statut de connexion WebRTC ->", synced ? "Connecté avec succès" : "Déconnecté");
+                });
                 
                 // On met la donnée initiale
                 ymap.set('app_data', window.currentLoadedAppData);
