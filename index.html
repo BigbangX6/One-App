@@ -773,8 +773,9 @@ Génère UNIQUEMENT le code JSON valide.`;
                 // Chargement dynamique de Yjs et WebRTC (si pas encore fait)
                 if (!window.Y) {
                     document.getElementById('loading-apps').innerText = "Connexion au réseau Peer-to-Peer...";
+                    // On force l'utilisation de la même instance mémoire pour Yjs
                     window.Y = await import('https://esm.sh/yjs@13.6.1');
-                    const webrtc = await import('https://esm.sh/y-webrtc@13.3.0');
+                    const webrtc = await import('https://esm.sh/y-webrtc@13.3.0?deps=yjs@13.6.1');
                     window.WebrtcProvider = webrtc.WebrtcProvider;
                 }
 
