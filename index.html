@@ -501,15 +501,17 @@
         // --- SYSTÈME DE VERROUILLAGE (HEARTBEAT LOCK) ---
         let lockInterval = null;
         let isFileLockedByOther = false;
+        const currentSessionId = Math.random().toString(36).substring(2, 10); // ID unique de l'onglet
 
         async function updateFileLock(fileId, isLocking) {
             const expireTime = isLocking ? (Date.now() + 60000).toString() : "0";
-            const lockedBy = isLocking ? currentUserEmail : "";
+            const lockedEmail = isLocking ? currentUserEmail : "";
+            const lockedSession = isLocking ? currentSessionId : "";
             try {
                 await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ appProperties: { lockedUntil: expireTime, lockedBy: lockedBy } })
+                    body: JSON.stringify({ appProperties: { lockedUntil: expireTime, lockedEmail: lockedEmail, lockedSession: lockedSession } })
                 });
             } catch (e) { console.error("Erreur lock", e); }
         }
@@ -585,16 +587,23 @@
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                // 1. Vérification du Verrou (Bail)
-                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                // 1. Vérification du Verrou (Bail) avec Anti-Cache
+                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties&t=${Date.now()}`, { 
+                    headers: { 'Authorization': 'Bearer ' + globalAccessToken },
+                    cache: 'no-store' 
+                });
                 let fileMeta = await metaRes.json();
                 
                 let props = fileMeta.appProperties || {};
                 let lockedUntil = parseInt(props.lockedUntil || "0");
-                let lockedBy = props.lockedBy || "Quelqu'un";
+                let lockedEmail = props.lockedEmail || "Quelqu'un";
+                let lockedSession = props.lockedSession || "";
                 
-                // Si la date d'expiration est dans le futur ET que ce n'est pas nous
-                isFileLockedByOther = (lockedUntil > Date.now() && lockedBy !== currentUserEmail);
+                // Le fichier est bloqué s'il est dans le futur ET que ce n'est pas CET onglet exact
+                isFileLockedByOther = (lockedUntil > Date.now() && lockedSession !== currentSessionId);
+                
+                let lockDisplayMsg = lockedEmail;
+                if (lockedEmail === currentUserEmail) lockDisplayMsg = "Un de vos appareils";
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace...";
                 let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
@@ -613,10 +622,10 @@
                 
                 if (isFileLockedByOther) {
                     isAppReadOnly = true;
-                    btn.innerHTML = '🔒 ' + lockedBy.split('@')[0];
+                    btn.innerHTML = '🔒 ' + lockDisplayMsg.split('@')[0];
                     btn.style.background = "#fce8e6"; btn.style.color = "#d93025"; btn.style.pointerEvents = "none";
                     titleText += ` (Lecture seule)`;
-                    alert(`Ce fichier est actuellement modifié par ${lockedBy}. Vous êtes en mode lecture seule.`);
+                    alert(`Ce fichier est verrouillé par : ${lockDisplayMsg}. Vous êtes en mode lecture seule.`);
                 } else {
                     isAppReadOnly = false;
                     btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
