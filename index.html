@@ -222,6 +222,7 @@
             </div>
             
             <div class="execution-right">
+                <button class="custom-btn" onclick="refreshActiveFile()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Actualiser les données depuis le Cloud">🔄</button>
                 <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
                 <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
                 
@@ -497,6 +498,7 @@
 
         let currentRunningApp = null; let currentActiveOneFileId = null; let currentOneFileMetadata = null;
         let appDataHistory = []; let appDataCurrentIndex = -1; let isAppReadOnly = false;
+        let currentOneFileModifiedTime = null; // Mémoire temporelle du document
         
         // --- SYSTÈME DE VERROUILLAGE (HEARTBEAT LOCK) ---
         let lockInterval = null;
@@ -560,25 +562,101 @@
             saveActiveOneFile(newData);
         }
 
-        function toggleAppMode() {
-            if (isFileLockedByOther) return; // Ne pas pouvoir déverrouiller le cadenas des autres
-            isAppReadOnly = !isAppReadOnly;
+        async function toggleAppMode() {
+            if (isFileLockedByOther) return; // Sécurité pour empêcher de déverrouiller le cadenas d'un autre
+            
             const btn = document.getElementById('toggle-readonly-btn');
-            if (isAppReadOnly) { btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>'; btn.style.background = "var(--bg-color)"; } 
-            else { btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>'; btn.style.background = "transparent"; }
-            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
+            
+            if (!isAppReadOnly) {
+                // L'utilisateur choisit de passer en Lecture Seule : on libère le fichier pour les autres !
+                isAppReadOnly = true;
+                stopHeartbeat(currentActiveOneFileId); // Coupe le battement et efface la mention locked sur Drive
+                btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>'; 
+                btn.style.background = "var(--bg-color)";
+                document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: true }, '*');
+            } else {
+                // L'utilisateur veut reprendre l'édition : on vérifie que personne d'autre n'a pris la place
+                document.getElementById('loading-apps').innerText = "Vérification...";
+                document.getElementById('loading-apps').style.display = 'block';
+                
+                try {
+                    let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=appProperties&t=${Date.now()}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken }, cache: 'no-store' });
+                    let fileMeta = await metaRes.json();
+                    let props = fileMeta.appProperties || {};
+                    let lockedUntil = parseInt(props.lockedUntil || "0");
+                    let lockedSession = props.lockedSession || "";
+
+                    if (lockedUntil > Date.now() && lockedSession !== currentSessionId) {
+                        alert(`Impossible, le fichier a été verrouillé par ${props.lockedEmail || "quelqu'un"}.`);
+                        isFileLockedByOther = true;
+                        btn.innerHTML = '🔒 ' + (props.lockedEmail || "").split('@')[0];
+                        btn.style.background = "#fce8e6"; btn.style.color = "#d93025"; btn.style.pointerEvents = "none";
+                    } else {
+                        // Le fichier est libre, on verrouille et on y va !
+                        isAppReadOnly = false;
+                        await updateFileLock(currentActiveOneFileId, true);
+                        startHeartbeat(currentActiveOneFileId);
+                        btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>'; 
+                        btn.style.background = "transparent";
+                        document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: false }, '*');
+                    }
+                } catch(e) { console.error(e); }
+                finally { document.getElementById('loading-apps').style.display = 'none'; }
+            }
         }
 
         async function saveActiveOneFile(appDataPayload) {
             if (!currentActiveOneFileId || !currentOneFileMetadata) return;
+
+            // 1. BOUCLIER ANTI-ÉCRASEMENT
+            try {
+                let checkRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime&t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }, cache: 'no-store' });
+                let checkMeta = await checkRes.json();
+                
+                if (new Date(checkMeta.modifiedTime).getTime() > new Date(currentOneFileModifiedTime).getTime()) {
+                    alert("⚠️ Conflit de Sauvegarde !\n\nQuelqu'un d'autre a modifié ce fichier pendant que vous étiez déconnecté. La sauvegarde a été bloquée pour ne pas écraser son travail.\n\nFaites une copie manuelle de vos notes, puis cliquez sur 🔄 pour récupérer la nouvelle version.");
+                    return; // On bloque l'écriture
+                }
+            } catch(e) { console.error("Erreur vérification conflit", e); return; }
+
+            // 2. Sauvegarde Cloud
             currentOneFileMetadata.version_timestamp = new Date().toISOString();
             const updatedOneFile = { oneapp_metadata: currentOneFileMetadata, app_data: appDataPayload };
             try {
-                await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media`, {
+                let saveRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media&fields=modifiedTime`, {
                     method: 'PATCH', headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedOneFile)
                 });
+                let savedMeta = await saveRes.json();
+                currentOneFileModifiedTime = savedMeta.modifiedTime; // On actualise la mémoire après écriture
+                console.log("MOTEUR : Fichier synchronisé avec succès !");
             } catch (e) { console.error("Erreur sauvegarde", e); }
+        }
+
+        async function refreshActiveFile() {
+            if (!currentActiveOneFileId) return;
+            document.getElementById('loading-apps').innerText = "Actualisation depuis le Cloud...";
+            document.getElementById('loading-apps').style.display = 'block';
+            
+            try {
+                // On télécharge les données fraîches ET la date de modification
+                let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media&t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }, cache: 'no-store' });
+                let oneFileJson = await dataRes.json();
+                
+                let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime&t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }, cache: 'no-store' });
+                let metaJson = await metaRes.json();
+
+                window.currentLoadedAppData = oneFileJson.app_data || [];
+                currentOneFileModifiedTime = metaJson.modifiedTime; 
+                
+                // Mémorisation dans l'historique
+                appDataHistory.push(JSON.parse(JSON.stringify(window.currentLoadedAppData)));
+                appDataCurrentIndex = appDataHistory.length - 1;
+                
+                // Injection automatique dans l'application (Comme un Ctrl+Z)
+                document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: window.currentLoadedAppData }, '*');
+            } catch(e) { console.error(e); alert("Erreur d'actualisation."); }
+            finally { document.getElementById('loading-apps').style.display = 'none'; }
         }
 
         // --- LE CHARGEUR D'APPLICATION ---
@@ -587,12 +665,14 @@
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                // 1. Vérification du Verrou (Bail) avec Anti-Cache
-                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties&t=${Date.now()}`, { 
+                // 1. Vérification du Verrou (Bail) et Mémorisation (Anti-Écrasement)
+                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties,modifiedTime&t=${Date.now()}`, { 
                     headers: { 'Authorization': 'Bearer ' + globalAccessToken },
                     cache: 'no-store' 
                 });
                 let fileMeta = await metaRes.json();
+                
+                currentOneFileModifiedTime = fileMeta.modifiedTime; // On grave l'heure du Cloud !
                 
                 let props = fileMeta.appProperties || {};
                 let lockedUntil = parseInt(props.lockedUntil || "0");
