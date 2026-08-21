@@ -256,43 +256,41 @@
     </div>
 
     <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
-        <header class="execution-header">
-            <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <div class="execution-title-wrapper">
-                    <span class="execution-app-name">Éditeur One App</span>
-                    <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
-                </div>
+        <header style="background: var(--surface-color); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow); flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 id="edit-app-title" style="margin: 0; font-size: 16px;">Éditeur</h2>
             </div>
-            
-            <div class="execution-right">
-                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
-                
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn hide-on-mobile" onclick="copyCodeForAI()" style="border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; padding: 6px 12px; font-size: 13px;">📋 Copier pour l'IA</button>
-                <button class="primary-btn hide-on-mobile" onclick="saveEditorCode()" style="padding: 6px 12px; font-size: 13px;">💾 Sauvegarder l'App</button>
-                
-                <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
-                    <div class="header-dropdown" id="edit-header-menu">
-                        <button class="show-on-mobile-inline" onclick="copyCodeForAI()" style="display: none; color: #1a73e8;">📋 Copier pour l'IA</button>
-                        <button class="show-on-mobile-inline" onclick="saveEditorCode()" style="display: none; color: var(--accent-color);">💾 Sauvegarder l'App</button>
-                        <button onclick="clearEditor()">🗑️ Vider l'éditeur</button>
-                    </div>
-                </div>
-
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn" onclick="closeAppEditor()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
+            <div style="display: flex; gap: 5px; flex: 1; justify-content: center; flex-wrap: wrap;">
+                <button class="custom-btn" onclick="copyCodeForAI()" style="width: auto; padding: 6px 12px; font-size: 14px; background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: bold; white-space: nowrap;">
+                    1. 📋 <span class="hide-on-mobile">Copier pour l'IA</span>
+                </button>
+                <button class="primary-btn" onclick="applyEditorPatch()" style="padding: 6px 12px; font-size: 14px; white-space: nowrap;">
+                    3. ⚡ <span class="hide-on-mobile">Appliquer le Patch</span>
+                </button>
+                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 12px; font-size: 14px;">⬅️</button>
+                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 12px; font-size: 14px;">➡️</button>
             </div>
+            <button class="custom-btn" onclick="closeAppEditor()" style="width: auto; padding: 6px 12px; border-color: #ef4444; color: #ef4444; font-size: 14px;">✕</button>
         </header>
 
+        <div style="padding: 12px; background: #e8f0fe; color: #1a73e8; font-size: 13px; text-align: center; border-bottom: 1px solid #d2e3fc; line-height: 1.4;">
+            <strong>Comment modifier l'application ?</strong><br>
+            <strong>Étape 1 :</strong> Cliquez sur "Copier pour l'IA", collez le texte à votre IA et demandez vos changements.<br>
+            <strong>Étape 2 :</strong> Collez la réponse de l'IA (au format exact Auto-Patcher) dans la case "Changements IA" ci-dessous.<br>
+            <strong>Étape 3 :</strong> Cliquez sur "Appliquer le Patch" pour fusionner et sauvegarder.
+        </div>
+        
         <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
 
-        <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; overflow: hidden;">
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none;"></textarea>
+        <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; gap: 10px; overflow: hidden;">
+            <div style="display: flex; flex-direction: column; flex: 0.4;">
+                <div class="section-title" style="font-size: 11px; margin-bottom: 5px;">2. Collez la réponse de l'IA ici (Format Auto-Patcher)</div>
+                <textarea id="editor-diff-input" placeholder="<<<<&#10;Code à trouver&#10;====&#10;Nouveau code&#10;>>>>" style="flex: 1; border-color: var(--accent-color);"></textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; flex: 0.6;">
+                <div class="section-title" style="font-size: 11px;">Code Complet (JSON)</div>
+                <textarea id="editor-full-code" placeholder="Chargement du code..." style="flex: 1; color: #a6e22e; background: #222;"></textarea>
+            </div>
         </div>
     </div>
 
@@ -411,6 +409,7 @@
             }
         }
 
+        // --- STREAMING_CHUNK: Liste et gestion des menus App ---
         // Chercher tous les fichiers .oneapp dans le Drive de l'utilisateur
         async function listInstalledApps() {
             document.getElementById('loading-apps').style.display = 'block';
@@ -498,14 +497,13 @@
                 if (!e.target.closest('.header-menu-container')) {
                     const headerMenu = document.getElementById('execution-header-menu');
                     if(headerMenu) headerMenu.classList.remove('active');
-                    const editHeaderMenu = document.getElementById('edit-header-menu');
-                    if(editHeaderMenu) editHeaderMenu.classList.remove('active');
                 }
             });
 
             loadAppFiles(appFolderId, appFileId, appName);
         }
 
+        // --- STREAMING_CHUNK: Opérations Fichiers ---
         // --- GESTION DU BANDEAU D'EXÉCUTION ---
         function toggleHeaderMenu() {
             const menu = document.getElementById('execution-header-menu');
@@ -679,6 +677,7 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
         }
 
+        // --- STREAMING_CHUNK: Le Pont de communication API ---
         // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
         // Le Bridge inclut désormais l'écoute silencieuse des ordres du Moteur (RESTORE et READ_ONLY)
         const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
@@ -812,6 +811,7 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
         }
 
+        // --- STREAMING_CHUNK: Ouverture des apps ---
         // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
@@ -934,6 +934,7 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
         }
 
+        // --- STREAMING_CHUNK: L'éditeur et installateur d'app ---
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
 
         function toggleInstallSection() {
@@ -1004,6 +1005,7 @@ Génère UNIQUEMENT le code JSON valide.`;
         let editorCurrentIndex = -1;
         let editingAppFileId = null;
 
+        const diffInput = document.getElementById('editor-diff-input');
         const fullCodeInput = document.getElementById('editor-full-code');
         const editorStatusMsg = document.getElementById('editor-status');
 
@@ -1028,35 +1030,6 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
         });
 
-        function toggleEditHeaderMenu() {
-            const menu = document.getElementById('edit-header-menu');
-            if(menu) menu.classList.toggle('active');
-        }
-
-        async function renameActiveAppFromEditor() {
-            if (!editingAppFileId) return;
-            const input = document.getElementById('edit-app-title-input');
-            const newName = input.value.trim();
-            if (!newName) {
-                input.value = "Application sans nom";
-                return;
-            }
-            
-            try {
-                // PATCH vers Google Drive pour changer juste le nom
-                await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: `${newName}.oneapp` })
-                });
-                console.log("ÉDITEUR : Nom de l'app mis à jour avec succès.");
-                // Mise à jour de la liste des apps en arrière-plan
-                listInstalledApps(); 
-            } catch (e) {
-                console.error("Erreur renommage application :", e);
-            }
-        }
-
         async function openAppEditor(fileId, appName) {
             console.log(`Ouverture de l'éditeur pour : ${appName}`);
             editingAppFileId = fileId;
@@ -1079,7 +1052,7 @@ Génère UNIQUEMENT le code JSON valide.`;
                 fullCodeInput.value = jsonString;
                 saveEditorState(jsonString);
                 
-                document.getElementById('edit-app-title-input').value = appName;
+                document.getElementById('edit-app-title').innerText = `Édition : ${appName}`;
                 document.getElementById('authenticated-view').style.display = 'none';
                 document.getElementById('edit-app-view').style.display = 'flex';
                 
@@ -1095,12 +1068,13 @@ Génère UNIQUEMENT le code JSON valide.`;
             document.getElementById('edit-app-view').style.display = 'none';
             document.getElementById('authenticated-view').style.display = 'block';
             fullCodeInput.value = '';
+            diffInput.value = '';
             editingAppFileId = null;
         }
 
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
-            const aiPrompt = `Voici le code source de mon application One App (JSON) :\n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nApporte les modifications demandées et renvoie-moi UNIQUEMENT l'intégralité du code JSON valide, sans formatage tronqué.`;
+            const aiPrompt = `Voici le code source de mon application One App :\n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nJe vais te demander une modification. Pour l'appliquer, tu dois STRICTEMENT utiliser le format Auto-Patcher suivant (ne réécris jamais le code entier). Le texte à chercher doit correspondre exactement aux espaces et sauts de ligne :\n\n\`\`\`text\n<<<<\n[Code exact à trouver]\n====\n[Nouveau code]\n>>>>\n\`\`\`\n\nQuelle est ta modification ?`;
             
             navigator.clipboard.writeText(aiPrompt).then(() => {
                 alert("Code et instructions copiés ! Ouvrez Gemini, collez ce texte, et demandez votre modification.");
@@ -1109,40 +1083,61 @@ Génère UNIQUEMENT le code JSON valide.`;
             });
         }
 
-        function clearEditor() {
-            if (confirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
-                fullCodeInput.value = '';
-                saveEditorState('');
-                showEditorStatus("Éditeur vidé.");
+        async function applyEditorPatch() {
+            let currentCode = fullCodeInput.value;
+            const diffText = diffInput.value;
+
+            if (!currentCode || !diffText) return showEditorStatus("Les deux champs doivent être remplis.");
+
+            const diffRegex = /<<<<\n([\s\S]*?)\n====\n([\s\S]*?)\n>>>>/g;
+            let match;
+            let appliedCount = 0;
+            let newCode = currentCode;
+            let failedBlocks = [];
+
+            while ((match = diffRegex.exec(diffText)) !== null) {
+                const oldBlock = match[1];
+                const newBlock = match[2];
+
+                if (newCode.includes(oldBlock)) {
+                    newCode = newCode.split(oldBlock).join(newBlock);
+                    appliedCount++;
+                } else {
+                    failedBlocks.push(match[0]); // Stocke le bloc complet en échec
+                }
             }
-        }
 
-        async function saveEditorCode() {
-            let currentCode = fullCodeInput.value.trim();
+            if (failedBlocks.length > 0) {
+                // Le fameux "Smart Fail"
+                let aiErrorMessage = `L'Auto-Patcher a échoué. Il n'a pas trouvé ce(s) bloc(s) exact(s) dans mon code actuel :\n\n`;
+                failedBlocks.forEach(block => { aiErrorMessage += "```text\n" + block + "\n```\n\n"; });
+                aiErrorMessage += `Voici l'intégralité de mon code actuel. S'il te plaît, analyse mon indentation exacte et regénère STRICTEMENT le patch :\n\n\`\`\`json\n${currentCode}\n\`\`\``;
 
-            if (!currentCode) return showEditorStatus("Le champ de code est vide.");
-
-            try {
-                // 1. Validation : On vérifie que c'est un JSON parfaitement valide avant toute chose
-                JSON.parse(currentCode);
-            } catch (e) {
-                alert("Erreur : Le code JSON est invalide.\nVérifiez qu'il ne manque pas de virgules, d'accolades, ou que l'IA n'a pas tronqué sa réponse.");
-                showEditorStatus("Échec : Code JSON invalide.");
+                navigator.clipboard.writeText(aiErrorMessage).then(() => {
+                    alert("Échec de la modification. Un message d'erreur incluant votre code complet a été copié. Collez-le directement à l'IA pour corriger le tir !");
+                });
                 return; // On bloque la sauvegarde !
             }
 
-            // 2. Mise à jour de l'historique et de l'UI
-            saveEditorState(currentCode);
-            showEditorStatus("Sauvegarde cloud en cours...");
-            
-            // 3. Sauvegarde immédiate sur Google Drive
-            await saveAppToDrive(currentCode);
+            if (appliedCount > 0) {
+                // Patch réussi : on met à jour l'UI
+                fullCodeInput.value = newCode;
+                diffInput.value = ''; 
+                saveEditorState(newCode);
+                showEditorStatus(`Application de ${appliedCount} modif(s). Sauvegarde cloud en cours...`);
+                
+                // Sauvegarde immédiate sur Google Drive
+                await saveAppToDrive(newCode);
+            }
         }
 
         async function saveAppToDrive(jsonString) {
             if (!editingAppFileId) return;
 
             try {
+                // On vérifie que c'est un JSON valide avant d'écraser l'ancien
+                JSON.parse(jsonString); 
+
                 const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=media`;
                 await fetch(url, {
                     method: 'PATCH',
@@ -1155,8 +1150,8 @@ Génère UNIQUEMENT le code JSON valide.`;
                 showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
                 console.error(e);
-                showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
-                alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
+                showEditorStatus("Erreur : JSON invalide ou échec Drive.");
+                alert("Erreur de sauvegarde : Le code n'est pas un JSON valide ou un problème de réseau est survenu.");
             }
         }
 
