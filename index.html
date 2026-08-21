@@ -265,21 +265,17 @@
                 </div>
             </div>
             
+            <div class="execution-center hide-on-mobile">
+                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
+                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+            </div>
+
             <div class="execution-right">
-                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
-                
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn hide-on-mobile" onclick="copyCodeForAI()" style="border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; padding: 6px 12px; font-size: 13px;">📋 Copier pour l'IA</button>
-                <button class="primary-btn hide-on-mobile" onclick="saveEditorCode()" style="padding: 6px 12px; font-size: 13px;">💾 Sauvegarder l'App</button>
-                
                 <div class="header-menu-container">
                     <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="edit-header-menu">
-                        <button class="show-on-mobile-inline" onclick="copyCodeForAI()" style="display: none; color: #1a73e8;">📋 Copier pour l'IA</button>
-                        <button class="show-on-mobile-inline" onclick="saveEditorCode()" style="display: none; color: var(--accent-color);">💾 Sauvegarder l'App</button>
-                        <button onclick="clearEditor()">🗑️ Vider l'éditeur</button>
+                        <button onclick="alert('Le partage public générera un lien unique (prochaine étape !)')">🔒 Partager l'application</button>
+                        <button onclick="alert('Affichera la liste des sauvegardes Drive des 30 derniers jours.')">🕒 Historique des versions</button>
                     </div>
                 </div>
 
@@ -289,10 +285,23 @@
             </div>
         </header>
 
-        <div style="padding: 5px; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
+        <div style="padding: 15px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 15px;">
+            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                <strong>Comment modifier votre application ?</strong><br>
+                1. Copiez le code actuel avec le bouton ci-dessous.<br>
+                2. Ouvrez Gemini, activez la fonctionnalité Canvas, et collez les instructions en demandant vos modifications.<br>
+                3. Une fois terminé, copiez le code final fourni par l'IA et collez-le dans la zone ci-dessous.
+            </div>
 
-        <div style="display: flex; flex-direction: column; flex: 1; padding: 10px; overflow: hidden;">
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none;"></textarea>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="primary-btn" onclick="copyCodeForAI()" style="flex: 1; min-width: 200px; font-size: 14px;">📋 1. Copier le code & instructions</button>
+                <button class="custom-btn" onclick="clearEditor()" style="flex: 1; min-width: 150px; color: #ef4444; border-color: #ef4444; font-size: 14px;">🗑️ Vider l'éditeur</button>
+                <button class="primary-btn" onclick="saveEditorCode()" style="flex: 1; min-width: 200px; background-color: #10b981; font-size: 14px;">💾 2. Sauvegarder les modifications</button>
+            </div>
+
+            <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
+
+            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
         </div>
     </div>
 
@@ -1100,10 +1109,10 @@ Génère UNIQUEMENT le code JSON valide.`;
 
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
-            const aiPrompt = `Voici le code source de mon application One App (JSON) :\n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nApporte les modifications demandées et renvoie-moi UNIQUEMENT l'intégralité du code JSON valide, sans formatage tronqué.`;
+            const aiPrompt = `Voici le code source de mon application (JSON). Utilise Canvas pour apporter mes modifications et renvoie-moi l'intégralité du code JSON valide.\n\n\`\`\`json\n${currentCode}\n\`\`\``;
             
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Code et instructions copiés ! Ouvrez Gemini, collez ce texte, et demandez votre modification.");
+                alert("Code et instructions copiés ! Ouvrez Gemini, activez la fonctionnalité Canvas, et demandez votre modification.");
             }).catch(err => {
                 alert("Erreur lors de la copie.");
             });
