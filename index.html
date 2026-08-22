@@ -9,6 +9,7 @@
     <script src="config.js"></script>
 
     <style>
+        /* --- VARIABLES CSS --- */
         :root {
             --bg-color: #f5f5f7;
             --surface-color: #ffffff;
@@ -99,7 +100,7 @@
             padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
         }
         .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
-        .app-card svg, .app-card .app-icon-display { color: var(--accent-color); margin-bottom: 10px; font-size: 32px; display: inline-flex; align-items: center; justify-content: center; }
+        .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
         .app-card span { display: block; font-size: 13px; font-weight: 600; }
 
         /* Sous-menu App (Espace de travail) */
@@ -203,9 +204,9 @@
                 Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat ici.
             </div>
             <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
-            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier HTML généré par l'IA ici :</div>
-            <textarea id="json-input" placeholder='<!DOCTYPE html><html><head><title>Mon App</title>...'></textarea>
-            <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
+            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
+            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Mon App"...}}'></textarea>
+            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Installer l'Application</button>
             <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
         </div>
     </div>
@@ -302,7 +303,7 @@
 
             <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
 
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
+            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
         </div>
     </div>
 
@@ -377,6 +378,7 @@
                         if (tokenResponse && tokenResponse.access_token) {
                             globalAccessToken = tokenResponse.access_token;
                             
+                            // Sauvegarde du jeton en local
                             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
                             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
                             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
@@ -425,7 +427,7 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, appProperties)`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents)`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -438,22 +440,8 @@
                     let parentFolderId = file.parents ? file.parents[0] : null;
                     let card = document.createElement('div');
                     card.className = 'app-card';
-                    
-                    let rawIcon = (file.appProperties && file.appProperties.appIcon) ? file.appProperties.appIcon : "";
-                    let iconHtml = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
-                    
-                    if (rawIcon) {
-                        if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
-                            const parser = new DOMParser();
-                            const decoded = parser.parseFromString(rawIcon, 'text/html').body.textContent || rawIcon;
-                            iconHtml = `<div class="app-icon-display">${decoded}</div>`;
-                        } else {
-                            iconHtml = `<div class="app-icon-display">${rawIcon}</div>`;
-                        }
-                    }
-
                     card.innerHTML = `
-                        ${iconHtml}
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
                         <span>${displayName}</span>
                     `;
                     card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
@@ -634,24 +622,18 @@
         }
 
         function copyAppGenerationPrompt() {
-            const prompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". Je veux créer une nouvelle application.
+            const prompt = `Tu es le moteur "One App". Je veux créer une nouvelle application. 
+Voici les règles stricts de conception d'un .oneapp (qui est un fichier JSON) :
 
-RÈGLES STRICTES DE CRÉATION :
-1. Format de sortie : Génère un unique fichier HTML complet (<!DOCTYPE html>) avec tout le CSS et le JavaScript intégrés.
-2. Métadonnées : Mets le nom de l'application dans la balise <title> et l'icône (Emoji ou SVG) dans la balise <meta name="oneapp-icon" content="...">.
-3. Mémoire de l'IA : Insère un résumé du contexte et des fonctions en commentaires HTML (<!-- ... -->) au début du <body>.
-4. Simulateur Canvas : Intègre le code suivant au début de ton <script> pour permettre les tests :
-window.OneAppAPI = window.OneAppAPI || {
-    loadData: async () => ({ readOnly: false, app_data: [] }),
-    saveData: (data) => console.log("Mock save", data)
-};
-5. Intégrité OS : Utilise window.OneAppAPI.loadData() au lancement, window.OneAppAPI.saveData(...) à chaque modification, et écoute window.OneAppInternal_OnRestore / window.OneAppInternal_OnModeChange.
+1. "app_metadata": Identité de l'app (name, version_timestamp).
+2. "frontend": Code UI pur (html et css) sans le tag <html> ou <body>. 
+3. "logic": Code JS brut (en texte). Il doit obligatoirement inclure un appel à 'window.OneAppAPI.loadData().then(...)' au lancement pour récupérer les données, et appeler 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
 
-Mon besoin : [INSERER VOTRE BESOIN ICI]
-Génère UNIQUEMENT le code HTML brut.`;
+Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].
+Génère UNIQUEMENT le code JSON valide.`;
             
             navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Ouvrez Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
+                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le JSON ici.");
             });
         }
 
@@ -661,45 +643,24 @@ Génère UNIQUEMENT le code HTML brut.`;
 
             document.getElementById('submenu-loader').style.display = 'block';
             
-            const blankHtml = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>${appName}</title>
-    <meta name="oneapp-icon" content="📄">
-    <style>body { font-family: sans-serif; padding: 20px; }</style>
-</head>
-<body>
-    <!-- ai_manifest: Nouvelle application -->
-    <div id="app"><h1>${appName}</h1></div>
-    <script>
-        const appLogic = {
-            data: [],
-            init: function() {
-                window.OneAppAPI.loadData().then(res => {
-                    if(res && res.app_data) this.data = res.app_data;
-                });
-            },
-            save: function() {
-                window.OneAppAPI.saveData(this.data);
-            }
-        };
-        window.OneAppInternal_OnRestore = (p) => { appLogic.data = p; };
-        window.OneAppInternal_OnModeChange = (ro) => {};
-        window.onload = () => appLogic.init();
-    <\/script>
-</body>
-</html>`;
+            const newOneFile = {
+                oneapp_metadata: {
+                    app_name: appName,
+                    source_app_drive_id: appFileId,
+                    version_timestamp: new Date().toISOString()
+                },
+                app_data: []
+            };
 
             const fullFileName = `${fileName}.onefile`;
             const boundary = '-------314159265358979323846';
             const delimiter = "\r\n--" + boundary + "\r\n";
             const close_delim = "\r\n--" + boundary + "--";
 
-            const metadata = { name: fullFileName, mimeType: "text/html", parents: [folderId] };
+            const metadata = { name: fullFileName, mimeType: "application/json", parents: [folderId] };
             const multipartRequestBody =
                 delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                delimiter + 'Content-Type: text/html\r\n\r\n' + blankHtml + close_delim;
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
 
             try {
                 let response = await fetch(UPLOAD_API_URL, {
@@ -744,15 +705,17 @@ Génère UNIQUEMENT le code HTML brut.`;
                 
                 const newData = event.data.payload;
                 
+                // Mémorisation dans la RAM uniquement si les données ont changé
                 if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
                     if (appDataCurrentIndex < appDataHistory.length - 1) {
                         appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
                     }
-                    appDataHistory.push(JSON.parse(JSON.stringify(newData)));
+                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
                     if (appDataHistory.length > 50) appDataHistory.shift();
                     appDataCurrentIndex = appDataHistory.length - 1;
                 }
 
+                // ETAPE 4 : Tampon de frappe (Debounce)
                 localContent = newData;
                 isDirty = true;
                 
@@ -770,6 +733,7 @@ Génère UNIQUEMENT le code HTML brut.`;
             const oldData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
             
+            // Déclenche la sauvegarde avec debounce
             localContent = oldData;
             isDirty = true;
             clearTimeout(debounceTimer);
@@ -782,6 +746,7 @@ Génère UNIQUEMENT le code HTML brut.`;
             const newData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
             
+            // Déclenche la sauvegarde avec debounce
             localContent = newData;
             isDirty = true;
             clearTimeout(debounceTimer);
@@ -803,59 +768,95 @@ Génère UNIQUEMENT le code HTML brut.`;
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
         }
 
-        // --- BOUCLIER DE SAUVEGARDE & SYNCHRONISATION CLOUD ---
+        // --- ÉTAPE 5 : LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
         async function syncToDrive() {
-            if (isSyncing || !isDirty || !currentActiveOneFileId || !localContent) return;
+            if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent) return;
 
             isSyncing = true;
 
             try {
+                // 1. Récupération de l'heure exacte du fichier sur le cloud
                 let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let fileMeta = await metaRes.json();
                 let driveTime = fileMeta.modifiedTime;
 
+                // 2. Le Bouclier de Sécurité : Est-ce qu'un tiers a modifié le fichier ?
                 if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
-                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours...");
+                    // --- CAS CONFLIT ---
+                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
 
-                    const backupName = `${document.getElementById('running-file-title.value')} - Copie de secours.onefile`;
-                    let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let parentData = await parentRes.json();
-                    let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
-
-                    let appHtmlTemplate = currentRunningApp;
-                    const metadata = { name: backupName, mimeType: "text/html", parents: [parentFolderId] };
+                    const backupName = `${document.getElementById('running-file-title').value} - Copie de secours.onefile`;
                     const boundary = '-------314159265358979323846';
                     const delimiter = "\r\n--" + boundary + "\r\n";
                     const close_delim = "\r\n--" + boundary + "--";
 
+                    // On récupère le parent actuel pour y ranger la copie
+                    let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let parentData = await parentRes.json();
+                    let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+
+                    const backupOneFile = {
+                        oneapp_metadata: currentOneFileMetadata,
+                        app_data: localContent
+                    };
+
+                    const metadata = { name: backupName, mimeType: "application/json", parents: [parentFolderId] };
                     const multipartRequestBody =
                         delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                        delimiter + 'Content-Type: text/html\r\n\r\n' + appHtmlTemplate + close_delim;
+                        delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(backupOneFile) + close_delim;
 
+                    // Création de la copie de secours
                     await fetch(UPLOAD_API_URL, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
                         body: multipartRequestBody
                     });
 
+                    // Téléchargement des données fraîches du fichier original
                     let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let freshHtml = await dataRes.text();
-                    currentRunningApp = freshHtml;
+                    let freshOneFileJson = await dataRes.json();
+                    
+                    let freshData = freshOneFileJson.app_data || [];
+                    window.currentLoadedAppData = freshData;
+                    
+                    // Transmission des données réconciliées à l'Iframe
+                    const iframe = document.querySelector('#iframe-container iframe');
+                    if (iframe) {
+                        iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+                    }
+
+                    // On réinitialise notre RAM et on valide la nouvelle version
                     currentFileVersion = driveTime;
                     isDirty = false;
+                    localContent = freshData;
                     
-                    alert("Copie de secours créée. Vous visualisez la dernière version du Cloud.");
+                    // Mise à jour de l'historique d'édition
+                    appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+                    appDataCurrentIndex = 0;
+                    
+                    alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+
                 } else {
+                    // --- CAS NORMAL (PATCH) ---
+                    currentOneFileMetadata.version_timestamp = new Date().toISOString();
+                    const updatedOneFile = {
+                        oneapp_metadata: currentOneFileMetadata,
+                        app_data: localContent
+                    };
+
+                    // On fait le PATCH en demandant de nous renvoyer la nouvelle modifiedTime
                     let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media&fields=id,modifiedTime`, {
                         method: 'PATCH',
-                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'text/html' },
-                        body: currentRunningApp
+                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedOneFile)
                     });
                     
                     let patchData = await patchRes.json();
+                    
+                    // On retient la nouvelle date validée par Google Drive
                     currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
                     isDirty = false;
-                    console.log("MOTEUR : HTML synchronisé avec succès !");
+                    console.log("MOTEUR : Fichier synchronisé avec succès !");
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
@@ -864,35 +865,51 @@ Génère UNIQUEMENT le code HTML brut.`;
             }
         }
 
+        // --- ÉTAPE 6 : LE RADAR SILENCIEUX (POLLING) ---
         function startPolling() {
             if (pollingInterval) clearInterval(pollingInterval);
             
             pollingInterval = setInterval(async () => {
+                // On coupe le radar temporairement si on est en train de sauvegarder
                 if (!currentActiveOneFileId || isSyncing) return;
+                
                 try {
                     let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                     let fileMeta = await metaRes.json();
                     let driveTime = fileMeta.modifiedTime;
 
+                    // A-t-on du retard par rapport au Cloud ?
                     if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
                         if (!isDirty) {
+                            // Le Lecteur Fantôme : on n'a rien écrit, on télécharge silencieusement
+                            console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
                             let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                            let freshHtml = await dataRes.text();
-                            currentRunningApp = freshHtml;
-                            currentFileVersion = driveTime;
+                            let freshOneFileJson = await dataRes.json();
                             
-                            let fullHTML = freshHtml;
-                            if (fullHTML.includes('<head>')) {
-                                fullHTML = fullHTML.replace('<head>', '<head><script>' + apiBridgeScript + '<\/script>');
-                            }
+                            let freshData = freshOneFileJson.app_data || [];
+                            window.currentLoadedAppData = freshData;
+                            currentFileVersion = driveTime;
+                            localContent = freshData;
+                            
                             const iframe = document.querySelector('#iframe-container iframe');
-                            if (iframe) iframe.srcdoc = fullHTML;
+                            if (iframe) {
+                                iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+                            }
+                            
+                            appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+                            appDataCurrentIndex = 0;
+                        } else {
+                            // Le Choc (Modifications locales en cours) : On ne touche à rien, syncToDrive réglera le problème.
+                            console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
                         }
                     }
-                } catch (e) { console.error("Erreur Polling :", e); }
-            }, 15000);
+                } catch (e) {
+                    console.error("Erreur Polling :", e);
+                }
+            }, 15000); // Radar balaye toutes les 15 secondes
         }
 
+        // On éteint le Radar si l'utilisateur change d'onglet
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
                 if (pollingInterval) clearInterval(pollingInterval);
@@ -907,23 +924,29 @@ Génère UNIQUEMENT le code HTML brut.`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
+                // ÉTAPE 3 : Capturer l'heure du fichier au chargement
                 let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let fileMeta = await metaRes.json();
                 currentFileVersion = fileMeta.modifiedTime;
 
-                document.getElementById('loading-apps').innerText = "Construction de l'espace de travail HTML...";
+                document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
+                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let appJson = await appRes.json();
+
                 let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let appHtml = await dataRes.text();
+                let oneFileJson = await dataRes.json();
 
                 currentActiveOneFileId = oneFileId;
-                currentRunningApp = appHtml;
-                localContent = null;
+                currentOneFileMetadata = oneFileJson.oneapp_metadata;
+                window.currentLoadedAppData = oneFileJson.app_data || []; 
+                localContent = window.currentLoadedAppData;
                 isDirty = false;
                 isSyncing = false;
 
-                appDataHistory = [];
-                appDataCurrentIndex = -1;
+                // Initialisation de la RAM (Point zéro)
+                appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
+                appDataCurrentIndex = 0;
                 
                 isAppReadOnly = false;
                 const btn = document.getElementById('toggle-readonly-btn');
@@ -932,15 +955,18 @@ Génère UNIQUEMENT le code HTML brut.`;
                 btn.style.color = "var(--text-primary)";
                 btn.style.pointerEvents = "auto";
 
-                let fullHTML = appHtml;
-                if (fullHTML.includes('<head>')) {
-                    fullHTML = fullHTML.replace('<head>', '<head><script>' + apiBridgeScript + '<\/script>');
-                } else {
-                    fullHTML = '<script>' + apiBridgeScript + '<\/script>' + fullHTML;
-                }
+                const fullHTML = "<!DOCTYPE html><html><head><style>" + 
+                    (appJson.frontend.css || "") + 
+                    "</style><script>" + 
+                    apiBridgeScript + 
+                    "<\/script></head><body>" + 
+                    (appJson.frontend.html || "") + 
+                    "<script>" + 
+                    (appJson.logic || "") + 
+                    "<\/script></body></html>";
 
                 const iframe = document.createElement('iframe');
-                iframe.sandbox = "allow-scripts allow-modals"; 
+                iframe.sandbox = "allow-scripts"; 
                 iframe.srcdoc = fullHTML;
                 iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 
@@ -953,11 +979,14 @@ Génère UNIQUEMENT le code HTML brut.`;
                 document.getElementById('authenticated-view').style.display = 'none';
                 document.getElementById('execution-view').style.display = 'flex';
                 
+                currentRunningApp = appJson;
+
+                // Lancement du Radar d'écoute asynchrone
                 startPolling();
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur critique lors du téléchargement de l'application HTML.");
+                alert("Erreur critique lors du téléchargement des fichiers.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
@@ -973,6 +1002,7 @@ Génère UNIQUEMENT le code HTML brut.`;
             document.getElementById('authenticated-view').style.display = 'block';
             currentRunningApp = null;
             currentActiveOneFileId = null;
+            currentOneFileMetadata = null;
             appDataHistory = [];
             appDataCurrentIndex = -1;
             localContent = null;
@@ -990,23 +1020,30 @@ Génère UNIQUEMENT le code HTML brut.`;
             }
         }
 
-        // --- INSTALLATION HTML ---
+        // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
         function toggleInstallSection() {
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
         }
 
-        async function installAppFromHtml() {
-            const htmlContent = document.getElementById('json-input').value.trim();
-            if (!htmlContent) return alert("Veuillez coller le code source HTML.");
+        async function installAppFromJson() {
+            const jsonText = document.getElementById('json-input').value.trim();
+            if (!jsonText) return alert("Veuillez coller un manifeste JSON.");
 
-            const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
-            const appName = titleMatch ? titleMatch[1].trim() : "Nouvelle Application";
-            
-            const iconMatch = htmlContent.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
-            const appIcon = iconMatch ? iconMatch[1] : "📄";
+            let appData;
+            try {
+                appData = JSON.parse(jsonText);
+            } catch (e) {
+                return alert("Erreur : Le texte collé n'est pas un JSON valide.");
+            }
 
-            const fileName = `${appName}.onefile`;
+            if (!appData.app_metadata || !appData.app_metadata.name) {
+                return alert("Erreur : Le JSON ne semble pas être un .oneapp valide (metadata manquantes).");
+            }
+
+            const appName = appData.app_metadata.name;
+            const fileName = `${appName}.oneapp`;
+
             document.getElementById('install-loader').style.display = 'block';
 
             try {
@@ -1015,16 +1052,10 @@ Génère UNIQUEMENT le code HTML brut.`;
                 const delimiter = "\r\n--" + boundary + "\r\n";
                 const close_delim = "\r\n--" + boundary + "--";
 
-                const metadata = { 
-                    name: fileName, 
-                    mimeType: "text/html", 
-                    parents: [appFolderId],
-                    appProperties: { appIcon: appIcon }
-                };
-                
+                const metadata = { name: fileName, mimeType: "application/json", parents: [appFolderId] };
                 const multipartRequestBody =
                     delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(appData) + close_delim;
 
                 await fetch(UPLOAD_API_URL, {
                     method: 'POST',
@@ -1046,7 +1077,7 @@ Génère UNIQUEMENT le code HTML brut.`;
             }
         }
 
-        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE HTML) ---
+        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
         let editorHistory = [];
         let editorCurrentIndex = -1;
         let editingAppFileId = null;
@@ -1088,12 +1119,14 @@ Génère UNIQUEMENT le code HTML brut.`;
                 input.value = "Application sans nom";
                 return;
             }
+            
             try {
                 await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: `${newName}.onefile` })
+                    body: JSON.stringify({ name: `${newName}.oneapp` })
                 });
+                console.log("ÉDITEUR : Nom de l'app mis à jour avec succès.");
                 listInstalledApps(); 
             } catch (e) {
                 console.error("Erreur renommage application :", e);
@@ -1101,11 +1134,12 @@ Génère UNIQUEMENT le code HTML brut.`;
         }
 
         async function openAppEditor(fileId, appName) {
+            console.log(`Ouverture de l'éditeur pour : ${appName}`);
             editingAppFileId = fileId;
             editorHistory = [];
             editorCurrentIndex = -1;
             
-            document.getElementById('loading-apps').innerText = "Téléchargement du code HTML source...";
+            document.getElementById('loading-apps').innerText = "Téléchargement du code source...";
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
@@ -1115,10 +1149,11 @@ Génère UNIQUEMENT le code HTML brut.`;
                 
                 if (!response.ok) throw new Error("Erreur de téléchargement");
                 
-                let htmlString = await response.text();
+                let appData = await response.json();
+                let jsonString = JSON.stringify(appData, null, 2);
                 
-                fullCodeInput.value = htmlString;
-                saveEditorState(htmlString);
+                fullCodeInput.value = jsonString;
+                saveEditorState(jsonString);
                 
                 document.getElementById('edit-app-title-input').value = appName;
                 document.getElementById('authenticated-view').style.display = 'none';
@@ -1142,30 +1177,47 @@ Génère UNIQUEMENT le code HTML brut.`;
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
             
-            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications Single-File HTML.
+            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
 
-Règles de modification :
-1. Conserve la balise <title> et l'icône <meta name="oneapp-icon" content="...">.
-2. Garde les commentaires de mémoire au début du corps (<body>) pour documenter la logique.
-3. Préserve le simulateur Canvas / Mock API window.OneAppAPI ainsi que les points d'entrée de l'OS (window.OneAppInternal_OnRestore, window.OneAppInternal_OnModeChange).
-4. Renvoie UNIQUEMENT l'intégralité du code HTML valide, sans tronquer.
+Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
+
+1. Analyse du contexte (Obligatoire)
+Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
+
+2. Architecture du fichier (.oneapp)
+Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
+- app_metadata : Identité.
+- ai_manifest : Mémoire et contexte pour toi.
+- frontend : Contient html et css (sans balises <html> ou <body>).
+- backend_functions : Le catalogue explicatif des fonctions internes.
+- logic : Le code JavaScript brut sous forme de string.
+
+3. Contraintes de la Logique (Le Moteur One App)
+Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
+- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
+- window.OneAppInternal_OnRestore
+- window.OneAppInternal_OnModeChange
+
+4. Format de sortie (Canvas)
+L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
 
 Voici le code source actuel de l'application :
-\`\`\`html
+
+\`\`\`json
 ${currentCode}
 \`\`\`
 
 Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
 
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Le code et les instructions ont été copiés ! Ouvrez Gemini Canvas, collez ce texte, ajoutez votre modification, puis copiez le résultat final ici.");
+                alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
             }).catch(err => {
                 alert("Erreur lors de la copie.");
             });
         }
 
         function clearEditor() {
-            if (confirm("Voulez-vous vraiment vider l'éditeur ?")) {
+            if (confirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
                 fullCodeInput.value = '';
                 saveEditorState('');
                 showEditorStatus("Éditeur vidé.");
@@ -1177,52 +1229,37 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
 
             if (!currentCode) return showEditorStatus("Le champ de code est vide.");
 
-            saveEditorState(currentCode);
-            showEditorStatus("Sauvegarde cloud HTML en cours...");
-            
-            // Extraction automatique du titre et de l'icône pour mise à jour des métadonnées Drive
-            const titleMatch = currentCode.match(/<title>(.*?)<\/title>/i);
-            const appName = titleMatch ? titleMatch[1].trim() : null;
-            const iconMatch = currentCode.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
-            const appIcon = iconMatch ? iconMatch[1] : null;
-
-            if (appName) {
-                document.getElementById('edit-app-title-input').value = appName;
+            try {
+                JSON.parse(currentCode);
+            } catch (e) {
+                alert("Erreur : Le code JSON est invalide.\nVérifiez qu'il ne manque pas de virgules, d'accolades, ou que l'IA n'a pas tronqué sa réponse.");
+                showEditorStatus("Échec : Code JSON invalide.");
+                return; 
             }
 
+            saveEditorState(currentCode);
+            showEditorStatus("Sauvegarde cloud en cours...");
+            await saveAppToDrive(currentCode);
+        }
+
+        async function saveAppToDrive(jsonString) {
+            if (!editingAppFileId) return;
+
             try {
-                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=multipart`;
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
-                const metadata = { 
-                    mimeType: "text/html",
-                    appProperties: appIcon ? { appIcon: appIcon } : undefined
-                };
-                if (appName) {
-                    metadata.name = `${appName}.onefile`;
-                }
-
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: text/html\r\n\r\n' + currentCode + close_delim;
-
-                await fetch(`https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=multipart`, {
+                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=media`;
+                await fetch(url, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${globalAccessToken}`,
-                        'Content-Type': `multipart/related; boundary=${boundary}`
+                        'Content-Type': 'application/json'
                     },
-                    body: multipartRequestBody
+                    body: jsonString
                 });
-
-                showEditorStatus("Succès ! Application HTML mise à jour sur Drive.");
-                listInstalledApps();
+                showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
-                alert("Erreur de sauvegarde réseau.");
+                alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
             }
         }
 
@@ -1230,7 +1267,7 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             if (editorCurrentIndex > 0) {
                 editorCurrentIndex--;
                 fullCodeInput.value = editorHistory[editorCurrentIndex];
-                showEditorStatus("Annulation effectuée.");
+                showEditorStatus("Annulation. N'oubliez pas d'appliquer pour sauvegarder sur Drive.");
             }
         }
 
@@ -1238,10 +1275,11 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             if (editorCurrentIndex < editorHistory.length - 1) {
                 editorCurrentIndex++;
                 fullCodeInput.value = editorHistory[editorCurrentIndex];
-                showEditorStatus("Rétablissement effectué.");
+                showEditorStatus("Rétablissement. N'oubliez pas d'appliquer pour sauvegarder sur Drive.");
             }
         }
 
+        // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
         document.addEventListener('keydown', (e) => {
             const isCmdOrCtrl = e.ctrlKey || e.metaKey;
 
@@ -1258,6 +1296,7 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
+
     </script>
 </body>
 </html>
