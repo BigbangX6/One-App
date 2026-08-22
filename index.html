@@ -204,10 +204,10 @@
                 Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat ici.
             </div>
             <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
-            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
-            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Mon App"...}}'></textarea>
-            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Installer l'Application</button>
-            <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
+        <div class="section-title" style="margin-bottom: 10px;">Coller le code HTML généré par l'IA ici :</div>
+        <textarea id="json-input" placeholder='<!DOCTYPE html>&#10;<html>...</html>'></textarea>
+        <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
+        <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
         </div>
     </div>
 
@@ -303,8 +303,8 @@
 
             <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
 
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
-        </div>
+        <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
+    </div>
     </div>
 
     <script>
@@ -422,37 +422,51 @@
         }
 
         async function listInstalledApps() {
-            document.getElementById('loading-apps').style.display = 'block';
-            document.getElementById('app-grid').innerHTML = '';
-            if(activeSubmenu) activeSubmenu = null;
+        document.getElementById('loading-apps').style.display = 'block';
+        document.getElementById('app-grid').innerHTML = '';
+        if(activeSubmenu) activeSubmenu = null;
 
-            const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents)`, { 
-                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+        const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
+        let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)`, { 
+            headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+        });
+        let data = await response.json();
+        
+        document.getElementById('loading-apps').style.display = 'none';
+
+        if (data.files && data.files.length > 0) {
+            data.files.forEach(file => {
+                let displayName = file.name.replace('.oneapp', '');
+                let parentFolderId = file.parents ? file.parents[0] : null;
+                
+                let rawIcon = file.description || "";
+                let iconSvg = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
+                
+                if (rawIcon) {
+                    if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
+                        const parser = new DOMParser();
+                        const decoded = parser.parseFromString(rawIcon, 'text/html').body.textContent || rawIcon;
+                        iconSvg = decoded.includes('<svg') ? decoded : rawIcon;
+                    } else {
+                        iconSvg = `<div style="font-size: 32px; margin-bottom: 10px;">${rawIcon}</div>`;
+                    }
+                }
+
+                let card = document.createElement('div');
+                card.className = 'app-card';
+                card.innerHTML = `
+                    ${iconSvg}
+                    <span>${displayName}</span>
+                `;
+                card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
+                document.getElementById('app-grid').appendChild(card);
             });
-            let data = await response.json();
-            
-            document.getElementById('loading-apps').style.display = 'none';
-
-            if (data.files && data.files.length > 0) {
-                data.files.forEach(file => {
-                    let displayName = file.name.replace('.oneapp', '');
-                    let parentFolderId = file.parents ? file.parents[0] : null;
-                    let card = document.createElement('div');
-                    card.className = 'app-card';
-                    card.innerHTML = `
-                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
-                        <span>${displayName}</span>
-                    `;
-                    card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
-                    document.getElementById('app-grid').appendChild(card);
-                });
-            } else {
-                document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
-            }
+        } else {
+            document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
         }
+    }
 
-        let activeSubmenu = null;
+    let activeSubmenu = null;
 
         async function toggleAppMenu(cardElement, appFileId, appName, appFolderId) {
             if (activeSubmenu && activeSubmenu.dataset.appId === appFileId) {
@@ -622,22 +636,25 @@
         }
 
         function copyAppGenerationPrompt() {
-            const prompt = `Tu es le moteur "One App". Je veux créer une nouvelle application. 
-Voici les règles stricts de conception d'un .oneapp (qui est un fichier JSON) :
+        const prompt = `Tu es le développeur expert du moteur "One App". Crée une application sous la forme d'un UNIQUE fichier HTML complet (Single-File HTML).
 
-1. "app_metadata": Identité de l'app (name, version_timestamp).
-2. "frontend": Code UI pur (html et css) sans le tag <html> ou <body>. 
-3. "logic": Code JS brut (en texte). Il doit obligatoirement inclure un appel à 'window.OneAppAPI.loadData().then(...)' au lancement pour récupérer les données, et appeler 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
+RÈGLES STRICTES :
+1. Structure : <!DOCTYPE html> contenant tout le CSS (<style>) et tout le JS (<script>).
+2. Métadonnées dans <head> : Inclure <title>Nom de l'App</title> et <meta name="oneapp-icon" content="[Emoji ou SVG]">
+3. Mémoire IA : Ajoute au début du <body> un commentaire HTML <!-- === AI MANIFEST === ... --> décrivant le data_schema et les fonctions.
+4. Mock API (Obligatoire en haut du <script>) : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock save:", data) };
+5. Communication One App :
+   * Initialise via window.OneAppAPI.loadData().then(...)
+   * Sauvegarde via window.OneAppAPI.saveData(donnees)
+   * Déclare window.OneAppInternal_OnRestore et window.OneAppInternal_OnModeChange.
 
-Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].
-Génère UNIQUEMENT le code JSON valide.`;
-            
-            navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le JSON ici.");
-            });
-        }
+Mon besoin : [INSERER VOTRE BESOIN ICI]. Génère UNIQUEMENT le code HTML complet dans le Canvas.`;
+        navigator.clipboard.writeText(prompt).then(() => {
+            alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
+        });
+    }
 
-        async function createNewFile(appFileId, appName, folderId) {
+    async function createNewFile(appFileId, appName, folderId) {
             let fileName = prompt("Nom du nouveau fichier :");
             if (!fileName || fileName.trim() === "") return;
 
@@ -919,78 +936,76 @@ Génère UNIQUEMENT le code JSON valide.`;
         });
 
         // --- LE CHARGEUR D'APPLICATION ---
-        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
-            document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
-            document.getElementById('loading-apps').style.display = 'block';
+    async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
+        document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
+        document.getElementById('loading-apps').style.display = 'block';
 
-            try {
-                // ÉTAPE 3 : Capturer l'heure du fichier au chargement
-                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let fileMeta = await metaRes.json();
-                currentFileVersion = fileMeta.modifiedTime;
+        try {
+            // ÉTAPE 3 : Capturer l'heure du fichier au chargement
+            let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+            let fileMeta = await metaRes.json();
+            currentFileVersion = fileMeta.modifiedTime;
 
-                document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
-                
-                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let appJson = await appRes.json();
+            document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
+            
+            let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+            let appHtml = await appRes.text();
 
-                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let oneFileJson = await dataRes.json();
+            let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+            let oneFileJson = await dataRes.json();
 
-                currentActiveOneFileId = oneFileId;
-                currentOneFileMetadata = oneFileJson.oneapp_metadata;
-                window.currentLoadedAppData = oneFileJson.app_data || []; 
-                localContent = window.currentLoadedAppData;
-                isDirty = false;
-                isSyncing = false;
+            currentActiveOneFileId = oneFileId;
+            currentOneFileMetadata = oneFileJson.oneapp_metadata;
+            window.currentLoadedAppData = oneFileJson.app_data || []; 
+            localContent = window.currentLoadedAppData;
+            isDirty = false;
+            isSyncing = false;
 
-                // Initialisation de la RAM (Point zéro)
-                appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
-                appDataCurrentIndex = 0;
-                
-                isAppReadOnly = false;
-                const btn = document.getElementById('toggle-readonly-btn');
-                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.borderColor = "transparent";
-                btn.style.color = "var(--text-primary)";
-                btn.style.pointerEvents = "auto";
+            // Initialisation de la RAM (Point zéro)
+            appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
+            appDataCurrentIndex = 0;
+            
+            isAppReadOnly = false;
+            const btn = document.getElementById('toggle-readonly-btn');
+            btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+            btn.style.borderColor = "transparent";
+            btn.style.color = "var(--text-primary)";
+            btn.style.pointerEvents = "auto";
 
-                const fullHTML = "<!DOCTYPE html><html><head><style>" + 
-                    (appJson.frontend.css || "") + 
-                    "</style><script>" + 
-                    apiBridgeScript + 
-                    "<\/script></head><body>" + 
-                    (appJson.frontend.html || "") + 
-                    "<script>" + 
-                    (appJson.logic || "") + 
-                    "<\/script></body></html>";
-
-                const iframe = document.createElement('iframe');
-                iframe.sandbox = "allow-scripts"; 
-                iframe.srcdoc = fullHTML;
-                iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
-
-                const container = document.getElementById('iframe-container');
-                container.innerHTML = ''; container.appendChild(iframe);
-                
-                document.getElementById('running-app-name').innerText = appName;
-                document.getElementById('running-file-title').value = oneFileName;
-                
-                document.getElementById('authenticated-view').style.display = 'none';
-                document.getElementById('execution-view').style.display = 'flex';
-                
-                currentRunningApp = appJson;
-
-                // Lancement du Radar d'écoute asynchrone
-                startPolling();
-
-            } catch (error) {
-                console.error(error);
-                alert("Erreur critique lors du téléchargement des fichiers.");
-            } finally {
-                document.getElementById('loading-apps').style.display = 'none';
-                document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+            let fullHTML = appHtml;
+            if (fullHTML.includes('<head>')) {
+                fullHTML = fullHTML.replace('<head>', '<head><script>' + apiBridgeScript + '<\/script>');
+            } else {
+                fullHTML = '<script>' + apiBridgeScript + '<\/script>' + fullHTML;
             }
+
+            const iframe = document.createElement('iframe');
+            iframe.sandbox = "allow-scripts allow-modals"; 
+            iframe.srcdoc = fullHTML;
+            iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
+
+            const container = document.getElementById('iframe-container');
+            container.innerHTML = ''; container.appendChild(iframe);
+            
+            document.getElementById('running-app-name').innerText = appName;
+            document.getElementById('running-file-title').value = oneFileName;
+            
+            document.getElementById('authenticated-view').style.display = 'none';
+            document.getElementById('execution-view').style.display = 'flex';
+            
+            currentRunningApp = appHtml;
+
+            // Lancement du Radar d'écoute asynchrone
+            startPolling();
+
+        } catch (error) {
+            console.error(error);
+            alert("Erreur critique lors du téléchargement des fichiers.");
+        } finally {
+            document.getElementById('loading-apps').style.display = 'none';
+            document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+        }
+    }
         }
 
         function closeApp() {
@@ -1022,62 +1037,56 @@ Génère UNIQUEMENT le code JSON valide.`;
 
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
         function toggleInstallSection() {
-            const section = document.getElementById('install-section');
-            section.style.display = section.style.display === 'block' ? 'none' : 'block';
+        const section = document.getElementById('install-section');
+        section.style.display = section.style.display === 'block' ? 'none' : 'block';
+    }
+
+    async function installAppFromHtml() {
+        const htmlText = document.getElementById('json-input').value.trim();
+        if (!htmlText) return alert("Veuillez coller le code HTML de l'application.");
+
+        const titleMatch = htmlText.match(/<title>(.*?)<\/title>/i);
+        const appName = titleMatch ? titleMatch[1].trim() : "Nouvelle Application";
+
+        const iconMatch = htmlText.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
+        const appIcon = iconMatch ? iconMatch[1] : "";
+
+        const fileName = `${appName}.oneapp`;
+
+        document.getElementById('install-loader').style.display = 'block';
+
+        try {
+            const appFolderId = await getOrCreateFolder(appName, rootFolderId);
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const metadata = { name: fileName, mimeType: "text/html", parents: [appFolderId], description: appIcon };
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: text/html\r\n\r\n' + htmlText + close_delim;
+
+            await fetch(UPLOAD_API_URL, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: multipartRequestBody
+            });
+
+            alert(`L'application "${appName}" a été installée avec succès !`);
+            
+            document.getElementById('json-input').value = '';
+            toggleInstallSection();
+            document.getElementById('install-loader').style.display = 'none';
+            await listInstalledApps();
+
+        } catch (error) {
+            console.error(error);
+            alert("Erreur lors de l'installation sur Google Drive.");
+            document.getElementById('install-loader').style.display = 'none';
         }
+    }
 
-        async function installAppFromJson() {
-            const jsonText = document.getElementById('json-input').value.trim();
-            if (!jsonText) return alert("Veuillez coller un manifeste JSON.");
-
-            let appData;
-            try {
-                appData = JSON.parse(jsonText);
-            } catch (e) {
-                return alert("Erreur : Le texte collé n'est pas un JSON valide.");
-            }
-
-            if (!appData.app_metadata || !appData.app_metadata.name) {
-                return alert("Erreur : Le JSON ne semble pas être un .oneapp valide (metadata manquantes).");
-            }
-
-            const appName = appData.app_metadata.name;
-            const fileName = `${appName}.oneapp`;
-
-            document.getElementById('install-loader').style.display = 'block';
-
-            try {
-                const appFolderId = await getOrCreateFolder(appName, rootFolderId);
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
-                const metadata = { name: fileName, mimeType: "application/json", parents: [appFolderId] };
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(appData) + close_delim;
-
-                await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-
-                alert(`L'application "${appName}" a été installée avec succès !`);
-                
-                document.getElementById('json-input').value = '';
-                toggleInstallSection();
-                document.getElementById('install-loader').style.display = 'none';
-                await listInstalledApps();
-
-            } catch (error) {
-                console.error(error);
-                alert("Erreur lors de l'installation sur Google Drive.");
-                document.getElementById('install-loader').style.display = 'none';
-            }
-        }
-
-        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
+    // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
         let editorHistory = [];
         let editorCurrentIndex = -1;
         let editingAppFileId = null;
@@ -1134,40 +1143,39 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         async function openAppEditor(fileId, appName) {
-            console.log(`Ouverture de l'éditeur pour : ${appName}`);
-            editingAppFileId = fileId;
-            editorHistory = [];
-            editorCurrentIndex = -1;
+        console.log(`Ouverture de l'éditeur pour : ${appName}`);
+        editingAppFileId = fileId;
+        editorHistory = [];
+        editorCurrentIndex = -1;
+        
+        document.getElementById('loading-apps').innerText = "Téléchargement du code source...";
+        document.getElementById('loading-apps').style.display = 'block';
+
+        try {
+            let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+            });
             
-            document.getElementById('loading-apps').innerText = "Téléchargement du code source...";
-            document.getElementById('loading-apps').style.display = 'block';
-
-            try {
-                let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-                });
-                
-                if (!response.ok) throw new Error("Erreur de téléchargement");
-                
-                let appData = await response.json();
-                let jsonString = JSON.stringify(appData, null, 2);
-                
-                fullCodeInput.value = jsonString;
-                saveEditorState(jsonString);
-                
-                document.getElementById('edit-app-title-input').value = appName;
-                document.getElementById('authenticated-view').style.display = 'none';
-                document.getElementById('edit-app-view').style.display = 'flex';
-                
-            } catch (error) {
-                console.error("Erreur éditeur :", error);
-                alert("Impossible de charger le code source depuis Drive.");
-            } finally {
-                document.getElementById('loading-apps').style.display = 'none';
-            }
+            if (!response.ok) throw new Error("Erreur de téléchargement");
+            
+            let appHtml = await response.text();
+            
+            fullCodeInput.value = appHtml;
+            saveEditorState(appHtml);
+            
+            document.getElementById('edit-app-title-input').value = appName;
+            document.getElementById('authenticated-view').style.display = 'none';
+            document.getElementById('edit-app-view').style.display = 'flex';
+            
+        } catch (error) {
+            console.error("Erreur éditeur :", error);
+            alert("Impossible de charger le code source depuis Drive.");
+        } finally {
+            document.getElementById('loading-apps').style.display = 'none';
         }
+    }
 
-        function closeAppEditor() {
+    function closeAppEditor() {
             document.getElementById('edit-app-view').style.display = 'none';
             document.getElementById('authenticated-view').style.display = 'block';
             fullCodeInput.value = '';
@@ -1175,48 +1183,30 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         function copyCodeForAI() {
-            const currentCode = fullCodeInput.value;
-            
-            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
+        const currentCode = fullCodeInput.value;
+        
+        const aiPrompt = `Tu es le développeur expert du moteur "One App". L'utilisateur souhaite modifier son application Single-File HTML.
 
-Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
+RÈGLES DE MODIFICATION :
+1. Conserve la balise <title>, la balise <meta name="oneapp-icon">, ainsi que les commentaires d'architecture <!-- AI MANIFEST --> au début du <body>.
+2. Préserve le Mock API au début du <script> et la communication avec l'OS (OneAppAPI.loadData, OneAppAPI.saveData, OneAppInternal_OnRestore, OneAppInternal_OnModeChange).
+3. Renvoie l'intégralité du code HTML mis à jour et fonctionnel dans le Canvas.
 
-1. Analyse du contexte (Obligatoire)
-Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
-
-2. Architecture du fichier (.oneapp)
-Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
-- app_metadata : Identité.
-- ai_manifest : Mémoire et contexte pour toi.
-- frontend : Contient html et css (sans balises <html> ou <body>).
-- backend_functions : Le catalogue explicatif des fonctions internes.
-- logic : Le code JavaScript brut sous forme de string.
-
-3. Contraintes de la Logique (Le Moteur One App)
-Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
-- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
-- window.OneAppInternal_OnRestore
-- window.OneAppInternal_OnModeChange
-
-4. Format de sortie (Canvas)
-L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
-
-Voici le code source actuel de l'application :
-
-\`\`\`json
+Voici le code source actuel :
+\`\`\`html
 ${currentCode}
 \`\`\`
 
-Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
+Demande de modification : [ÉCRIVEZ VOTRE DEMANDE ICI]`;
 
-            navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
-            }).catch(err => {
-                alert("Erreur lors de la copie.");
-            });
-        }
+        navigator.clipboard.writeText(aiPrompt).then(() => {
+            alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
+        }).catch(err => {
+            alert("Erreur lors de la copie.");
+        });
+    }
 
-        function clearEditor() {
+    function clearEditor() {
             if (confirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
                 fullCodeInput.value = '';
                 saveEditorState('');
@@ -1225,45 +1215,53 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
         }
 
         async function saveEditorCode() {
-            let currentCode = fullCodeInput.value.trim();
+        let currentCode = fullCodeInput.value.trim();
 
-            if (!currentCode) return showEditorStatus("Le champ de code est vide.");
+        if (!currentCode) return showEditorStatus("Le champ de code est vide.");
 
-            try {
-                JSON.parse(currentCode);
-            } catch (e) {
-                alert("Erreur : Le code JSON est invalide.\nVérifiez qu'il ne manque pas de virgules, d'accolades, ou que l'IA n'a pas tronqué sa réponse.");
-                showEditorStatus("Échec : Code JSON invalide.");
-                return; 
-            }
+        saveEditorState(currentCode);
+        showEditorStatus("Sauvegarde cloud en cours...");
+        await saveAppToDrive(currentCode);
+    }
 
-            saveEditorState(currentCode);
-            showEditorStatus("Sauvegarde cloud en cours...");
-            await saveAppToDrive(currentCode);
+    async function saveAppToDrive(htmlString) {
+        if (!editingAppFileId) return;
+
+        const titleMatch = htmlString.match(/<title>(.*?)<\/title>/i);
+        const appName = titleMatch ? titleMatch[1].trim() : "Application";
+
+        const iconMatch = htmlString.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
+        const appIcon = iconMatch ? iconMatch[1] : "";
+
+        try {
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const metadata = { mimeType: "text/html", description: appIcon };
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: text/html\r\n\r\n' + htmlString + close_delim;
+
+            const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=multipart`;
+            await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${globalAccessToken}`,
+                    'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body: multipartRequestBody
+            });
+            showEditorStatus("Succès ! Application mise à jour sur Drive.");
+            listInstalledApps(); // Rafraîchit l'icône dans l'espace de travail en arrière-plan
+        } catch (e) {
+            console.error(e);
+            showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
+            alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
         }
+    }
 
-        async function saveAppToDrive(jsonString) {
-            if (!editingAppFileId) return;
-
-            try {
-                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=media`;
-                await fetch(url, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${globalAccessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: jsonString
-                });
-                showEditorStatus("Succès ! Application mise à jour sur Drive.");
-            } catch (e) {
-                console.error(e);
-                showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
-                alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
-            }
-        }
-
-        function editorUndo() {
+    function editorUndo() {
             if (editorCurrentIndex > 0) {
                 editorCurrentIndex--;
                 fullCodeInput.value = editorHistory[editorCurrentIndex];
