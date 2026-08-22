@@ -221,10 +221,12 @@
                 </div>
             </div>
             
-            <div class="execution-right">
+            <div class="execution-center">
                 <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
                 <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
-                
+            </div>
+
+            <div class="execution-right">
                 <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
                 
                 <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
@@ -307,7 +309,6 @@
 
     <script>
         // --- CONFIGURATION ---
-        // Sécurisation : On vérifie que config.js a bien été chargé
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
@@ -315,8 +316,16 @@
 
         let tokenClient;
         let globalAccessToken;
-        let rootFolderId = null; // Stocke l'ID du dossier racine "One App"
-        let currentUserEmail = "Utilisateur"; // Identifiant pour le verrou
+        let rootFolderId = null;
+        let currentUserEmail = "Utilisateur";
+
+        // --- CERVEAU LOCAL (VARIABLES D'ÉTAT - OPTIMISTIC CONCURRENCY) ---
+        let currentFileVersion = null;
+        let localContent = null;
+        let isDirty = false;
+        let isSyncing = false;
+        let debounceTimer = null;
+        let pollingInterval = null;
 
         async function fetchUserProfile() {
             try {
@@ -369,7 +378,7 @@
                         if (tokenResponse && tokenResponse.access_token) {
                             globalAccessToken = tokenResponse.access_token;
                             
-                            // Sauvegarde du jeton en local (Il est valide 1 heure)
+                            // Sauvegarde du jeton en local
                             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
                             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
                             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
@@ -384,31 +393,23 @@
                     }
                 });
             }
-            
-            // On retire le "prompt: 'consent'" forcé. 
-            // Si l'utilisateur a déjà consenti par le passé, Google renouvellera le jeton de manière quasi-invisible.
             tokenClient.requestAccessToken();
         }
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
-
         async function initializeAppSystem() {
-            // 1. Trouver ou créer le dossier racine
             rootFolderId = await getOrCreateFolder("One App", "root");
-            // 2. Lister les applications
             await listInstalledApps();
         }
 
-        // Utilitaire : Trouver ou créer un dossier
         async function getOrCreateFolder(folderName, parentId) {
             const query = encodeURIComponent(`name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`);
             let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
             let data = await response.json();
             
             if (data.files && data.files.length > 0) {
-                return data.files[0].id; // Dossier trouvé
+                return data.files[0].id;
             } else {
-                // Création du dossier
                 const metadata = { name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] };
                 let createRes = await fetch(DRIVE_API_URL, {
                     method: 'POST',
@@ -420,13 +421,11 @@
             }
         }
 
-        // Chercher tous les fichiers .oneapp dans le Drive de l'utilisateur
         async function listInstalledApps() {
             document.getElementById('loading-apps').style.display = 'block';
             document.getElementById('app-grid').innerHTML = '';
-            if(activeSubmenu) activeSubmenu = null; // Reset submenu state
+            if(activeSubmenu) activeSubmenu = null;
 
-            // On cherche les .oneapp ET on récupère leur dossier parent (parents)
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
             let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents)`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
@@ -445,7 +444,6 @@
                         <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
                         <span>${displayName}</span>
                     `;
-                    // Le clic ouvre désormais le sous-menu de l'Espace de travail
                     card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
                 });
@@ -457,7 +455,6 @@
         let activeSubmenu = null;
 
         async function toggleAppMenu(cardElement, appFileId, appName, appFolderId) {
-            // Fermer si déjà ouvert sur la même app
             if (activeSubmenu && activeSubmenu.dataset.appId === appFileId) {
                 activeSubmenu.remove();
                 activeSubmenu = null;
@@ -490,7 +487,6 @@
             document.getElementById('app-grid').appendChild(submenu);
             activeSubmenu = submenu;
 
-            // Fonctionnalité de recherche (Filtre visuel)
             document.getElementById('submenu-search').addEventListener('input', (e) => {
                 const term = e.target.value.toLowerCase();
                 document.querySelectorAll('.file-item').forEach(item => {
@@ -499,7 +495,6 @@
                 });
             });
 
-            // Gérer la fermeture des menus kebab quand on clique ailleurs
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.file-item-menu')) {
                     document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
@@ -529,9 +524,7 @@
                 input.value = "Fichier sans nom";
                 return;
             }
-            
             try {
-                // PATCH silencieux vers Google Drive pour changer juste le nom
                 await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
@@ -544,7 +537,6 @@
         }
 
         async function loadAppFiles(folderId, appFileId, appName) {
-            // Recherche des .onefile dans le dossier de cette application spécifique
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
             try {
                 let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime)&orderBy=modifiedTime desc`, {
@@ -586,7 +578,6 @@
         }
 
         function toggleFileMenu(fileId) {
-            // Ferme tous les autres avant
             document.querySelectorAll('.file-item-dropdown').forEach(d => {
                 if(d.id !== `dropdown-${fileId}`) d.classList.remove('active');
             });
@@ -604,7 +595,6 @@
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: `${newName}.onefile` })
                 });
-                // On rafraîchit la liste
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appFileId, appName);
             } catch (e) {
@@ -653,7 +643,6 @@ Génère UNIQUEMENT le code JSON valide.`;
 
             document.getElementById('submenu-loader').style.display = 'block';
             
-            // Création du JSON .onefile vierge standardisé
             const newOneFile = {
                 oneapp_metadata: {
                     app_name: appName,
@@ -680,7 +669,6 @@ Génère UNIQUEMENT le code JSON valide.`;
                     body: multipartRequestBody
                 });
                 let createdFile = await response.json();
-                // Ouverture immédiate de l'application avec ce nouveau fichier
                 openAppEnvironment(appFileId, appName, createdFile.id, fileName);
             } catch(e) {
                 console.error(e);
@@ -689,48 +677,16 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
-        // Le Bridge inclut désormais l'écoute silencieuse des ordres du Moteur (RESTORE et READ_ONLY)
         const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
 
         let currentRunningApp = null;
         let currentActiveOneFileId = null;
         let currentOneFileMetadata = null;
         
-        // La RAM (Le voyage dans le temps des données)
         let appDataHistory = [];
         let appDataCurrentIndex = -1;
         let isAppReadOnly = false;
         
-        // SYSTÈME DE VERROUILLAGE (HEARTBEAT LOCK)
-        let lockInterval = null;
-        let isFileLockedByOther = false;
-
-        async function updateFileLock(fileId, isLocking) {
-            const expireTime = isLocking ? (Date.now() + 60000).toString() : "0";
-            const lockedBy = isLocking ? currentUserEmail : "";
-            try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ appProperties: { lockedUntil: expireTime, lockedBy: lockedBy } })
-                });
-            } catch (e) { console.error("Erreur de verrouillage :", e); }
-        }
-
-        function startHeartbeat(fileId) {
-            if (lockInterval) clearInterval(lockInterval);
-            lockInterval = setInterval(() => {
-                if (!isFileLockedByOther && currentActiveOneFileId === fileId) {
-                    updateFileLock(fileId, true);
-                }
-            }, 30000);
-        }
-
-        function stopHeartbeat(fileId) {
-            if (lockInterval) { clearInterval(lockInterval); lockInterval = null; }
-            if (!isFileLockedByOther) updateFileLock(fileId, false); // Libération propre
-        }
-
         // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
         window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
@@ -738,11 +694,11 @@ Génère UNIQUEMENT le code JSON valide.`;
             if (event.data.type === 'LOAD_DATA_REQUEST') {
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
-                    payload: { readOnly: isAppReadOnly || isFileLockedByOther, app_data: window.currentLoadedAppData || [] }
+                    payload: { readOnly: isAppReadOnly, app_data: window.currentLoadedAppData || [] }
                 }, '*');
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
-                if (isAppReadOnly || isFileLockedByOther) {
+                if (isAppReadOnly) {
                     console.warn("MOTEUR : Sauvegarde bloquée (Mode Lecture Seule)");
                     return;
                 }
@@ -759,25 +715,42 @@ Génère UNIQUEMENT le code JSON valide.`;
                     appDataCurrentIndex = appDataHistory.length - 1;
                 }
 
-                saveActiveOneFile(newData); // Synchronisation silencieuse Drive
+                // ETAPE 4 : Tampon de frappe (Debounce)
+                localContent = newData;
+                isDirty = true;
+                
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    syncToDrive();
+                }, 3000);
             }
         });
 
         // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
         function appUndo() {
-            if (isAppReadOnly || isFileLockedByOther || appDataCurrentIndex <= 0) return;
+            if (isAppReadOnly || appDataCurrentIndex <= 0) return;
             appDataCurrentIndex--;
             const oldData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
-            saveActiveOneFile(oldData); 
+            
+            // Déclenche la sauvegarde avec debounce
+            localContent = oldData;
+            isDirty = true;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { syncToDrive(); }, 3000);
         }
 
         function appRedo() {
-            if (isAppReadOnly || isFileLockedByOther || appDataCurrentIndex >= appDataHistory.length - 1) return;
+            if (isAppReadOnly || appDataCurrentIndex >= appDataHistory.length - 1) return;
             appDataCurrentIndex++;
             const newData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
-            saveActiveOneFile(newData);
+            
+            // Déclenche la sauvegarde avec debounce
+            localContent = newData;
+            isDirty = true;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { syncToDrive(); }, 3000);
         }
 
         function toggleAppMode() {
@@ -792,34 +765,158 @@ Génère UNIQUEMENT le code JSON valide.`;
                 btn.style.background = "transparent";
             }
             
-            // On crie le changement de mode à l'application
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
         }
 
-        // --- LE MOTEUR DE SYNCHRONISATION GOOGLE DRIVE ---
-        async function saveActiveOneFile(appDataPayload) {
-            if (!currentActiveOneFileId || !currentOneFileMetadata) return;
+        // --- ÉTAPE 5 : LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
+        async function syncToDrive() {
+            if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent) return;
 
-            currentOneFileMetadata.version_timestamp = new Date().toISOString();
-
-            const updatedOneFile = {
-                oneapp_metadata: currentOneFileMetadata,
-                app_data: appDataPayload
-            };
-
-            const url = `https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media`;
+            isSyncing = true;
 
             try {
-                await fetch(url, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedOneFile)
-                });
-                console.log("MOTEUR : Fichier synchronisé avec succès !");
+                // 1. Récupération de l'heure exacte du fichier sur le cloud
+                let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let fileMeta = await metaRes.json();
+                let driveTime = fileMeta.modifiedTime;
+
+                // 2. Le Bouclier de Sécurité : Est-ce qu'un tiers a modifié le fichier ?
+                if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
+                    // --- CAS CONFLIT ---
+                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
+
+                    const backupName = `${document.getElementById('running-file-title').value} - Copie de secours.onefile`;
+                    const boundary = '-------314159265358979323846';
+                    const delimiter = "\r\n--" + boundary + "\r\n";
+                    const close_delim = "\r\n--" + boundary + "--";
+
+                    // On récupère le parent actuel pour y ranger la copie
+                    let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let parentData = await parentRes.json();
+                    let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+
+                    const backupOneFile = {
+                        oneapp_metadata: currentOneFileMetadata,
+                        app_data: localContent
+                    };
+
+                    const metadata = { name: backupName, mimeType: "application/json", parents: [parentFolderId] };
+                    const multipartRequestBody =
+                        delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                        delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(backupOneFile) + close_delim;
+
+                    // Création de la copie de secours
+                    await fetch(UPLOAD_API_URL, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                        body: multipartRequestBody
+                    });
+
+                    // Téléchargement des données fraîches du fichier original
+                    let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let freshOneFileJson = await dataRes.json();
+                    
+                    let freshData = freshOneFileJson.app_data || [];
+                    window.currentLoadedAppData = freshData;
+                    
+                    // Transmission des données réconciliées à l'Iframe
+                    const iframe = document.querySelector('#iframe-container iframe');
+                    if (iframe) {
+                        iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+                    }
+
+                    // On réinitialise notre RAM et on valide la nouvelle version
+                    currentFileVersion = driveTime;
+                    isDirty = false;
+                    localContent = freshData;
+                    
+                    // Mise à jour de l'historique d'édition
+                    appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+                    appDataCurrentIndex = 0;
+                    
+                    alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+
+                } else {
+                    // --- CAS NORMAL (PATCH) ---
+                    currentOneFileMetadata.version_timestamp = new Date().toISOString();
+                    const updatedOneFile = {
+                        oneapp_metadata: currentOneFileMetadata,
+                        app_data: localContent
+                    };
+
+                    // On fait le PATCH en demandant de nous renvoyer la nouvelle modifiedTime
+                    let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media&fields=id,modifiedTime`, {
+                        method: 'PATCH',
+                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedOneFile)
+                    });
+                    
+                    let patchData = await patchRes.json();
+                    
+                    // On retient la nouvelle date validée par Google Drive
+                    currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
+                    isDirty = false;
+                    console.log("MOTEUR : Fichier synchronisé avec succès !");
+                }
             } catch (e) {
-                console.error("Erreur de sauvegarde Cloud :", e);
+                console.error("Erreur de synchronisation Cloud :", e);
+            } finally {
+                isSyncing = false;
             }
         }
+
+        // --- ÉTAPE 6 : LE RADAR SILENCIEUX (POLLING) ---
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            pollingInterval = setInterval(async () => {
+                // On coupe le radar temporairement si on est en train de sauvegarder
+                if (!currentActiveOneFileId || isSyncing) return;
+                
+                try {
+                    let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let fileMeta = await metaRes.json();
+                    let driveTime = fileMeta.modifiedTime;
+
+                    // A-t-on du retard par rapport au Cloud ?
+                    if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
+                        if (!isDirty) {
+                            // Le Lecteur Fantôme : on n'a rien écrit, on télécharge silencieusement
+                            console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
+                            let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                            let freshOneFileJson = await dataRes.json();
+                            
+                            let freshData = freshOneFileJson.app_data || [];
+                            window.currentLoadedAppData = freshData;
+                            currentFileVersion = driveTime;
+                            localContent = freshData;
+                            
+                            const iframe = document.querySelector('#iframe-container iframe');
+                            if (iframe) {
+                                iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+                            }
+                            
+                            appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+                            appDataCurrentIndex = 0;
+                        } else {
+                            // Le Choc (Modifications locales en cours) : On ne touche à rien, syncToDrive réglera le problème.
+                            console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
+                        }
+                    }
+                } catch (e) {
+                    console.error("Erreur Polling :", e);
+                }
+            }, 15000); // Radar balaye toutes les 15 secondes
+        }
+
+        // On éteint le Radar si l'utilisateur change d'onglet
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                if (pollingInterval) clearInterval(pollingInterval);
+            } else {
+                if (currentActiveOneFileId) startPolling();
+            }
+        });
 
         // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName) {
@@ -827,17 +924,11 @@ Génère UNIQUEMENT le code JSON valide.`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                // 1. Vérification du Verrou (Métadonnées)
-                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=appProperties`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                // ÉTAPE 3 : Capturer l'heure du fichier au chargement
+                let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let fileMeta = await metaRes.json();
-                
-                let props = fileMeta.appProperties || {};
-                let lockedUntil = parseInt(props.lockedUntil || "0");
-                let lockedBy = props.lockedBy || "Quelqu'un";
-                
-                isFileLockedByOther = (lockedUntil > Date.now() && lockedBy !== currentUserEmail);
+                currentFileVersion = fileMeta.modifiedTime;
 
-                // 2. Téléchargements
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
                 let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
@@ -849,31 +940,20 @@ Génère UNIQUEMENT le code JSON valide.`;
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
                 window.currentLoadedAppData = oneFileJson.app_data || []; 
+                localContent = window.currentLoadedAppData;
+                isDirty = false;
+                isSyncing = false;
 
                 // Initialisation de la RAM (Point zéro)
                 appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
                 appDataCurrentIndex = 0;
                 
-                // Gestion de l'UI selon le verrou
+                isAppReadOnly = false;
                 const btn = document.getElementById('toggle-readonly-btn');
-                if (isFileLockedByOther) {
-                    isAppReadOnly = true;
-                    btn.innerHTML = '🔒 ' + lockedBy.split('@')[0];
-                    btn.style.borderColor = "#ef4444";
-                    btn.style.color = "#ef4444";
-                    btn.style.pointerEvents = "none";
-                    alert(`Ce fichier est actuellement modifié par ${lockedBy}. Vous êtes en mode lecture seule.`);
-                } else {
-                    isAppReadOnly = false;
-                    btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                    btn.style.borderColor = "transparent";
-                    btn.style.color = "var(--text-primary)";
-                    btn.style.pointerEvents = "auto";
-                    
-                    // On prend le verrou et on lance le battement de coeur !
-                    await updateFileLock(oneFileId, true);
-                    startHeartbeat(oneFileId);
-                }
+                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+                btn.style.borderColor = "transparent";
+                btn.style.color = "var(--text-primary)";
+                btn.style.pointerEvents = "auto";
 
                 const fullHTML = "<!DOCTYPE html><html><head><style>" + 
                     (appJson.frontend.css || "") + 
@@ -893,16 +973,6 @@ Génère UNIQUEMENT le code JSON valide.`;
                 const container = document.getElementById('iframe-container');
                 container.innerHTML = ''; container.appendChild(iframe);
                 
-                let titleText = `${appName} - ${oneFileName}`;
-                if (isFileLockedByOther) {
-                    titleText += ` 🔒 (Lecture seule)`;
-                    setTimeout(() => {
-                        if (document.querySelector('#iframe-container iframe')) {
-                            document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: true }, '*');
-                        }
-                    }, 1000);
-                }
-
                 document.getElementById('running-app-name').innerText = appName;
                 document.getElementById('running-file-title').value = oneFileName;
                 
@@ -910,6 +980,9 @@ Génère UNIQUEMENT le code JSON valide.`;
                 document.getElementById('execution-view').style.display = 'flex';
                 
                 currentRunningApp = appJson;
+
+                // Lancement du Radar d'écoute asynchrone
+                startPolling();
 
             } catch (error) {
                 console.error(error);
@@ -921,16 +994,20 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         function closeApp() {
-            if (currentActiveOneFileId) stopHeartbeat(currentActiveOneFileId);
+            clearTimeout(debounceTimer);
+            if (pollingInterval) clearInterval(pollingInterval);
 
             document.getElementById('execution-view').style.display = 'none';
-            document.getElementById('iframe-container').innerHTML = ''; // Nettoyer la RAM et détruire l'iframe
+            document.getElementById('iframe-container').innerHTML = '';
             document.getElementById('authenticated-view').style.display = 'block';
             currentRunningApp = null;
             currentActiveOneFileId = null;
             currentOneFileMetadata = null;
             appDataHistory = [];
             appDataCurrentIndex = -1;
+            localContent = null;
+            isDirty = false;
+            isSyncing = false;
 
             if (activeSubmenu) {
                 const appId = activeSubmenu.dataset.appId;
@@ -944,7 +1021,6 @@ Génère UNIQUEMENT le code JSON valide.`;
         }
 
         // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
-
         function toggleInstallSection() {
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
@@ -961,7 +1037,6 @@ Génère UNIQUEMENT le code JSON valide.`;
                 return alert("Erreur : Le texte collé n'est pas un JSON valide.");
             }
 
-            // Vérification basique du Manifeste One App
             if (!appData.app_metadata || !appData.app_metadata.name) {
                 return alert("Erreur : Le JSON ne semble pas être un .oneapp valide (metadata manquantes).");
             }
@@ -972,12 +1047,7 @@ Génère UNIQUEMENT le code JSON valide.`;
             document.getElementById('install-loader').style.display = 'block';
 
             try {
-                // 1. Créer le sous-dossier au nom de l'app dans le dossier racine
-                console.log(`Création du sous-dossier "${appName}"...`);
                 const appFolderId = await getOrCreateFolder(appName, rootFolderId);
-
-                // 2. Créer (Uploader) le fichier .oneapp dans ce sous-dossier
-                console.log(`Upload du fichier ${fileName}...`);
                 const boundary = '-------314159265358979323846';
                 const delimiter = "\r\n--" + boundary + "\r\n";
                 const close_delim = "\r\n--" + boundary + "--";
@@ -995,7 +1065,6 @@ Génère UNIQUEMENT le code JSON valide.`;
 
                 alert(`L'application "${appName}" a été installée avec succès !`);
                 
-                // 3. Rafraîchir l'interface
                 document.getElementById('json-input').value = '';
                 toggleInstallSection();
                 document.getElementById('install-loader').style.display = 'none';
@@ -1052,14 +1121,12 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
             
             try {
-                // PATCH vers Google Drive pour changer juste le nom
                 await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: `${newName}.oneapp` })
                 });
                 console.log("ÉDITEUR : Nom de l'app mis à jour avec succès.");
-                // Mise à jour de la liste des apps en arrière-plan
                 listInstalledApps(); 
             } catch (e) {
                 console.error("Erreur renommage application :", e);
@@ -1163,19 +1230,15 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             if (!currentCode) return showEditorStatus("Le champ de code est vide.");
 
             try {
-                // 1. Validation : On vérifie que c'est un JSON parfaitement valide avant toute chose
                 JSON.parse(currentCode);
             } catch (e) {
                 alert("Erreur : Le code JSON est invalide.\nVérifiez qu'il ne manque pas de virgules, d'accolades, ou que l'IA n'a pas tronqué sa réponse.");
                 showEditorStatus("Échec : Code JSON invalide.");
-                return; // On bloque la sauvegarde !
+                return; 
             }
 
-            // 2. Mise à jour de l'historique et de l'UI
             saveEditorState(currentCode);
             showEditorStatus("Sauvegarde cloud en cours...");
-            
-            // 3. Sauvegarde immédiate sur Google Drive
             await saveAppToDrive(currentCode);
         }
 
@@ -1218,21 +1281,17 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
 
         // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
         document.addEventListener('keydown', (e) => {
-            // Vérifie si Ctrl (Windows/Linux) ou Cmd (Mac) est pressé
             const isCmdOrCtrl = e.ctrlKey || e.metaKey;
 
             if (isCmdOrCtrl && e.key.toLowerCase() === 'z') {
                 if (e.shiftKey) {
-                    // Ctrl + Shift + Z = Redo
                     if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorRedo(); }
                     else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
                 } else {
-                    // Ctrl + Z = Undo
                     if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorUndo(); }
                     else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appUndo(); }
                 }
             } else if (isCmdOrCtrl && e.key.toLowerCase() === 'y') {
-                // Ctrl + Y = Redo
                 if (document.getElementById('edit-app-view').style.display === 'flex') { e.preventDefault(); editorRedo(); }
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
