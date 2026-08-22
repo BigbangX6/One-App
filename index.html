@@ -1109,10 +1109,41 @@ Génère UNIQUEMENT le code JSON valide.`;
 
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
-            const aiPrompt = `Voici le code source de mon application (JSON). Utilise Canvas pour apporter mes modifications et renvoie-moi l'intégralité du code JSON valide.\n\n\`\`\`json\n${currentCode}\n\`\`\``;
             
+            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
+
+Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
+
+1. Analyse du contexte (Obligatoire)
+Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
+
+2. Architecture du fichier (.oneapp)
+Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
+- app_metadata : Identité.
+- ai_manifest : Mémoire et contexte pour toi.
+- frontend : Contient html et css (sans balises <html> ou <body>).
+- backend_functions : Le catalogue explicatif des fonctions internes.
+- logic : Le code JavaScript brut sous forme de string.
+
+3. Contraintes de la Logique (Le Moteur One App)
+Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
+- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
+- window.OneAppInternal_OnRestore
+- window.OneAppInternal_OnModeChange
+
+4. Format de sortie (Canvas)
+L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
+
+Voici le code source actuel de l'application :
+
+\`\`\`json
+${currentCode}
+\`\`\`
+
+Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
+
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Code et instructions copiés ! Ouvrez Gemini, activez la fonctionnalité Canvas, et demandez votre modification.");
+                alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
             }).catch(err => {
                 alert("Erreur lors de la copie.");
             });
