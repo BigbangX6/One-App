@@ -142,6 +142,7 @@
         .header-dropdown.active { display: flex; }
         .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
         .header-dropdown button:hover { background: var(--bg-color); }
+        .header-dropdown button.danger { color: #ef4444; }
 
         /* Vue Invitation */
         #shared-invite-view { text-align: center; display: none; }
@@ -327,6 +328,8 @@
                         <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
                         <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
                         <button onclick="showAppHistory()">🕒 Historique des versions</button>
+                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                        <button class="danger" onclick="deleteAppFromEditor()">🗑️ Supprimer l'application</button>
                     </div>
                 </div>
 
@@ -499,7 +502,7 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)&orderBy=viewedByMeTime desc, modifiedTime desc`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -522,6 +525,13 @@
                         iconSvg = decoded;
                     } else if (rawIcon) {
                         iconSvg = `<div style="font-size: 32px; margin-bottom: 10px;">${rawIcon}</div>`;
+                    }
+
+                    if (!iconSvg || iconSvg.trim() === '' || iconSvg.trim().match(/^<div[^>]*>\s*<\/div>$/i)) {
+                        iconSvg = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
+                    }
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = "Application en cours...";
                     }
 
                     card.innerHTML = `${iconSvg}<span>${displayName}</span>`;
@@ -1294,15 +1304,13 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('edit-header-menu').classList.remove('active');
 
             try {
-                let parentRes = await fetch(`${DRIVE_API_URL}/${editingAppFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let parentData = await parentRes.json();
-                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+                const appFolderId = await getOrCreateFolder(newName, rootFolderId);
 
                 const boundary = '-------314159265358979323846';
                 const delimiter = "\r\n--" + boundary + "\r\n";
                 const close_delim = "\r\n--" + boundary + "--";
 
-                const metadata = { name: `${newName}.oneapp`, mimeType: "text/html", parents: [parentFolderId], description: appIcon };
+                const metadata = { name: `${newName}.oneapp`, mimeType: "text/html", parents: [appFolderId], description: appIcon };
                 const multipartRequestBody =
                     delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
                     delimiter + 'Content-Type: text/html\r\n\r\n' + currentCode + close_delim;
@@ -1315,7 +1323,9 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
                 alert(`La copie "${newName}" a été créée avec succès !`);
                 showEditorStatus("Prêt.");
-                listInstalledApps(); // Rafraîchit la grille en arrière-plan
+                
+                closeAppEditor();
+                await listInstalledApps();
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur lors de la copie.");
@@ -1341,6 +1351,27 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             URL.revokeObjectURL(url);
             
             document.getElementById('edit-header-menu').classList.remove('active');
+        }
+
+        async function deleteAppFromEditor() {
+            if (!confirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?")) return;
+
+            showEditorStatus("Suppression en cours...");
+            document.getElementById('edit-header-menu').classList.remove('active');
+
+            try {
+                await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trashed: true })
+                });
+                
+                closeAppEditor();
+                await listInstalledApps();
+            } catch (e) {
+                alert("Erreur lors de la suppression.");
+                showEditorStatus("Prêt.");
+            }
         }
 
         async function openAppEditor(fileId, appName) {
