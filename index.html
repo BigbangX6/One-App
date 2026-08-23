@@ -288,8 +288,8 @@
                     <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="execution-header-menu">
                         <button class="primary-btn show-on-mobile-inline" onclick="alert('Le partage public générera un lien unique !')" style="display: none; border-radius: 8px; margin: 0 10px 10px 10px;">🔒 Partager</button>
-                        <button onclick="alert('L\'application va s\'occuper de l\'export !')">📥 Exporter le contenu</button>
-                        <button onclick="alert('Cela dupliquera le .onefile sur votre Drive.')">📄 Créer une copie</button>
+                        <button onclick="triggerAppExport()">📥 Exporter le contenu</button>
+                        <button onclick="duplicateActiveFile()">📄 Créer une copie</button>
                         <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App</button>
                         <button onclick="showDataHistory()">🕒 Historique des versions</button>
                     </div>
@@ -324,6 +324,8 @@
                     <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="edit-header-menu">
                         <button onclick="alert('Le partage public générera un lien unique (prochaine étape !)')">🔒 Partager l'application</button>
+                        <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
+                        <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
                         <button onclick="showAppHistory()">🕒 Historique des versions</button>
                     </div>
                 </div>
@@ -615,6 +617,70 @@
                 console.error("Erreur renommage en direct :", e);
             }
         }
+        
+        async function duplicateActiveFile() {
+            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!currentActiveOneFileId || !localContent) return;
+
+            const currentName = document.getElementById('running-file-title').value;
+            let newName = prompt("Nom de la copie :", "Copie de " + currentName);
+            if (!newName || newName.trim() === "") return;
+
+            document.getElementById('execution-header-menu').classList.remove('active');
+            document.getElementById('loading-apps').innerText = "Création de la copie...";
+            document.getElementById('loading-apps').style.display = 'block';
+
+            try {
+                let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let parentData = await parentRes.json();
+                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+
+                const appName = currentOneFileMetadata.app_name;
+                const appFileId = currentOneFileMetadata.source_app_drive_id;
+
+                const newOneFile = {
+                    oneapp_metadata: {
+                        app_name: appName,
+                        source_app_drive_id: appFileId,
+                        version_timestamp: new Date().toISOString()
+                    },
+                    app_data: localContent
+                };
+
+                const fullFileName = `${newName}.onefile`;
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = { name: fullFileName, mimeType: "application/json", parents: [parentFolderId] };
+                const multipartRequestBody =
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
+
+                let response = await fetch(UPLOAD_API_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: multipartRequestBody
+                });
+                let createdFile = await response.json();
+                
+                document.getElementById('loading-apps').style.display = 'none';
+                document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+                
+                openAppEnvironment(appFileId, appName, createdFile.id, newName);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading-apps').style.display = 'none';
+                document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+            }
+        }
+        
+        function triggerAppExport() {
+            const iframe = document.querySelector('#iframe-container iframe');
+            if (iframe) iframe.contentWindow.postMessage({ type: 'EXPORT_REQUEST' }, '*');
+            document.getElementById('execution-header-menu').classList.remove('active');
+        }
 
         async function loadAppFiles(folderId, appFileId, appName) {
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
@@ -711,6 +777,8 @@ Voici les règles strictes de conception d'un fichier .oneapp :
 4. "Moteur One App": Tu DOIS inclure ce Mock API au début de ton script JS pour le test dans Canvas :
    window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
 5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
+6. "Export": L'application doit écouter window.addEventListener('message', ...) et réagir au type 'EXPORT_REQUEST' en déclenchant le téléchargement de ses données (ex: format .txt, .csv ou JSON selon le contexte de l'app) en générant un Blob.
+
 Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             
             navigator.clipboard.writeText(prompt).then(() => {
@@ -1209,6 +1277,71 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 console.error("Erreur renommage application :", e);
             }
         }
+        
+        async function duplicateAppFromEditor() {
+            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!editingAppFileId) return;
+
+            const currentName = document.getElementById('edit-app-title-input').value;
+            let newName = prompt("Nom de la copie de l'application :", "Copie de " + currentName);
+            if (!newName || newName.trim() === "") return;
+
+            const currentCode = document.getElementById('editor-full-code').value;
+            const iconMatch = currentCode.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
+            const appIcon = iconMatch ? iconMatch[1] : "";
+
+            showEditorStatus("Création de la copie en cours...");
+            document.getElementById('edit-header-menu').classList.remove('active');
+
+            try {
+                let parentRes = await fetch(`${DRIVE_API_URL}/${editingAppFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let parentData = await parentRes.json();
+                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = { name: `${newName}.oneapp`, mimeType: "text/html", parents: [parentFolderId], description: appIcon };
+                const multipartRequestBody =
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: text/html\r\n\r\n' + currentCode + close_delim;
+
+                await fetch(UPLOAD_API_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: multipartRequestBody
+                });
+
+                alert(`La copie "${newName}" a été créée avec succès !`);
+                showEditorStatus("Prêt.");
+                listInstalledApps(); // Rafraîchit la grille en arrière-plan
+            } catch (e) {
+                console.error(e);
+                showEditorStatus("Erreur lors de la copie.");
+                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+            }
+        }
+        
+        function downloadAppCode() {
+            const code = document.getElementById('editor-full-code').value;
+            const title = document.getElementById('edit-app-title-input').value;
+            
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}.html`;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('edit-header-menu').classList.remove('active');
+        }
 
         async function openAppEditor(fileId, appName) {
             console.log(`Ouverture de l'éditeur pour : ${appName}`);
@@ -1254,29 +1387,35 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
             
-            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications (.oneapp) qui est au format HTML monolithique.
+            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
 
 Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
 
 1. Analyse du contexte (Obligatoire)
-Avant de coder, lis attentivement le contexte sauvegardé en commentaires HTML au début du <body>. Si la modification demandée impacte la structure des données, mets à jour ces commentaires.
+Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
 
 2. Architecture du fichier (.oneapp)
-- "Single-File HTML": Renvoyer l'intégralité du fichier <!DOCTYPE html> mis à jour.
-- Préserve le <title> et l'icône dans <meta name="oneapp-icon" content="...">.
+Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
+- app_metadata : Identité.
+- ai_manifest : Mémoire et contexte pour toi.
+- frontend : Contient html et css (sans balises <html> ou <body>).
+- backend_functions : Le catalogue explicatif des fonctions internes.
+- logic : Le code JavaScript brut sous forme de string.
 
 3. Contraintes de la Logique (Le Moteur One App)
-Dans la logique Javascript, tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
+Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
 - window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
 - window.OneAppInternal_OnRestore
 - window.OneAppInternal_OnModeChange
 
-4. Format de sortie (Canvas)
-L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code HTML complet, valide, mis à jour et prêt à être parsé.
+4. Export: Préserve (ou implémente) l'écoute de l'événement 'EXPORT_REQUEST' pour permettre le téléchargement des données (ex: via un Blob).
+
+5. Format de sortie (Canvas)
+L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
 
 Voici le code source actuel de l'application :
 
-\`\`\`html
+\`\`\`json
 ${currentCode}
 \`\`\`
 
