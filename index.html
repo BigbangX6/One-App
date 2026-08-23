@@ -162,6 +162,34 @@
             border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
             font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
         }
+
+        /* --- HISTORIQUE (SIDEBAR) --- */
+        #history-sidebar {
+            position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
+            background: var(--surface-color); border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
+            transform: translateX(100%); transition: transform 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        #history-sidebar.open { transform: translateX(0); }
+        .history-header {
+            padding: 16px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .history-close-btn {
+            background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
+        }
+        .history-close-btn:hover { color: #ef4444; }
+        #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .history-item {
+            padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
+            cursor: pointer; background: var(--bg-color); transition: 0.2s;
+        }
+        .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
+        .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        #history-actions { padding: 16px; border-top: 1px solid var(--border-color); display: none; }
     </style>
 </head>
 <body>
@@ -201,7 +229,7 @@
 
         <div id="install-section">
             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
-                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat ici.
+                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
             </div>
             <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
             <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
@@ -244,7 +272,7 @@
                         <button onclick="alert('L\'application va s\'occuper de l\'export !')">📥 Exporter le contenu</button>
                         <button onclick="alert('Cela dupliquera le .onefile sur votre Drive.')">📄 Créer une copie</button>
                         <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App</button>
-                        <button onclick="alert('Affichera la liste des sauvegardes Drive des 30 derniers jours.')">🕒 Historique des versions</button>
+                        <button onclick="showDataHistory()">🕒 Historique des versions</button>
                     </div>
                 </div>
 
@@ -277,7 +305,7 @@
                     <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="edit-header-menu">
                         <button onclick="alert('Le partage public générera un lien unique (prochaine étape !)')">🔒 Partager l'application</button>
-                        <button onclick="alert('Affichera la liste des sauvegardes Drive des 30 derniers jours.')">🕒 Historique des versions</button>
+                        <button onclick="showAppHistory()">🕒 Historique des versions</button>
                     </div>
                 </div>
 
@@ -307,6 +335,19 @@
         </div>
     </div>
 
+    <div id="history-sidebar">
+        <div class="history-header">
+            <h3>Historique des versions</h3>
+            <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+        </div>
+        <div id="history-list">
+            <!-- Items will be injected here -->
+        </div>
+        <div id="history-actions">
+            <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
+        </div>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
@@ -326,6 +367,10 @@
         let isSyncing = false;
         let debounceTimer = null;
         let pollingInterval = null;
+        
+        // Variables pour la Time Machine (Historique)
+        let isViewingHistory = false;
+        let historyMode = null; // 'data' ou 'app'
 
         async function fetchUserProfile() {
             try {
@@ -709,8 +754,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 }, '*');
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
-                if (isAppReadOnly) {
-                    console.warn("MOTEUR : Sauvegarde bloquée (Mode Lecture Seule)");
+                if (isAppReadOnly || isViewingHistory) {
+                    console.warn("MOTEUR : Sauvegarde bloquée (Mode Lecture Seule ou Historique)");
                     return;
                 }
                 
@@ -739,7 +784,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
         function appUndo() {
-            if (isAppReadOnly || appDataCurrentIndex <= 0) return;
+            if (isAppReadOnly || isViewingHistory || appDataCurrentIndex <= 0) return;
             appDataCurrentIndex--;
             const oldData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
@@ -752,7 +797,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         function appRedo() {
-            if (isAppReadOnly || appDataCurrentIndex >= appDataHistory.length - 1) return;
+            if (isAppReadOnly || isViewingHistory || appDataCurrentIndex >= appDataHistory.length - 1) return;
             appDataCurrentIndex++;
             const newData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
@@ -765,6 +810,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         function toggleAppMode() {
+            if (isViewingHistory) return; // Prevent mode switch while in time machine
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
             
@@ -781,7 +827,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         // --- ÉTAPE 5 : LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
         async function syncToDrive() {
-            if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent) return;
+            if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent || isViewingHistory) return;
 
             isSyncing = true;
 
@@ -850,7 +896,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 } else {
                     // --- CAS NORMAL (PATCH) ---
                     currentOneFileMetadata.version_timestamp = new Date().toISOString();
-                    const updatedOneFile = {
+                    const updatedData = {
                         oneapp_metadata: currentOneFileMetadata,
                         app_data: localContent
                     };
@@ -859,7 +905,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media&fields=id,modifiedTime`, {
                         method: 'PATCH',
                         headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedOneFile)
+                        body: JSON.stringify(updatedData)
                     });
                     
                     let patchData = await patchRes.json();
@@ -881,8 +927,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (pollingInterval) clearInterval(pollingInterval);
             
             pollingInterval = setInterval(async () => {
-                // On coupe le radar temporairement si on est en train de sauvegarder
-                if (!currentActiveOneFileId || isSyncing) return;
+                // On coupe le radar temporairement si on est en train de sauvegarder ou dans la machine à remonter le temps
+                if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
                 
                 try {
                     let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
@@ -963,20 +1009,21 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 isAppReadOnly = false;
                 const btn = document.getElementById('toggle-readonly-btn');
                 btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.borderColor = "transparent";
+                btn.style.background = "transparent";
                 btn.style.color = "var(--text-primary)";
                 btn.style.pointerEvents = "auto";
 
                 // Injection du script de communication au sein du HTML de l'app
-                if (appHtml.includes('</head>')) {
-                    appHtml = appHtml.replace('</head>', '<script>' + apiBridgeScript + '<\/script></head>');
+                let fullHTML = appHtml;
+                if (fullHTML.includes('<head>')) {
+                    fullHTML = fullHTML.replace('<head>', '<head><script>' + apiBridgeScript + '<\/script>');
                 } else {
-                    appHtml = '<script>' + apiBridgeScript + '<\/script>' + appHtml;
+                    fullHTML = '<script>' + apiBridgeScript + '<\/script>' + fullHTML;
                 }
 
                 const iframe = document.createElement('iframe');
                 iframe.sandbox = "allow-scripts allow-modals"; 
-                iframe.srcdoc = appHtml;
+                iframe.srcdoc = fullHTML;
                 iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 
                 const container = document.getElementById('iframe-container');
@@ -1017,6 +1064,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             localContent = null;
             isDirty = false;
             isSyncing = false;
+            closeHistorySidebar(); // Ensure time machine is closed
 
             if (activeSubmenu) {
                 const appId = activeSubmenu.dataset.appId;
@@ -1175,6 +1223,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('authenticated-view').style.display = 'block';
             fullCodeInput.value = '';
             editingAppFileId = null;
+            closeHistorySidebar(); // Close time machine if open
         }
 
         function copyCodeForAI() {
@@ -1270,6 +1319,145 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
                 fullCodeInput.value = editorHistory[editorCurrentIndex];
                 showEditorStatus("Rétablissement. N'oubliez pas d'appliquer pour sauvegarder sur Drive.");
             }
+        }
+
+        // --- MACHINE À REMONTER LE TEMPS (HISTORIQUE) ---
+        
+        async function fetchRevisions(fileId) {
+            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime)&orderBy=modifiedTime desc`, {
+                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+            });
+            let data = await res.json();
+            return data.revisions || [];
+        }
+
+        async function fetchRevisionContent(fileId, revisionId) {
+            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
+            });
+            return await res.text();
+        }
+
+        async function showDataHistory() {
+            isViewingHistory = true;
+            historyMode = 'data';
+            document.getElementById('execution-header-menu').classList.remove('active');
+            
+            const sidebar = document.getElementById('history-sidebar');
+            sidebar.classList.add('open');
+            document.getElementById('history-actions').style.display = 'none';
+            const list = document.getElementById('history-list');
+            list.innerHTML = '<div class="loader" style="display:block; margin-top:20px;">Chargement des versions...</div>';
+
+            try {
+                const revisions = await fetchRevisions(currentActiveOneFileId);
+                renderRevisions(revisions, currentActiveOneFileId, 'data');
+            } catch (e) {
+                list.innerHTML = '<div style="padding:10px; color:red;">Erreur réseau lors du chargement.</div>';
+            }
+        }
+
+        async function showAppHistory() {
+            historyMode = 'app';
+            document.getElementById('edit-header-menu').classList.remove('active');
+            
+            const sidebar = document.getElementById('history-sidebar');
+            sidebar.classList.add('open');
+            document.getElementById('history-actions').style.display = 'none';
+            const list = document.getElementById('history-list');
+            list.innerHTML = '<div class="loader" style="display:block; margin-top:20px;">Chargement des versions...</div>';
+
+            try {
+                const revisions = await fetchRevisions(editingAppFileId);
+                renderRevisions(revisions, editingAppFileId, 'app');
+            } catch (e) {
+                list.innerHTML = '<div style="padding:10px; color:red;">Erreur réseau lors du chargement.</div>';
+            }
+        }
+
+        function renderRevisions(revisions, fileId, mode) {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            if (revisions.length === 0) {
+                list.innerHTML = '<div style="padding:10px; font-size:13px; color:var(--text-secondary); text-align:center;">Aucune version disponible.</div>';
+                return;
+            }
+
+            revisions.forEach(rev => {
+                let dateObj = new Date(rev.modifiedTime);
+                let dateStr = dateObj.toLocaleDateString();
+                let timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                let item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `<div class="history-item-date">${dateStr}</div><div class="history-item-time">${timeStr}</div>`;
+                
+                item.onclick = async () => {
+                    document.querySelectorAll('.history-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    list.style.opacity = '0.5';
+
+                    try {
+                        const contentText = await fetchRevisionContent(fileId, rev.id);
+                        
+                        if (mode === 'data') {
+                            const revData = JSON.parse(contentText);
+                            const pastAppData = revData.app_data || [];
+                            
+                            const iframe = document.querySelector('#iframe-container iframe');
+                            if (iframe) {
+                                iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: pastAppData }, '*');
+                                iframe.contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: true }, '*');
+                            }
+                            
+                            const restoreBtn = document.getElementById('restore-version-btn');
+                            restoreBtn.onclick = () => restoreDataVersion(pastAppData);
+                            document.getElementById('history-actions').style.display = 'block';
+                            
+                        } else if (mode === 'app') {
+                            document.getElementById('editor-full-code').value = contentText;
+                            document.getElementById('history-actions').style.display = 'none'; // User saves via main editor button
+                            showEditorStatus("Aperçu d'une ancienne version chargé.");
+                        }
+                    } catch(e) {
+                        console.error(e);
+                        alert("Erreur lors du chargement de cette version. Le fichier est peut-être corrompu.");
+                    } finally {
+                        list.style.opacity = '1';
+                    }
+                };
+                list.appendChild(item);
+            });
+        }
+
+        function closeHistorySidebar() {
+            document.getElementById('history-sidebar').classList.remove('open');
+            if (historyMode === 'data') {
+                isViewingHistory = false;
+                const iframe = document.querySelector('#iframe-container iframe');
+                if (iframe && localContent) {
+                    iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: localContent }, '*');
+                    iframe.contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
+                }
+            }
+            historyMode = null;
+        }
+
+        function restoreDataVersion(pastData) {
+            if (!confirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente.")) return;
+            
+            localContent = pastData;
+            isDirty = true;
+            
+            // Remise à zéro de l'historique de la session locale
+            appDataHistory = [JSON.parse(JSON.stringify(pastData))];
+            appDataCurrentIndex = 0;
+            
+            closeHistorySidebar(); // Referme et rétablit les droits d'édition normaux
+            
+            // Déclenche la sauvegarde vers le cloud
+            clearTimeout(debounceTimer);
+            syncToDrive();
         }
 
         // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
