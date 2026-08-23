@@ -109,6 +109,7 @@
         .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
         .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
         .submenu-search:focus { border-color: var(--accent-color); }
+        
         .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
         .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
         .file-item:hover { border-color: var(--accent-color); }
@@ -116,6 +117,7 @@
         .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
         .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
         .file-item-menu:hover { color: var(--text-primary); }
+        
         .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
         .file-item-dropdown.active { display: flex; }
         .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
@@ -182,6 +184,7 @@
         }
         .history-close-btn:hover { color: #ef4444; }
         #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        
         .history-item {
             padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
             cursor: pointer; background: var(--bg-color); transition: 0.2s;
@@ -189,7 +192,23 @@
         .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
         .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
         .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-        #history-actions { padding: 16px; border-top: 1px solid var(--border-color); display: none; }
+        
+        /* History Action Buttons area */
+        #history-actions { 
+            padding: 16px; border-top: 1px solid var(--border-color); display: none; 
+            flex-direction: column; gap: 10px; 
+        }
+
+        /* Floating button to restore history view on mobile */
+        #history-floating-btn {
+            position: fixed; bottom: 20px; right: 20px; z-index: 2100;
+            background: var(--surface-color); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 20px;
+            padding: 12px 24px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
+            transition: transform 0.2s;
+        }
+        #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
     </style>
 </head>
 <body>
@@ -338,15 +357,21 @@
     <div id="history-sidebar">
         <div class="history-header">
             <h3>Historique des versions</h3>
-            <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
+                <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+            </div>
         </div>
         <div id="history-list">
             <!-- Items will be injected here -->
         </div>
         <div id="history-actions">
             <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
+            <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
         </div>
     </div>
+    
+    <button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
 
     <script>
         // --- CONFIGURATION ---
@@ -1231,17 +1256,30 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             
             const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications (.oneapp) qui est au format HTML monolithique.
 
-Voici les règles STRICTES pour générer ta réponse :
-1. "Single-File HTML": Renvoyer l'intégralité du fichier <!DOCTYPE html> mis à jour.
-2. "Métadonnées": Préserve le <title> et l'icône dans <meta name="oneapp-icon" content="...">.
-3. "Mémoire IA": Mets à jour le contexte (Data Schema, paramètres) dans le bloc de commentaires HTML <!-- ... --> au début du <body>.
-4. "Moteur One App": Préserve le Mock API pour le Canvas : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
-5. Ne supprime jamais les écouteurs window.OneAppInternal_OnRestore et window.OneAppInternal_OnModeChange s'ils sont présents.
+Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
 
-Voici le code source actuel :
+1. Analyse du contexte (Obligatoire)
+Avant de coder, lis attentivement le contexte sauvegardé en commentaires HTML au début du <body>. Si la modification demandée impacte la structure des données, mets à jour ces commentaires.
+
+2. Architecture du fichier (.oneapp)
+- "Single-File HTML": Renvoyer l'intégralité du fichier <!DOCTYPE html> mis à jour.
+- Préserve le <title> et l'icône dans <meta name="oneapp-icon" content="...">.
+
+3. Contraintes de la Logique (Le Moteur One App)
+Dans la logique Javascript, tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
+- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
+- window.OneAppInternal_OnRestore
+- window.OneAppInternal_OnModeChange
+
+4. Format de sortie (Canvas)
+L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code HTML complet, valide, mis à jour et prêt à être parsé.
+
+Voici le code source actuel de l'application :
+
 \`\`\`html
 ${currentCode}
 \`\`\`
+
 Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             
             navigator.clipboard.writeText(aiPrompt).then(() => {
@@ -1343,8 +1381,7 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             historyMode = 'data';
             document.getElementById('execution-header-menu').classList.remove('active');
             
-            const sidebar = document.getElementById('history-sidebar');
-            sidebar.classList.add('open');
+            toggleHistorySidebar(true);
             document.getElementById('history-actions').style.display = 'none';
             const list = document.getElementById('history-list');
             list.innerHTML = '<div class="loader" style="display:block; margin-top:20px;">Chargement des versions...</div>';
@@ -1361,8 +1398,7 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             historyMode = 'app';
             document.getElementById('edit-header-menu').classList.remove('active');
             
-            const sidebar = document.getElementById('history-sidebar');
-            sidebar.classList.add('open');
+            toggleHistorySidebar(true);
             document.getElementById('history-actions').style.display = 'none';
             const list = document.getElementById('history-list');
             list.innerHTML = '<div class="loader" style="display:block; margin-top:20px;">Chargement des versions...</div>';
@@ -1375,6 +1411,18 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             }
         }
 
+        function toggleHistorySidebar(show) {
+            const sidebar = document.getElementById('history-sidebar');
+            const floatingBtn = document.getElementById('history-floating-btn');
+            if (show) {
+                sidebar.classList.add('open');
+                floatingBtn.style.display = 'none';
+            } else {
+                sidebar.classList.remove('open');
+                floatingBtn.style.display = 'block';
+            }
+        }
+
         function renderRevisions(revisions, fileId, mode) {
             const list = document.getElementById('history-list');
             list.innerHTML = '';
@@ -1382,6 +1430,9 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
                 list.innerHTML = '<div style="padding:10px; font-size:13px; color:var(--text-secondary); text-align:center;">Aucune version disponible.</div>';
                 return;
             }
+
+            // Step 1: Inverser l'ordre des révisions pour avoir la plus récente en haut
+            revisions.reverse();
 
             revisions.forEach(rev => {
                 let dateObj = new Date(rev.modifiedTime);
@@ -1412,7 +1463,11 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
                             
                             const restoreBtn = document.getElementById('restore-version-btn');
                             restoreBtn.onclick = () => restoreDataVersion(pastAppData);
-                            document.getElementById('history-actions').style.display = 'block';
+                            
+                            const copyBtn = document.getElementById('copy-version-btn');
+                            copyBtn.onclick = () => copyDataVersion(pastAppData);
+                            
+                            document.getElementById('history-actions').style.display = 'flex';
                             
                         } else if (mode === 'app') {
                             document.getElementById('editor-full-code').value = contentText;
@@ -1432,6 +1487,8 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
 
         function closeHistorySidebar() {
             document.getElementById('history-sidebar').classList.remove('open');
+            document.getElementById('history-floating-btn').style.display = 'none'; // Hide floating btn completely
+            
             if (historyMode === 'data') {
                 isViewingHistory = false;
                 const iframe = document.querySelector('#iframe-container iframe');
@@ -1458,6 +1515,60 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             // Déclenche la sauvegarde vers le cloud
             clearTimeout(debounceTimer);
             syncToDrive();
+        }
+
+        async function copyDataVersion(pastData) {
+            const currentName = document.getElementById('running-file-title').value;
+            let fileName = prompt("Nom de la copie :", `${currentName} - Copie ancienne`);
+            if (!fileName || fileName.trim() === "") return;
+
+            const list = document.getElementById('history-list');
+            list.innerHTML = '<div class="loader" style="display:block; margin-top:20px;">Création de la copie...</div>';
+            document.getElementById('history-actions').style.display = 'none';
+
+            try {
+                let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let parentData = await parentRes.json();
+                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+
+                const appName = currentOneFileMetadata.app_name;
+                const appFileId = currentOneFileMetadata.source_app_drive_id;
+
+                const newOneFile = {
+                    oneapp_metadata: {
+                        app_name: appName,
+                        source_app_drive_id: appFileId,
+                        version_timestamp: new Date().toISOString()
+                    },
+                    app_data: pastData
+                };
+
+                const fullFileName = `${fileName}.onefile`;
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = { name: fullFileName, mimeType: "application/json", parents: [parentFolderId] };
+                const multipartRequestBody =
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
+
+                let response = await fetch(UPLOAD_API_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: multipartRequestBody
+                });
+                
+                let createdFile = await response.json();
+                
+                closeHistorySidebar(); // Properly closes everything and cleans up Time Machine logic
+                openAppEnvironment(appFileId, appName, createdFile.id, fileName); // Launch immediately into the new file!
+                
+            } catch (e) {
+                console.error(e);
+                alert("Erreur lors de la création de la copie.");
+                closeHistorySidebar();
+            }
         }
 
         // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
