@@ -502,7 +502,7 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)&orderBy=viewedByMeTime desc, modifiedTime desc`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)&orderBy=${encodeURIComponent('modifiedTime desc')}`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -1190,12 +1190,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             const htmlContent = document.getElementById('json-input').value.trim();
             if (!htmlContent) return alert("Veuillez coller le code HTML.");
 
-            // Extraction des métadonnées
-            const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
-            const appName = titleMatch ? titleMatch[1].trim() : "Nouvelle Application";
-
-            const iconMatch = htmlContent.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
-            const appIcon = iconMatch ? iconMatch[1] : "";
+            // Extraction des métadonnées avec DOMParser
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            const appName = doc.title ? doc.title.trim() : "Nouvelle Application";
+            const metaIcon = doc.querySelector('meta[name="oneapp-icon"]');
+            const appIcon = metaIcon ? metaIcon.getAttribute('content') : "";
 
             const fileName = `${appName}.oneapp`;
 
@@ -1297,8 +1297,10 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (!newName || newName.trim() === "") return;
 
             const currentCode = document.getElementById('editor-full-code').value;
-            const iconMatch = currentCode.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
-            const appIcon = iconMatch ? iconMatch[1] : "";
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(currentCode, 'text/html');
+            const metaIcon = doc.querySelector('meta[name="oneapp-icon"]');
+            const appIcon = metaIcon ? metaIcon.getAttribute('content') : "";
 
             showEditorStatus("Création de la copie en cours...");
             document.getElementById('edit-header-menu').classList.remove('active');
@@ -1481,11 +1483,11 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
             if (!editingAppFileId) return;
 
             try {
-                const titleMatch = htmlString.match(/<title>(.*?)<\/title>/i);
-                const appName = titleMatch ? titleMatch[1].trim() : "Application sans nom";
-
-                const iconMatch = htmlString.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
-                const appIcon = iconMatch ? iconMatch[1] : "";
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlString, 'text/html');
+                const appName = doc.title ? doc.title.trim() : "Application sans nom";
+                const metaIcon = doc.querySelector('meta[name="oneapp-icon"]');
+                const appIcon = metaIcon ? metaIcon.getAttribute('content') : "";
 
                 const boundary = '-------314159265358979323846';
                 const delimiter = "\r\n--" + boundary + "\r\n";
@@ -1601,8 +1603,8 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
                 return;
             }
 
-            // Step 1: Inverser l'ordre des révisions pour avoir la plus récente en haut
-            revisions.reverse();
+            // Step 1: Trier l'ordre des révisions mathématiquement pour avoir la plus récente en haut
+            revisions.sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
 
             revisions.forEach(rev => {
                 let dateObj = new Date(rev.modifiedTime);
