@@ -205,8 +205,8 @@
             </div>
             <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
             <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
-            <textarea id="json-input" placeholder='{"app_metadata": {"name": "Mon App"...}}'></textarea>
-            <button class="primary-btn" onclick="installAppFromJson()" style="width:100%;">Installer l'Application</button>
+            <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
+            <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
             <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
         </div>
     </div>
@@ -303,7 +303,7 @@
 
             <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
 
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code JSON de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
+            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
         </div>
     </div>
 
@@ -427,7 +427,7 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents)`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -440,10 +440,20 @@
                     let parentFolderId = file.parents ? file.parents[0] : null;
                     let card = document.createElement('div');
                     card.className = 'app-card';
-                    card.innerHTML = `
-                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
-                        <span>${displayName}</span>
-                    `;
+                    
+                    let rawIcon = file.description || "";
+                    let iconSvg = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
+
+                    if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
+                        const parser = new DOMParser();
+                        const decoded = parser.parseFromString(rawIcon, 'text/html').body.textContent || rawIcon;
+                        iconSvg = decoded;
+                    } else if (rawIcon) {
+                        iconSvg = `<div style="font-size: 32px; margin-bottom: 10px;">${rawIcon}</div>`;
+                    }
+
+                    card.innerHTML = `${iconSvg}<span>${displayName}</span>`;
+                    
                     card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
                 });
@@ -622,18 +632,19 @@
         }
 
         function copyAppGenerationPrompt() {
-            const prompt = `Tu es le moteur "One App". Je veux créer une nouvelle application. 
-Voici les règles stricts de conception d'un .oneapp (qui est un fichier JSON) :
+            const prompt = `Tu es le moteur "One App". Je veux créer une nouvelle application.
 
-1. "app_metadata": Identité de l'app (name, version_timestamp).
-2. "frontend": Code UI pur (html et css) sans le tag <html> ou <body>. 
-3. "logic": Code JS brut (en texte). Il doit obligatoirement inclure un appel à 'window.OneAppAPI.loadData().then(...)' au lancement pour récupérer les données, et appeler 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
-
-Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].
-Génère UNIQUEMENT le code JSON valide.`;
+Voici les règles strictes de conception d'un fichier .oneapp :
+1. "Single-File HTML": Génère un unique fichier <!DOCTYPE html> monolithique. TOUT le CSS (dans <style>) et le JS (dans <script>) doivent être intégrés.
+2. "Métadonnées": Place le nom de l'app dans la balise <title> et une icône dans <meta name="oneapp-icon" content="[Emoji ou SVG]">.
+3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but de l'app) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
+4. "Moteur One App": Tu DOIS inclure ce Mock API au début de ton script JS pour le test dans Canvas :
+   window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
+5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
+Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             
             navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le JSON ici.");
+                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
             });
         }
 
@@ -931,8 +942,9 @@ Génère UNIQUEMENT le code JSON valide.`;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
+                // Téléchargement de l'app en HTML brut et des données en JSON
                 let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let appJson = await appRes.json();
+                let appHtml = await appRes.text();
 
                 let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let oneFileJson = await dataRes.json();
@@ -955,19 +967,16 @@ Génère UNIQUEMENT le code JSON valide.`;
                 btn.style.color = "var(--text-primary)";
                 btn.style.pointerEvents = "auto";
 
-                const fullHTML = "<!DOCTYPE html><html><head><style>" + 
-                    (appJson.frontend.css || "") + 
-                    "</style><script>" + 
-                    apiBridgeScript + 
-                    "<\/script></head><body>" + 
-                    (appJson.frontend.html || "") + 
-                    "<script>" + 
-                    (appJson.logic || "") + 
-                    "<\/script></body></html>";
+                // Injection du script de communication au sein du HTML de l'app
+                if (appHtml.includes('</head>')) {
+                    appHtml = appHtml.replace('</head>', '<script>' + apiBridgeScript + '<\/script></head>');
+                } else {
+                    appHtml = '<script>' + apiBridgeScript + '<\/script>' + appHtml;
+                }
 
                 const iframe = document.createElement('iframe');
-                iframe.sandbox = "allow-scripts"; 
-                iframe.srcdoc = fullHTML;
+                iframe.sandbox = "allow-scripts allow-modals"; 
+                iframe.srcdoc = appHtml;
                 iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 
                 const container = document.getElementById('iframe-container');
@@ -979,7 +988,7 @@ Génère UNIQUEMENT le code JSON valide.`;
                 document.getElementById('authenticated-view').style.display = 'none';
                 document.getElementById('execution-view').style.display = 'flex';
                 
-                currentRunningApp = appJson;
+                currentRunningApp = appHtml;
 
                 // Lancement du Radar d'écoute asynchrone
                 startPolling();
@@ -1020,28 +1029,23 @@ Génère UNIQUEMENT le code JSON valide.`;
             }
         }
 
-        // --- LOGIQUE D'INSTALLATION (Collage du JSON) ---
+        // --- LOGIQUE D'INSTALLATION (Collage du HTML) ---
         function toggleInstallSection() {
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
         }
 
-        async function installAppFromJson() {
-            const jsonText = document.getElementById('json-input').value.trim();
-            if (!jsonText) return alert("Veuillez coller un manifeste JSON.");
+        async function installAppFromHtml() {
+            const htmlContent = document.getElementById('json-input').value.trim();
+            if (!htmlContent) return alert("Veuillez coller le code HTML.");
 
-            let appData;
-            try {
-                appData = JSON.parse(jsonText);
-            } catch (e) {
-                return alert("Erreur : Le texte collé n'est pas un JSON valide.");
-            }
+            // Extraction des métadonnées
+            const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
+            const appName = titleMatch ? titleMatch[1].trim() : "Nouvelle Application";
 
-            if (!appData.app_metadata || !appData.app_metadata.name) {
-                return alert("Erreur : Le JSON ne semble pas être un .oneapp valide (metadata manquantes).");
-            }
+            const iconMatch = htmlContent.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
+            const appIcon = iconMatch ? iconMatch[1] : "";
 
-            const appName = appData.app_metadata.name;
             const fileName = `${appName}.oneapp`;
 
             document.getElementById('install-loader').style.display = 'block';
@@ -1052,10 +1056,10 @@ Génère UNIQUEMENT le code JSON valide.`;
                 const delimiter = "\r\n--" + boundary + "\r\n";
                 const close_delim = "\r\n--" + boundary + "--";
 
-                const metadata = { name: fileName, mimeType: "application/json", parents: [appFolderId] };
+                const metadata = { name: fileName, mimeType: "text/html", parents: [appFolderId], description: appIcon };
                 const multipartRequestBody =
                     delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(appData) + close_delim;
+                    delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
 
                 await fetch(UPLOAD_API_URL, {
                     method: 'POST',
@@ -1149,11 +1153,10 @@ Génère UNIQUEMENT le code JSON valide.`;
                 
                 if (!response.ok) throw new Error("Erreur de téléchargement");
                 
-                let appData = await response.json();
-                let jsonString = JSON.stringify(appData, null, 2);
+                let appData = await response.text(); // Format HTML brut
                 
-                fullCodeInput.value = jsonString;
-                saveEditorState(jsonString);
+                fullCodeInput.value = appData;
+                saveEditorState(appData);
                 
                 document.getElementById('edit-app-title-input').value = appName;
                 document.getElementById('authenticated-view').style.display = 'none';
@@ -1177,38 +1180,21 @@ Génère UNIQUEMENT le code JSON valide.`;
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
             
-            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
+            const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications (.oneapp) qui est au format HTML monolithique.
 
-Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
+Voici les règles STRICTES pour générer ta réponse :
+1. "Single-File HTML": Renvoyer l'intégralité du fichier <!DOCTYPE html> mis à jour.
+2. "Métadonnées": Préserve le <title> et l'icône dans <meta name="oneapp-icon" content="...">.
+3. "Mémoire IA": Mets à jour le contexte (Data Schema, paramètres) dans le bloc de commentaires HTML <!-- ... --> au début du <body>.
+4. "Moteur One App": Préserve le Mock API pour le Canvas : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
+5. Ne supprime jamais les écouteurs window.OneAppInternal_OnRestore et window.OneAppInternal_OnModeChange s'ils sont présents.
 
-1. Analyse du contexte (Obligatoire)
-Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
-
-2. Architecture du fichier (.oneapp)
-Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
-- app_metadata : Identité.
-- ai_manifest : Mémoire et contexte pour toi.
-- frontend : Contient html et css (sans balises <html> ou <body>).
-- backend_functions : Le catalogue explicatif des fonctions internes.
-- logic : Le code JavaScript brut sous forme de string.
-
-3. Contraintes de la Logique (Le Moteur One App)
-Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
-- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
-- window.OneAppInternal_OnRestore
-- window.OneAppInternal_OnModeChange
-
-4. Format de sortie (Canvas)
-L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
-
-Voici le code source actuel de l'application :
-
-\`\`\`json
+Voici le code source actuel :
+\`\`\`html
 ${currentCode}
 \`\`\`
-
 Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
-
+            
             navigator.clipboard.writeText(aiPrompt).then(() => {
                 alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
             }).catch(err => {
@@ -1229,31 +1215,38 @@ Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
 
             if (!currentCode) return showEditorStatus("Le champ de code est vide.");
 
-            try {
-                JSON.parse(currentCode);
-            } catch (e) {
-                alert("Erreur : Le code JSON est invalide.\nVérifiez qu'il ne manque pas de virgules, d'accolades, ou que l'IA n'a pas tronqué sa réponse.");
-                showEditorStatus("Échec : Code JSON invalide.");
-                return; 
-            }
-
             saveEditorState(currentCode);
             showEditorStatus("Sauvegarde cloud en cours...");
             await saveAppToDrive(currentCode);
         }
 
-        async function saveAppToDrive(jsonString) {
+        async function saveAppToDrive(htmlString) {
             if (!editingAppFileId) return;
 
             try {
-                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=media`;
+                const titleMatch = htmlString.match(/<title>(.*?)<\/title>/i);
+                const appName = titleMatch ? titleMatch[1].trim() : "Application sans nom";
+
+                const iconMatch = htmlString.match(/<meta\s+name=["']oneapp-icon["']\s+content=["'](.*?)["']/i);
+                const appIcon = iconMatch ? iconMatch[1] : "";
+
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = { mimeType: "text/html", description: appIcon }; 
+                const multipartRequestBody =
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: text/html\r\n\r\n' + htmlString + close_delim;
+
+                const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=multipart`;
                 await fetch(url, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${globalAccessToken}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': `multipart/related; boundary=${boundary}`
                     },
-                    body: jsonString
+                    body: multipartRequestBody
                 });
                 showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
