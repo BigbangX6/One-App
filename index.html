@@ -242,6 +242,7 @@
             <div class="user-info">
                 <h2 id="user-greeting">Mon Compte</h2>
                 <p id="user-email">Chargement...</p>
+                <a href="#" onclick="logout()" style="font-size:11px; color:red; text-decoration: none;">Se déconnecter</a>
             </div>
         </div>
 
@@ -412,7 +413,7 @@
     <script>
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 
@@ -432,6 +433,12 @@
         // Variables pour la Time Machine (Historique)
         let isViewingHistory = false;
         let historyMode = null; // 'data' ou 'app'
+
+        function logout() {
+            localStorage.removeItem('oneapp_gdrive_token');
+            localStorage.removeItem('oneapp_gdrive_expire');
+            window.location.reload();
+        }
 
         async function fetchUserProfile() {
             try {
@@ -1159,7 +1166,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').innerText = "Ouverture du fichier partagé...";
             document.getElementById('loading-apps').style.display = 'block';
             try {
-                let metaRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?fields=id,name,capabilities`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let metaRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?fields=id,name,capabilities,parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                if (metaRes.status === 401) { logout(); return; }
                 if (!metaRes.ok) throw new Error("Fichier inaccessible");
                 let fileMeta = await metaRes.json();
                 
@@ -1168,6 +1176,11 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
                 let sourceAppId = oneFileJson.oneapp_metadata.source_app_drive_id;
                 let appName = oneFileJson.oneapp_metadata.app_name;
+
+                if (!fileMeta.parents || !fileMeta.parents.includes(rootFolderId)) {
+                    createShortcutIfNeeded(sharedFileId, rootFolderId, fileMeta.name + " (Partagé)");
+                    createShortcutIfNeeded(sourceAppId, rootFolderId, appName + " (App)");
+                }
                 
                 // Nettoyage URL
                 window.history.pushState(null, '', window.location.pathname);
@@ -1272,10 +1285,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 document.getElementById('execution-view').style.display = 'flex';
                 
                 currentRunningApp = appHtml;
-
-                // Création silencieuse de raccourcis
-                createShortcutIfNeeded(oneFileId, rootFolderId, oneFileName + " (Partagé)");
-                createShortcutIfNeeded(appFileId, rootFolderId, appName + " (App)");
 
                 startPolling();
 
