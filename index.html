@@ -288,8 +288,7 @@
                 <div class="header-menu-container">
                     <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="execution-header-menu">
-                        <button class="primary-btn show-on-mobile-inline" onclick="alert('Le partage public générera un lien unique !')" style="display: none; border-radius: 8px; margin: 0 10px 10px 10px;">🔒 Partager</button>
-                        <button onclick="triggerAppExport()">📥 Exporter le contenu</button>
+                        <button class="show-on-mobile-inline" onclick="alert('Le partage public générera un lien unique !')" style="display: none;">🔒 Partager</button>
                         <button onclick="duplicateActiveFile()">📄 Créer une copie</button>
                         <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App</button>
                         <button onclick="showDataHistory()">🕒 Historique des versions</button>
@@ -685,12 +684,6 @@
                 alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
             }
         }
-        
-        function triggerAppExport() {
-            const iframe = document.querySelector('#iframe-container iframe');
-            if (iframe) iframe.contentWindow.postMessage({ type: 'EXPORT_REQUEST' }, '*');
-            document.getElementById('execution-header-menu').classList.remove('active');
-        }
 
         async function loadAppFiles(folderId, appFileId, appName) {
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
@@ -784,10 +777,8 @@ Voici les règles strictes de conception d'un fichier .oneapp :
 1. "Single-File HTML": Génère un unique fichier <!DOCTYPE html> monolithique. TOUT le CSS (dans <style>) et le JS (dans <script>) doivent être intégrés.
 2. "Métadonnées": Place le nom de l'app dans la balise <title> et une icône dans <meta name="oneapp-icon" content="[Emoji ou SVG]">.
 3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but de l'app) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
-4. "Moteur One App": Tu DOIS inclure ce Mock API au début de ton script JS pour le test dans Canvas :
-   window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
+4. "Moteur One App": Tu DOIS inclure ce Mock API au début de ton script JS pour le test dans Canvas : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
 5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' pour sauvegarder.
-6. "Export": L'application doit écouter window.addEventListener('message', ...) et réagir au type 'EXPORT_REQUEST' en déclenchant le téléchargement de ses données (ex: format .txt, .csv ou JSON selon le contexte de l'app) en générant un Blob.
 
 Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             
@@ -1423,37 +1414,24 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             const aiPrompt = `Tu es le développeur expert du système d'exploitation décentralisé "One App". L'utilisateur souhaite modifier une de ses applications.
 
 Voici les règles STRICTES ET INCONTOURNABLES pour générer ta réponse :
-
-1. Analyse du contexte (Obligatoire)
-Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
-
-2. Architecture du fichier (.oneapp)
-Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
-- app_metadata : Identité.
-- ai_manifest : Mémoire et contexte pour toi.
-- frontend : Contient html et css (sans balises <html> ou <body>).
-- backend_functions : Le catalogue explicatif des fonctions internes.
-- logic : Le code JavaScript brut sous forme de string.
-
-3. Contraintes de la Logique (Le Moteur One App)
-Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
-- window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
-- window.OneAppInternal_OnRestore
-- window.OneAppInternal_OnModeChange
-
-4. Export: Préserve (ou implémente) l'écoute de l'événement 'EXPORT_REQUEST' pour permettre le téléchargement des données (ex: via un Blob).
-
-5. Format de sortie (Canvas)
-L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
-
+1. Analyse du contexte (Obligatoire) Avant de coder, lis attentivement la clé "ai_manifest" du JSON fourni. Elle contient le but de l'application et le schéma de ses données. Si la modification demandée impacte la structure des données, tu DOIS mettre à jour le "data_schema" et les "migration_rules" dans ce même "ai_manifest".
+2. Architecture du fichier (.oneapp) Le JSON contient 5 blocs vitaux que tu ne dois jamais supprimer ou fusionner :
+*  app_metadata : Identité.
+*  ai_manifest : Mémoire et contexte pour toi.
+*  frontend : Contient html et css (sans balises <html> ou <body>).
+*  backend_functions : Le catalogue explicatif des fonctions internes.
+*  logic : Le code JavaScript brut sous forme de string.
+3. Contraintes de la Logique (Le Moteur One App) Dans la clé "logic", tu DOIS ABSOLUMENT préserver la communication avec l'OS parent. Ne supprime et ne modifie jamais les appels suivants s'ils sont présents :
+*  window.OneAppAPI.loadData() et window.OneAppAPI.saveData(...)
+*  window.OneAppInternal_OnRestore
+*  window.OneAppInternal_OnModeChange
+4. Format de sortie (Canvas) L'utilisateur utilise un remplacement intégral. Tu dois renvoyer UNIQUEMENT le code JSON complet, valide, mis à jour et prêt à être parsé.
 Voici le code source actuel de l'application :
-
 \`\`\`json
 ${currentCode}
 \`\`\`
-
 Demande de l'utilisateur : [ÉCRIVEZ VOTRE DEMANDE DE MODIFICATION ICI]`;
-            
+
             navigator.clipboard.writeText(aiPrompt).then(() => {
                 alert("Le code et les instructions expertes ont été copiés ! Ouvrez Gemini, collez ce texte, remplacez la dernière ligne par votre demande, et générez le nouveau code.");
             }).catch(err => {
