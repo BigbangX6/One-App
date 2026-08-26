@@ -1264,28 +1264,22 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     // 1. Création du dossier de l'app si inexistant
                     let appFolderId = await getOrCreateFolder(appName, rootFolderId);
                     
-                    // Récupération du vrai nom de l'app
-                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    // 2. Récupération des infos de l'app source ET vérification du propriétaire
+                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name,ownedByMe', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                     let appMeta = await appMetaRes.json();
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     
-                    // Vérification si l'utilisateur possède l'application (Évite doublon de raccourcis)
-                    let appCheckQuery = encodeURIComponent(`id='${sourceAppId}' and 'me' in owners and trashed=false`);
-                    let appCheckRes = await fetch(`${DRIVE_API_URL}?q=${appCheckQuery}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let appCheckData = await appCheckRes.json();
-                    let ownsApp = appCheckData.files && appCheckData.files.length > 0;
-
                     let appShortcutName = realAppName + ".oneapp";
                     let dataShortcutName = fileMeta.name;
 
-                    if (!ownsApp) {
-                        // Raccourci de l'app dans le dossier de l'app
+                    // 3. Création du raccourci de l'app UNIQUEMENT si l'utilisateur ne la possède pas déjà
+                    if (appMeta.ownedByMe === false) {
                         await createShortcutIfNeeded(sourceAppId, appFolderId, appShortcutName);
                     }
                     
-                    // Raccourci des données dans le dossier de l'app
-                await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
-            }
+                    // 4. Raccourci des données dans le dossier de l'app
+                    await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
+                }
             
             // Nettoyage URL
             window.history.pushState(null, '', window.location.pathname);
