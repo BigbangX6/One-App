@@ -125,15 +125,15 @@
         .file-item-dropdown button.danger { color: #ef4444; }
 
         /* Bandeau d'exécution (Look Google Docs) */
-        .execution-header { background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
         .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
         .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
         .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
         .execution-title-input:hover { border-color: var(--border-color); }
         .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
         
-        .execution-center { display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
         .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
         
         /* Menu Options du Bandeau */
@@ -279,13 +279,13 @@
             
             <div class="execution-center">
                 <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
                 </button>
                 <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
                 </button>
                 <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
                 </button>
             </div>
 
@@ -423,6 +423,11 @@
     </div>
 
     <script>
+        // --- CONSTANTES SVG ---
+        const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+        const SVG_LOADING = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M160-160v-80h109q-51-44-80-106t-29-134q0-112 68-197.5T400-790v84q-70 25-115 86.5T240-480q0 54 21.5 99.5T320-302v-98h80v240H160Zm440 0q-50 0-85-35t-35-85q0-48 33-82.5t81-36.5q17-36 50.5-58.5T720-480q53 0 91.5 34.5T858-360q42 0 72 29t30 70q0 42-29 71.5T860-160H600Zm116-360q-7-41-27-76t-49-62v98h-80v-240h240v80H691q43 38 70.5 89T797-520h-81ZM600-240h260q8 0 14-6t6-14q0-8-6-14t-14-6h-70v-50q0-29-20.5-49.5T720-400q-29 0-49.5 20.5T650-330v10h-50q-17 0-28.5 11.5T560-280q0 17 11.5 28.5T600-240Zm120-80Z"/></svg>';
+        const SVG_DONE = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
+
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
         const SCOPES = 'https://www.googleapis.com/auth/drive';
@@ -483,6 +488,10 @@
                     document.querySelector('#unauthenticated-view button').innerHTML = "Renouveler la session en 1 clic";
                 }
             }
+            
+            // Initialisation SVG par défaut
+            const syncBtn = document.getElementById('sync-status-btn');
+            if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
         };
 
         function authorizeAndConnect() {
@@ -889,9 +898,7 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
 3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
 4. "Moteur One App": Tu DOIS inclure ce Mock API au début du script pour que l'app tourne dans le Canvas Gemini : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
 5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée.
-
 Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
-            
             navigator.clipboard.writeText(prompt).then(() => {
                 alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
             });
@@ -980,7 +987,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             
             const syncBtn = document.getElementById('sync-status-btn');
             if (syncBtn) {
-                syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+                syncBtn.innerHTML = SVG_LOADING;
+                syncBtn.style.opacity = '0.5';
             }
             
             clearTimeout(debounceTimer);
@@ -1019,13 +1027,31 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (isViewingHistory) return;
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
+            const syncBtn = document.getElementById('sync-status-btn');
+            const banner = document.getElementById('readonly-banner');
+            const copyBtn = document.getElementById('btn-create-copy');
             
             if (isAppReadOnly) {
                 btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
+                if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
+                if(banner) banner.style.display = 'block';
+                if (copyBtn) {
+                    copyBtn.style.animation = 'pulse 2s infinite';
+                    copyBtn.innerHTML = '✨ Créer une copie pour éditer';
+                    copyBtn.style.color = 'var(--accent-color)';
+                    copyBtn.style.fontWeight = 'bold';
+                }
             } else {
                 btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                 btn.style.background = "transparent";
+                if(banner) banner.style.display = 'none';
+                if (copyBtn) {
+                    copyBtn.style.animation = '';
+                    copyBtn.innerHTML = '📄 Créer une copie';
+                    copyBtn.style.color = '';
+                    copyBtn.style.fontWeight = '';
+                }
             }
             
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
@@ -1113,14 +1139,23 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
-                        syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
+                        syncBtn.innerHTML = SVG_DONE;
+                        syncBtn.style.opacity = '1';
                         setTimeout(() => {
-                            syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+                            if (syncBtn && !isDirty && !isSyncing) {
+                                syncBtn.innerHTML = SVG_SYNC;
+                            }
                         }, 3000);
                     }
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
+                alert("Erreur de synchronisation avec Google Drive.");
+                const syncBtn = document.getElementById('sync-status-btn');
+                if (syncBtn) {
+                    syncBtn.innerHTML = SVG_SYNC;
+                    syncBtn.style.opacity = '1';
+                }
             } finally {
                 isSyncing = false;
             }
@@ -1130,6 +1165,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         async function checkCloudVersion() {
             if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
             
+            const syncBtn = document.getElementById('sync-status-btn');
+            if (syncBtn) {
+                syncBtn.innerHTML = SVG_LOADING;
+                syncBtn.style.opacity = '0.5';
+            }
+
             try {
                 let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let fileMeta = await metaRes.json();
@@ -1156,12 +1197,18 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     } else {
                         console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
                         if (!isAppReadOnly) {
+                            isAppReadOnly = true; 
                             toggleAppMode(); // Passage forcé en lecture seule avant le conflit
                         }
                     }
                 }
             } catch (e) {
                 console.error("Erreur Polling :", e);
+            } finally {
+                if (syncBtn) {
+                    syncBtn.innerHTML = SVG_SYNC;
+                    syncBtn.style.opacity = '1';
+                }
             }
         }
 
@@ -1228,13 +1275,16 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let appCheckData = await appCheckRes.json();
                     let ownsApp = appCheckData.files && appCheckData.files.length > 0;
 
+                    let appShortcutName = realAppName + ".oneapp";
+                    let dataShortcutName = fileMeta.name;
+
                     if (!ownsApp) {
-                        // 2. Raccourci de l'app à la racine (avec le bon nom pour la grille)
-                        await createShortcutIfNeeded(sourceAppId, rootFolderId, `${realAppName}.oneapp`);
+                        // Raccourci de l'app dans le dossier de l'app
+                        await createShortcutIfNeeded(sourceAppId, appFolderId, appShortcutName);
                     }
                     
-                    // 3. Raccourci des données dans le dossier de l'app
-                await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
+                    // Raccourci des données dans le dossier de l'app
+                await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
             }
             
             // Nettoyage URL
@@ -1352,7 +1402,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
         }
 
-        function closeApp() {
+        async function closeApp() {
             clearTimeout(debounceTimer);
             if (pollingInterval) clearInterval(pollingInterval);
 
@@ -1378,6 +1428,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appId, appName);
             }
+            await listInstalledApps();
         }
 
         async function openShareModal() {
@@ -1732,12 +1783,13 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
         }
 
-        function closeAppEditor() {
+        async function closeAppEditor() {
             document.getElementById('edit-app-view').style.display = 'none';
             document.getElementById('authenticated-view').style.display = 'block';
             fullCodeInput.value = '';
             editingAppFileId = null;
             closeHistorySidebar();
+            await listInstalledApps();
         }
 
         function copyCodeForAI() {
