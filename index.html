@@ -133,7 +133,7 @@
         .execution-title-input:hover { border-color: var(--border-color); }
         .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
         
-        .execution-center { display: flex; gap: 4px; justify-content: center; align-items: center; }
+        .execution-center { display: flex; gap: 8px; justify-content: center; align-items: center; }
         .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
         
         /* Menu Options du Bandeau */
@@ -143,6 +143,14 @@
         .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
         .header-dropdown button:hover { background: var(--bg-color); }
         .header-dropdown button.danger { color: #ef4444; }
+
+        /* Animation Sync */
+        @keyframes spin {
+            100% { transform: rotate(-360deg); }
+        }
+        .sync-spin {
+            animation: spin 1s linear infinite;
+        }
 
         /* Vue Invitation */
         #shared-invite-view { text-align: center; display: none; }
@@ -278,8 +286,15 @@
             </div>
             
             <div class="execution-center">
-                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
+                </button>
+                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
+                </button>
+                <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>
+                </button>
             </div>
 
             <div class="execution-right">
@@ -298,14 +313,12 @@
                     <div class="header-dropdown" id="execution-header-menu">
                         <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
                         <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App</button>
+                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
                         <button onclick="showDataHistory()">🕒 Historique des versions</button>
+                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
                     </div>
                 </div>
-
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn" onclick="closeApp()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
             </div>
         </header>
         <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a;">
@@ -973,6 +986,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 localContent = newData;
                 isDirty = true;
                 
+                const syncBtn = document.getElementById('sync-status-btn');
+                if (syncBtn) {
+                    syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+                    syncBtn.classList.add('sync-spin');
+                }
+                
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     syncToDrive();
@@ -1100,6 +1119,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
                     isDirty = false;
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
+                    
+                    const syncBtn = document.getElementById('sync-status-btn');
+                    if (syncBtn) {
+                        syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
+                        syncBtn.classList.remove('sync-spin');
+                    }
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
@@ -1109,43 +1134,51 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         // --- LE RADAR SILENCIEUX (POLLING) ---
-        function startPolling() {
-            if (pollingInterval) clearInterval(pollingInterval);
+        async function checkCloudVersion() {
+            if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
             
-            pollingInterval = setInterval(async () => {
-                if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
-                
-                try {
-                    let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let fileMeta = await metaRes.json();
-                    let driveTime = fileMeta.modifiedTime;
+            try {
+                let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let fileMeta = await metaRes.json();
+                let driveTime = fileMeta.modifiedTime;
 
-                    if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
-                        if (!isDirty) {
-                            console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
-                            let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                            let freshOneFileJson = await dataRes.json();
-                            
-                            let freshData = freshOneFileJson.app_data || [];
-                            window.currentLoadedAppData = freshData;
-                            currentFileVersion = driveTime;
-                            localContent = freshData;
-                            
-                            const iframe = document.querySelector('#iframe-container iframe');
-                            if (iframe) {
-                                iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
-                            }
-                            
-                            appDataHistory = [JSON.parse(JSON.stringify(freshData))];
-                            appDataCurrentIndex = 0;
-                        } else {
-                            console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
+                if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
+                    if (!isDirty) {
+                        console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
+                        let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                        let freshOneFileJson = await dataRes.json();
+                        
+                        let freshData = freshOneFileJson.app_data || [];
+                        window.currentLoadedAppData = freshData;
+                        currentFileVersion = driveTime;
+                        localContent = freshData;
+                        
+                        const iframe = document.querySelector('#iframe-container iframe');
+                        if (iframe) {
+                            iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+                        }
+                        
+                        appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+                        appDataCurrentIndex = 0;
+                    } else {
+                        console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
+                        if (!isAppReadOnly) {
+                            toggleAppMode(); // Passage forcé en lecture seule avant le conflit
                         }
                     }
-                } catch (e) {
-                    console.error("Erreur Polling :", e);
                 }
-            }, 15000);
+            } catch (e) {
+                console.error("Erreur Polling :", e);
+            }
+        }
+
+        function forceRefresh() {
+            checkCloudVersion();
+        }
+
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(checkCloudVersion, 15000);
         }
 
         document.addEventListener("visibilitychange", () => {
@@ -1196,8 +1229,17 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let appMeta = await appMetaRes.json();
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     
-                    // 2. Raccourci de l'app à la racine (avec le bon nom pour la grille)
-                    await createShortcutIfNeeded(sourceAppId, rootFolderId, `${realAppName}.oneapp`);
+                    // Vérification si l'utilisateur possède l'application (Évite doublon de raccourcis)
+                    let appCheckQuery = encodeURIComponent(`id='${sourceAppId}' and 'me' in owners and trashed=false`);
+                    let appCheckRes = await fetch(`${DRIVE_API_URL}?q=${appCheckQuery}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let appCheckData = await appCheckRes.json();
+                    let ownsApp = appCheckData.files && appCheckData.files.length > 0;
+
+                    if (!ownsApp) {
+                        // 2. Raccourci de l'app à la racine (avec le bon nom pour la grille)
+                        await createShortcutIfNeeded(sourceAppId, rootFolderId, `${realAppName}.oneapp`);
+                    }
+                    
                     // 3. Raccourci des données dans le dossier de l'app
                     await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
                 }
@@ -1354,8 +1396,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('share-link-input').value = link;
             document.getElementById('qr-code-container').style.display = 'none';
             
-            document.querySelectorAll('input[name="share-level"]').forEach(r => r.checked = false);
-            
             try {
                 let res = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=permissions,capabilities`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
                 let data = await res.json();
@@ -1365,10 +1405,14 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 const noPermText = document.getElementById('share-no-permission-text');
 
                 if (data.capabilities && data.capabilities.canShare === false) {
-                    permBlock.style.display = 'none';
+                    document.querySelectorAll('input[name="share-level"]').forEach(r => r.disabled = true);
+                    permBlock.style.opacity = '0.5';
+                    permBlock.style.display = 'block';
                     validateBtn.style.display = 'none';
                     noPermText.style.display = 'block';
                 } else {
+                    document.querySelectorAll('input[name="share-level"]').forEach(r => r.disabled = false);
+                    permBlock.style.opacity = '1';
                     permBlock.style.display = 'block';
                     validateBtn.style.display = 'block';
                     noPermText.style.display = 'none';
@@ -1402,6 +1446,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             btn.innerText = "Validation en cours...";
             btn.disabled = true;
 
+            if (pollingInterval) clearInterval(pollingInterval);
+
             try {
                 if (level === 'private') {
                     if (window.currentAnyonePermissionId) {
@@ -1421,12 +1467,18 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     window.currentAnyonePermissionId = data.id;
                 }
                 alert("Droits mis à jour avec succès !");
+
+                let timeRes = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
+                let timeData = await timeRes.json();
+                currentFileVersion = timeData.modifiedTime;
+
             } catch(e) {
                 console.error(e);
                 alert("Erreur lors du changement de permission.");
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
+                startPolling();
             }
         }
 
