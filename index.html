@@ -75,7 +75,7 @@
         }
         .primary-btn:hover { background-color: var(--accent-hover); }
 
-        .loader { display: none; color: var(--accent-color); margin-top: 15px; font-weight: bold; text-align: center;}
+        .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
 
         /* --- TABLEAU DE BORD --- */
         .user-header {
@@ -86,7 +86,7 @@
         .user-info h2 { font-size: 16px; margin: 0; }
         .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
 
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
         .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
 
         /* Grille des applications */
@@ -143,14 +143,6 @@
         .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
         .header-dropdown button:hover { background: var(--bg-color); }
         .header-dropdown button.danger { color: #ef4444; }
-
-        /* Animation Sync */
-        @keyframes spin {
-            100% { transform: rotate(-360deg); }
-        }
-        .sync-spin {
-            animation: spin 1s linear infinite;
-        }
 
         /* Vue Invitation */
         #shared-invite-view { text-align: center; display: none; }
@@ -250,7 +242,7 @@
             <div class="user-info">
                 <h2 id="user-greeting">Mon Compte</h2>
                 <p id="user-email">Chargement...</p>
-                <a href="#" onclick="logout()" style="font-size:11px; color:red; text-decoration: none;">Se déconnecter</a>
+                <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
             </div>
         </div>
 
@@ -278,7 +270,7 @@
     <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
         <header class="execution-header">
             <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
                 <div class="execution-title-wrapper">
                     <span id="running-app-name" class="execution-app-name">App Name</span>
                     <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
@@ -287,13 +279,13 @@
             
             <div class="execution-center">
                 <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
                 </button>
                 <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
                 </button>
                 <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
                 </button>
             </div>
 
@@ -331,7 +323,7 @@
     <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
         <header class="execution-header">
             <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
                 <div class="execution-title-wrapper">
                     <span class="execution-app-name">Éditeur One App</span>
                     <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
@@ -433,7 +425,7 @@
     <script>
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
+        const SCOPES = 'https://www.googleapis.com/auth/drive';
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 
@@ -974,27 +966,26 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 const newData = event.data.payload;
                 
                 if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
-                    if (appDataCurrentIndex < appDataHistory.length - 1) {
-                        appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
-                    }
-                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
-                    if (appDataHistory.length > 50) appDataHistory.shift();
-                    appDataCurrentIndex = appDataHistory.length - 1;
+                if (appDataCurrentIndex < appDataHistory.length - 1) {
+                    appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
                 }
+                appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                if (appDataHistory.length > 50) appDataHistory.shift();
+                appDataCurrentIndex = appDataHistory.length - 1;
+            }
 
-                // Tampon de frappe (Debounce)
-                localContent = newData;
-                isDirty = true;
-                
-                const syncBtn = document.getElementById('sync-status-btn');
-                if (syncBtn) {
-                    syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
-                    syncBtn.classList.add('sync-spin');
-                }
-                
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    syncToDrive();
+            // Tampon de frappe (Debounce)
+            localContent = newData;
+            isDirty = true;
+            
+            const syncBtn = document.getElementById('sync-status-btn');
+            if (syncBtn) {
+                syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+            }
+            
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                syncToDrive();
                 }, 3000);
             }
         });
@@ -1122,8 +1113,10 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
-                        syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
-                        syncBtn.classList.remove('sync-spin');
+                        syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
+                        setTimeout(() => {
+                            syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+                        }, 3000);
                     }
                 }
             } catch (e) {
@@ -1241,15 +1234,15 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     }
                     
                     // 3. Raccourci des données dans le dossier de l'app
-                    await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
-                }
-                
-                // Nettoyage URL
-                window.history.pushState(null, '', window.location.pathname);
-                
-                await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name, fileMeta.capabilities);
-            } catch(e) {
-                console.error(e);
+                await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
+            }
+            
+            // Nettoyage URL
+            window.history.pushState(null, '', window.location.pathname);
+            
+            await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
+        } catch(e) {
+            console.error(e);
                 alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
                 document.getElementById('loading-apps').style.display = 'none';
             }
