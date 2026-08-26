@@ -125,15 +125,15 @@
         .file-item-dropdown button.danger { color: #ef4444; }
 
         /* Bandeau d'exécution (Look Google Docs) */
-        .execution-header { background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .execution-header { background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 20px; }
         .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
         .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
         .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
         .execution-title-input:hover { border-color: var(--border-color); }
         .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
         
-        .execution-center { display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .execution-center { display: flex; gap: 2px; justify-content: center; align-items: center; }
         .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
         
         /* Menu Options du Bandeau */
@@ -285,7 +285,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
                 </button>
                 <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
+                    <!-- SVG dynamique injecté par JS -->
                 </button>
             </div>
 
@@ -423,6 +423,11 @@
     </div>
 
     <script>
+        // --- 3 ÉTATS VISUELS DE SYNCHRONISATION ---
+        const SVG_SYNC = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>`;
+        const SVG_LOADING_CLOUD = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/><path d="M440-360v-168l-56 56-56-56 152-152 152 152-56 56-56-56v168h-80Z"/></svg>`; // Standard Cloud Upload mapping to "Loading"
+        const SVG_CLOUD_DONE = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>`;
+
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
         const SCOPES = 'https://www.googleapis.com/auth/drive';
@@ -966,26 +971,26 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 const newData = event.data.payload;
                 
                 if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
-                if (appDataCurrentIndex < appDataHistory.length - 1) {
-                    appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    if (appDataCurrentIndex < appDataHistory.length - 1) {
+                        appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    }
+                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                    if (appDataHistory.length > 50) appDataHistory.shift();
+                    appDataCurrentIndex = appDataHistory.length - 1;
                 }
-                appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
-                if (appDataHistory.length > 50) appDataHistory.shift();
-                appDataCurrentIndex = appDataHistory.length - 1;
-            }
 
-            // Tampon de frappe (Debounce)
-            localContent = newData;
-            isDirty = true;
-            
-            const syncBtn = document.getElementById('sync-status-btn');
-            if (syncBtn) {
-                syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
-            }
-            
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                syncToDrive();
+                // Tampon de frappe (Debounce)
+                localContent = newData;
+                isDirty = true;
+                
+                const syncBtn = document.getElementById('sync-status-btn');
+                if (syncBtn) {
+                    syncBtn.innerHTML = SVG_LOADING_CLOUD;
+                }
+                
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    syncToDrive();
                 }, 3000);
             }
         });
@@ -1019,13 +1024,31 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (isViewingHistory) return;
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
+            const syncBtn = document.getElementById('sync-status-btn');
+            const copyBtn = document.getElementById('btn-create-copy');
+            const banner = document.getElementById('readonly-banner');
             
             if (isAppReadOnly) {
                 btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
+                if (syncBtn) syncBtn.innerHTML = SVG_SYNC;
+                if (banner) banner.style.display = 'block';
+                if (copyBtn) {
+                    copyBtn.style.animation = 'pulse 2s infinite';
+                    copyBtn.innerHTML = '✨ Créer une copie pour éditer';
+                    copyBtn.style.color = 'var(--accent-color)';
+                    copyBtn.style.fontWeight = 'bold';
+                }
             } else {
                 btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                 btn.style.background = "transparent";
+                if (banner) banner.style.display = 'none';
+                if (copyBtn) {
+                    copyBtn.style.animation = '';
+                    copyBtn.innerHTML = '📄 Créer une copie';
+                    copyBtn.style.color = '';
+                    copyBtn.style.fontWeight = '';
+                }
             }
             
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
@@ -1071,7 +1094,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                         body: multipartRequestBody
                     });
 
-                    let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media&t=${Date.now()}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                     let freshOneFileJson = await dataRes.json();
                     
                     let freshData = freshOneFileJson.app_data || [];
@@ -1113,9 +1136,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
-                        syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
+                        syncBtn.innerHTML = SVG_CLOUD_DONE;
                         setTimeout(() => {
-                            syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
+                            if (!isDirty && !isSyncing) {
+                                const btnCheck = document.getElementById('sync-status-btn');
+                                if (btnCheck) btnCheck.innerHTML = SVG_SYNC;
+                            }
                         }, 3000);
                     }
                 }
@@ -1138,7 +1164,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
                     if (!isDirty) {
                         console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
-                        let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                        let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media&t=${Date.now()}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                         let freshOneFileJson = await dataRes.json();
                         
                         let freshData = freshOneFileJson.app_data || [];
@@ -1156,7 +1182,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     } else {
                         console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
                         if (!isAppReadOnly) {
-                            toggleAppMode(); // Passage forcé en lecture seule avant le conflit
+                            isAppReadOnly = true; 
+                            toggleAppMode(); // Force Lecture Seule 
                         }
                     }
                 }
@@ -1207,7 +1234,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 if (!metaRes.ok) throw new Error("Fichier inaccessible");
                 let fileMeta = await metaRes.json();
                 
-                let dataRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let dataRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?alt=media&t=${Date.now()}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let oneFileJson = await dataRes.json();
                 
                 let sourceAppId = oneFileJson.oneapp_metadata.source_app_drive_id;
@@ -1229,20 +1256,20 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let ownsApp = appCheckData.files && appCheckData.files.length > 0;
 
                     if (!ownsApp) {
-                        // 2. Raccourci de l'app à la racine (avec le bon nom pour la grille)
-                        await createShortcutIfNeeded(sourceAppId, rootFolderId, `${realAppName}.oneapp`);
+                        // 2. Raccourci de l'app dans le dossier de l'app (Modifié étape 3)
+                        await createShortcutIfNeeded(sourceAppId, appFolderId, `${realAppName}.oneapp`);
                     }
                     
                     // 3. Raccourci des données dans le dossier de l'app
-                await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
-            }
-            
-            // Nettoyage URL
-            window.history.pushState(null, '', window.location.pathname);
-            
-            await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
-        } catch(e) {
-            console.error(e);
+                    await createShortcutIfNeeded(sharedFileId, appFolderId, `${fileMeta.name.replace('.onefile', '')} (Partagé)`);
+                }
+                
+                // Nettoyage URL
+                window.history.pushState(null, '', window.location.pathname);
+                
+                await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
+            } catch(e) {
+                console.error(e);
                 alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
                 document.getElementById('loading-apps').style.display = 'none';
             }
@@ -1268,10 +1295,10 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media&t=' + Date.now(), { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let appHtml = await appRes.text();
 
-                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media&t=' + Date.now(), { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let oneFileJson = await dataRes.json();
 
                 currentActiveOneFileId = oneFileId;
@@ -1289,14 +1316,14 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 isAppReadOnly = !canEdit;
 
                 const btn = document.getElementById('toggle-readonly-btn');
+                const syncBtn = document.getElementById('sync-status-btn');
                 const copyBtn = document.getElementById('btn-create-copy');
                 const banner = document.getElementById('readonly-banner');
 
                 if (isAppReadOnly) {
-                    btn.innerHTML = '🔒 Lecture Seule';
+                    btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                     btn.style.background = "var(--bg-color)";
-                    btn.style.pointerEvents = 'none';
-                    btn.style.opacity = '0.5';
+                    if (syncBtn) syncBtn.innerHTML = SVG_SYNC;
                     if (copyBtn) {
                         copyBtn.style.animation = 'pulse 2s infinite';
                         copyBtn.innerHTML = '✨ Créer une copie pour éditer';
@@ -1307,8 +1334,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 } else {
                     btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                     btn.style.background = "transparent";
-                    btn.style.pointerEvents = 'auto';
-                    btn.style.opacity = '1';
+                    if (syncBtn) syncBtn.innerHTML = SVG_CLOUD_DONE;
                     if (copyBtn) {
                         copyBtn.style.animation = '';
                         copyBtn.innerHTML = '📄 Créer une copie';
@@ -1378,6 +1404,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appId, appName);
             }
+            listInstalledApps();
         }
 
         async function openShareModal() {
@@ -1709,7 +1736,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
+                let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media&t=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${globalAccessToken}` }
                 });
                 
@@ -1835,7 +1862,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         async function fetchRevisionContent(fileId, revisionId) {
-            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media`, {
+            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media&t=${Date.now()}`, {
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             return await res.text();
