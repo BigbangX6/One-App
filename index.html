@@ -392,11 +392,18 @@
     <div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
         <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
             <h3 style="margin-top:0;">Partager ce fichier</h3>
-            <div style="margin-bottom:16px;">
-                <label><input type="radio" name="share-level" value="private" onclick="changePermission('private')"> Privé (Moi uniquement)</label><br>
-                <label><input type="radio" name="share-level" value="reader" onclick="changePermission('reader')"> Lecture seule (Tout le monde avec le lien)</label><br>
-                <label><input type="radio" name="share-level" value="writer" onclick="changePermission('writer')"> Éditeur (Tout le monde avec le lien)</label>
+            
+            <div id="share-permissions-block" style="margin-bottom:16px;">
+                <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
+                <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
+                <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
             </div>
+            <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
+            
+            <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+                Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
+            </div>
+
             <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
             <div style="display:flex; gap:10px;">
                 <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
@@ -596,7 +603,7 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`, { 
+            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`, { 
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
             });
             let data = await response.json();
@@ -607,6 +614,8 @@
                 data.files.forEach(file => {
                     let displayName = file.name.replace('.oneapp', '');
                     let parentFolderId = file.parents ? file.parents[0] : null;
+                    let targetId = (file.mimeType === 'application/vnd.google-apps.shortcut' && file.shortcutDetails) ? file.shortcutDetails.targetId : file.id;
+
                     let card = document.createElement('div');
                     card.className = 'app-card';
                     
@@ -630,7 +639,7 @@
 
                     card.innerHTML = `${iconSvg}<span>${displayName}</span>`;
                     
-                    card.onclick = () => toggleAppMenu(card, file.id, displayName, parentFolderId);
+                    card.onclick = () => toggleAppMenu(card, targetId, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
                 });
             } else {
@@ -783,7 +792,7 @@
         async function loadAppFiles(folderId, appFileId, appName) {
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
             try {
-                let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime)&orderBy=modifiedTime desc`, {
+                let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`, {
                     headers: { 'Authorization': `Bearer ${globalAccessToken}` }
                 });
                 let data = await response.json();
@@ -796,18 +805,19 @@
                         let dateObj = new Date(f.modifiedTime);
                         let dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                         let fName = f.name.replace('.onefile', '');
+                        let targetId = (f.mimeType === 'application/vnd.google-apps.shortcut' && f.shortcutDetails) ? f.shortcutDetails.targetId : f.id;
                         
                         let item = document.createElement('div');
                         item.className = 'file-item';
                         item.innerHTML = `
-                            <div class="file-item-name" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${f.id}', '${fName.replace(/'/g, "\\'")}')">${fName}</div>
-                            <div class="file-item-date" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${f.id}', '${fName.replace(/'/g, "\\'")}')">${dateStr}</div>
-                            <div class="file-item-menu" onclick="toggleFileMenu('${f.id}')">
+                            <div class="file-item-name" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${targetId}', '${fName.replace(/'/g, "\\'")}')">${fName}</div>
+                            <div class="file-item-date" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${targetId}', '${fName.replace(/'/g, "\\'")}')">${dateStr}</div>
+                            <div class="file-item-menu" onclick="toggleFileMenu('${targetId}')">
                                 ⠇
-                                <div class="file-item-dropdown" id="dropdown-${f.id}">
+                                <div class="file-item-dropdown" id="dropdown-${targetId}">
                                     <button onclick="window.open('https://drive.google.com/drive/folders/${folderId}', '_blank')">↗️ Ouvrir le dossier</button>
-                                    <button onclick="renameFile('${f.id}', '${fName.replace(/'/g, "\\'")}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">✏️ Renommer</button>
-                                    <button class="danger" onclick="deleteFile('${f.id}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
+                                    <button onclick="renameFile('${targetId}', '${fName.replace(/'/g, "\\'")}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">✏️ Renommer</button>
+                                    <button class="danger" onclick="deleteFile('${targetId}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
                                 </div>
                             </div>
                         `;
@@ -1178,8 +1188,18 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 let appName = oneFileJson.oneapp_metadata.app_name;
 
                 if (!fileMeta.parents || !fileMeta.parents.includes(rootFolderId)) {
-                    createShortcutIfNeeded(sharedFileId, rootFolderId, fileMeta.name + " (Partagé)");
-                    createShortcutIfNeeded(sourceAppId, rootFolderId, appName + " (App)");
+                    // 1. Création du dossier de l'app si inexistant
+                    let appFolderId = await getOrCreateFolder(appName, rootFolderId);
+                    
+                    // Récupération du vrai nom de l'app
+                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let appMeta = await appMetaRes.json();
+                    let realAppName = appMeta.name.replace('.oneapp', '');
+                    
+                    // 2. Raccourci de l'app à la racine (avec le bon nom pour la grille)
+                    await createShortcutIfNeeded(sourceAppId, rootFolderId, `${realAppName}.oneapp`);
+                    // 3. Raccourci des données dans le dossier de l'app
+                    await createShortcutIfNeeded(sharedFileId, appFolderId, fileMeta.name);
                 }
                 
                 // Nettoyage URL
@@ -1337,17 +1357,31 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.querySelectorAll('input[name="share-level"]').forEach(r => r.checked = false);
             
             try {
-                let res = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
+                let res = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=permissions,capabilities`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
                 let data = await res.json();
-                let anyonePerm = data.permissions ? data.permissions.find(p => p.type === 'anyone') : null;
                 
-                if (anyonePerm) {
-                    let radio = document.querySelector(`input[name="share-level"][value="${anyonePerm.role}"]`);
-                    if(radio) radio.checked = true;
-                    window.currentAnyonePermissionId = anyonePerm.id;
+                const permBlock = document.getElementById('share-permissions-block');
+                const validateBtn = document.getElementById('btn-validate-share');
+                const noPermText = document.getElementById('share-no-permission-text');
+
+                if (data.capabilities && data.capabilities.canShare === false) {
+                    permBlock.style.display = 'none';
+                    validateBtn.style.display = 'none';
+                    noPermText.style.display = 'block';
                 } else {
-                    document.querySelector(`input[name="share-level"][value="private"]`).checked = true;
-                    window.currentAnyonePermissionId = null;
+                    permBlock.style.display = 'block';
+                    validateBtn.style.display = 'block';
+                    noPermText.style.display = 'none';
+                    
+                    let anyonePerm = data.permissions ? data.permissions.find(p => p.type === 'anyone') : null;
+                    if (anyonePerm) {
+                        let radio = document.querySelector(`input[name="share-level"][value="${anyonePerm.role}"]`);
+                        if(radio) radio.checked = true;
+                        window.currentAnyonePermissionId = anyonePerm.id;
+                    } else {
+                        document.querySelector(`input[name="share-level"][value="private"]`).checked = true;
+                        window.currentAnyonePermissionId = null;
+                    }
                 }
             } catch(e) { console.error(e); }
         }
@@ -1356,7 +1390,18 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('share-modal-overlay').style.display = 'none';
         }
 
-        async function changePermission(level) {
+        async function validatePermissionChange() {
+            const selectedRadio = document.querySelector('input[name="share-level"]:checked');
+            if (!selectedRadio) {
+                alert("Veuillez sélectionner un niveau d'accès.");
+                return;
+            }
+            const level = selectedRadio.value;
+            const btn = document.getElementById('btn-validate-share');
+            const originalText = btn.innerText;
+            btn.innerText = "Validation en cours...";
+            btn.disabled = true;
+
             try {
                 if (level === 'private') {
                     if (window.currentAnyonePermissionId) {
@@ -1375,9 +1420,13 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let data = await res.json();
                     window.currentAnyonePermissionId = data.id;
                 }
+                alert("Droits mis à jour avec succès !");
             } catch(e) {
                 console.error(e);
                 alert("Erreur lors du changement de permission.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
             }
         }
 
