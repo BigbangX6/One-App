@@ -217,9 +217,35 @@
             50% { transform: scale(1.02); }
             100% { transform: scale(1); }
         }
+
+        /* Custom Alert Modal styles */
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 10001; display: none;
+            justify-content: center; align-items: center;
+        }
+        .custom-modal-box {
+            background: var(--surface-color); padding: 24px; border-radius: 12px;
+            max-width: 400px; width: 90%; box-shadow: var(--shadow);
+            color: var(--text-primary); text-align: center; border: 1px solid var(--border-color);
+        }
+        .custom-modal-buttons {
+            display: flex; gap: 10px; justify-content: center; margin-top: 20px;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Custom Modal for Alerts and Confirms -->
+    <div id="custom-modal" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div id="custom-modal-text" style="margin-bottom: 16px; font-size: 15px; line-height: 1.4;"></div>
+            <div class="custom-modal-buttons">
+                <button id="custom-modal-cancel" class="custom-btn" style="display:none; flex: 1;">Annuler</button>
+                <button id="custom-modal-ok" class="primary-btn" style="flex: 1;">OK</button>
+            </div>
+        </div>
+    </div>
 
     <div id="unauthenticated-view" class="app-container">
         <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
@@ -233,7 +259,7 @@
         <h1 id="invite-title">Fichier Partagé</h1>
         <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
         <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
-        <button class="custom-btn" onclick="alert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
+        <button class="custom-btn" onclick="showAlert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
     </div>
 
     <div id="authenticated-view" class="app-container">
@@ -305,7 +331,7 @@
                     <div class="header-dropdown" id="execution-header-menu">
                         <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
                         <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                        <button onclick="showAlert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
                         <button onclick="showDataHistory()">🕒 Historique des versions</button>
                         <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
                         <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
@@ -339,7 +365,7 @@
                 <div class="header-menu-container">
                     <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
                     <div class="header-dropdown" id="edit-header-menu">
-                        <button onclick="alert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
+                        <button onclick="showAlert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
                         <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
                         <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
                         <button onclick="showAppHistory()">🕒 Historique des versions</button>
@@ -423,6 +449,26 @@
     </div>
 
     <script>
+        // --- CUSTOM ALERTS & CONFIRMS (Sécurité Canvas) ---
+        window.showAlert = function(msg) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('custom-modal-text').innerText = msg;
+            document.getElementById('custom-modal-cancel').style.display = 'none';
+            modal.style.display = 'flex';
+            document.getElementById('custom-modal-ok').onclick = () => modal.style.display = 'none';
+        };
+
+        window.showConfirm = function(msg) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('custom-modal');
+                document.getElementById('custom-modal-text').innerText = msg;
+                document.getElementById('custom-modal-cancel').style.display = 'block';
+                modal.style.display = 'flex';
+                document.getElementById('custom-modal-ok').onclick = () => { modal.style.display = 'none'; resolve(true); };
+                document.getElementById('custom-modal-cancel').onclick = () => { modal.style.display = 'none'; resolve(false); };
+            });
+        };
+
         // --- CONSTANTES SVG ---
         const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
         const SVG_LOADING = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/><path d="M440-360v-168l-56 56-56-56 152-152 152 152-56 56-56-56v168h-80Z"/></svg>';
@@ -451,6 +497,62 @@
         let isViewingHistory = false;
         let historyMode = null; // 'data' ou 'app'
 
+        // --- CONTRÔLEUR DE BASE DE DONNÉES (INDEXEDDB) ---
+        const LocalDB = {
+            db: null,
+            init: function() {
+                return new Promise((resolve, reject) => {
+                    if (this.db) return resolve(this.db);
+                    const request = indexedDB.open("OneAppDB", 1);
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains("files")) {
+                            db.createObjectStore("files", { keyPath: 'id' });
+                        }
+                    };
+                    request.onsuccess = (event) => {
+                        this.db = event.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (event) => {
+                        console.error("IndexedDB error:", event.target.error);
+                        reject(event.target.error);
+                    };
+                });
+            },
+            saveItem: function(item) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) return reject("DB not initialized");
+                    const transaction = this.db.transaction(["files"], "readwrite");
+                    const store = transaction.objectStore("files");
+                    const request = store.put(item);
+                    request.onsuccess = () => resolve();
+                    request.onerror = (event) => reject(event.target.error);
+                });
+            },
+            getItem: function(id) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) return reject("DB not initialized");
+                    const transaction = this.db.transaction(["files"], "readonly");
+                    const store = transaction.objectStore("files");
+                    const request = store.get(id);
+                    request.onsuccess = (event) => resolve(event.target.result);
+                    request.onerror = (event) => reject(event.target.error);
+                });
+            }
+        };
+
+        // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
+        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
+
+        let currentRunningApp = null;
+        let currentActiveOneFileId = null;
+        let currentOneFileMetadata = null;
+        
+        let appDataHistory = [];
+        let appDataCurrentIndex = -1;
+        let isAppReadOnly = false;
+
         function logout() {
             localStorage.removeItem('oneapp_gdrive_token');
             localStorage.removeItem('oneapp_gdrive_expire');
@@ -468,7 +570,6 @@
             } catch(e) { console.error("Impossible de récupérer le profil"); }
         }
 
-        // 1. Initialisation Google OAuth (Sécurisée et persistante)
         window.onload = function() {
             const savedToken = localStorage.getItem('oneapp_gdrive_token');
             const savedExpire = localStorage.getItem('oneapp_gdrive_expire');
@@ -489,18 +590,17 @@
                 }
             }
             
-            // Initialisation SVG par défaut
             const syncBtn = document.getElementById('sync-status-btn');
             if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
         };
 
         function authorizeAndConnect() {
             if (!CLIENT_ID) {
-                alert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
+                showAlert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
                 return;
             }
             if (typeof google === 'undefined') {
-                alert("Erreur : Le script Google ne s'est pas chargé. Désactivez votre bloqueur de publicités ou vérifiez votre connexion.");
+                showAlert("Erreur : Le script Google ne s'est pas chargé. Désactivez votre bloqueur de publicités ou vérifiez votre connexion.");
                 return;
             }
 
@@ -512,7 +612,6 @@
                         if (tokenResponse && tokenResponse.access_token) {
                             globalAccessToken = tokenResponse.access_token;
                             
-                            // Sauvegarde du jeton en local
                             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
                             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
                             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
@@ -530,19 +629,17 @@
             tokenClient.requestAccessToken();
         }
 
-        // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
         async function initializeAppSystem() {
+            await LocalDB.init(); 
             rootFolderId = await getOrCreateFolder("One App", "root");
             
-            // Lancement silencieux de la création du Launcher PDF
             createLauncherDocIfNeeded(rootFolderId);
 
-            // Vérification des liens magiques au démarrage
             const urlParams = new URLSearchParams(window.location.search);
             const sharedFileId = urlParams.get('file');
 
             if (sharedFileId) {
-                listInstalledApps(); // Charge l'accueil en arrière-plan
+                listInstalledApps();
                 await checkSharedLink(sharedFileId);
             } else {
                 await listInstalledApps();
@@ -555,13 +652,11 @@
                 let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
                 let data = await response.json();
                 
-                if (data.files && data.files.length > 0) return; // Le fichier existe déjà
+                if (data.files && data.files.length > 0) return; 
 
-                // Récupération du PDF source depuis GitHub
                 let pdfRes = await fetch('https://bigbangx6.github.io/One-App/Launcher.pdf');
                 let pdfBlob = await pdfRes.blob();
 
-                // Création des métadonnées
                 let metaRes = await fetch(DRIVE_API_URL, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
@@ -569,7 +664,6 @@
                 });
                 let createdFile = await metaRes.json();
 
-                // Upload du binaire
                 await fetch(`https://www.googleapis.com/upload/drive/v3/files/${createdFile.id}?uploadType=media`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}` },
@@ -719,7 +813,6 @@
             loadAppFiles(appFolderId, appFileId, appName);
         }
 
-        // --- GESTION DU BANDEAU D'EXÉCUTION ---
         function toggleHeaderMenu() {
             const menu = document.getElementById('execution-header-menu');
             if(menu) menu.classList.toggle('active');
@@ -746,7 +839,7 @@
         }
         
         async function duplicateActiveFile() {
-            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!navigator.onLine) return showAlert("Vous êtes hors ligne. Vérifiez votre connexion.");
             if (!currentActiveOneFileId || !localContent) return;
 
             const currentName = document.getElementById('running-file-title').value;
@@ -799,7 +892,7 @@
                 console.error(e);
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
-                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+                showAlert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
             }
         }
 
@@ -866,13 +959,13 @@
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appFileId, appName);
             } catch (e) {
-                alert("Erreur lors du renommage.");
+                showAlert("Erreur lors du renommage.");
                 document.getElementById('submenu-loader').style.display = 'none';
             }
         }
 
         async function deleteFile(fileId, folderId, appFileId, appName) {
-            if (!confirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?")) return;
+            if (!(await showConfirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?"))) return;
             
             document.getElementById('submenu-loader').style.display = 'block';
             try {
@@ -884,7 +977,7 @@
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appFileId, appName);
             } catch (e) {
-                alert("Erreur lors de la suppression.");
+                showAlert("Erreur lors de la suppression.");
                 document.getElementById('submenu-loader').style.display = 'none';
             }
         }
@@ -897,11 +990,10 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
 2. "Métadonnées": Place le nom dans la balise <title> et une icône dans <meta name="oneapp-icon" content="[Emoji ou SVG]">.
 3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
 4. "Moteur One App": Tu DOIS inclure ce Mock API au début du script pour que l'app tourne dans le Canvas Gemini : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
-5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée.
-Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
-            navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
-            });
+5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée. Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`; 
+            navigator.clipboard.writeText(prompt).then(() => { 
+                showAlert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici."); 
+            }); 
         }
 
         async function createNewFile(appFileId, appName, folderId) {
@@ -939,22 +1031,10 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 openAppEnvironment(appFileId, appName, createdFile.id, fileName);
             } catch(e) {
                 console.error(e);
-                alert("Erreur lors de la création du fichier sur Drive.");
+                showAlert("Erreur lors de la création du fichier sur Drive.");
             }
         }
 
-        // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
-        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
-
-        let currentRunningApp = null;
-        let currentActiveOneFileId = null;
-        let currentOneFileMetadata = null;
-        
-        let appDataHistory = [];
-        let appDataCurrentIndex = -1;
-        let isAppReadOnly = false;
-        
-        // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
         window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
@@ -976,12 +1056,11 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 if (appDataCurrentIndex < appDataHistory.length - 1) {
                     appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
                 }
-                appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                appDataHistory.push(JSON.parse(JSON.stringify(newData)));
                 if (appDataHistory.length > 50) appDataHistory.shift();
                 appDataCurrentIndex = appDataHistory.length - 1;
             }
 
-            // Tampon de frappe (Debounce)
             localContent = newData;
             isDirty = true;
             
@@ -998,7 +1077,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
         });
 
-        // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
         function appUndo() {
             if (isAppReadOnly || isViewingHistory || appDataCurrentIndex <= 0) return;
             appDataCurrentIndex--;
@@ -1057,7 +1135,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
         }
 
-        // --- LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
         async function syncToDrive() {
             if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent || isViewingHistory) return;
 
@@ -1069,8 +1146,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 let driveTime = fileMeta.modifiedTime;
 
                 if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
-                    // --- CAS CONFLIT ---
-                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
+                    showAlert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
 
                     const backupName = `${document.getElementById('running-file-title').value} - Copie de secours.onefile`;
                     const boundary = '-------314159265358979323846';
@@ -1114,11 +1190,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     
                     appDataHistory = [JSON.parse(JSON.stringify(freshData))];
                     appDataCurrentIndex = 0;
+
+                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
                     
-                    alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+                    showAlert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
 
                 } else {
-                    // --- CAS NORMAL (PATCH) ---
                     currentOneFileMetadata.version_timestamp = new Date().toISOString();
                     const updatedData = {
                         oneapp_metadata: currentOneFileMetadata,
@@ -1136,6 +1213,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
                     isDirty = false;
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
+
+                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
@@ -1150,7 +1229,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
-                alert("Erreur de synchronisation avec Google Drive.");
+                showAlert("Erreur de synchronisation avec Google Drive.");
                 const syncBtn = document.getElementById('sync-status-btn');
                 if (syncBtn) {
                     syncBtn.innerHTML = SVG_SYNC;
@@ -1161,7 +1240,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
         }
 
-        // --- LE RADAR SILENCIEUX (POLLING) ---
         async function checkCloudVersion() {
             if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
             
@@ -1186,6 +1264,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                         window.currentLoadedAppData = freshData;
                         currentFileVersion = driveTime;
                         localContent = freshData;
+
+                        LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
                         
                         const iframe = document.querySelector('#iframe-container iframe');
                         if (iframe) {
@@ -1198,7 +1278,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                         console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
                         if (!isAppReadOnly) {
                             isAppReadOnly = true; 
-                            toggleAppMode(); // Passage forcé en lecture seule avant le conflit
+                            toggleAppMode(); 
                         }
                     }
                 }
@@ -1234,7 +1314,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 const query = encodeURIComponent(`mimeType='application/vnd.google-apps.shortcut' and shortcutDetails.targetId='${targetId}' and trashed=false`);
                 let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
                 let data = await response.json();
-                if (data.files && data.files.length > 0) return; // Shortcut already exists
+                if (data.files && data.files.length > 0) return; 
                 
                 const metadata = { name: name, mimeType: "application/vnd.google-apps.shortcut", parents: [folderId], shortcutDetails: { targetId: targetId } };
                 await fetch(DRIVE_API_URL, {
@@ -1261,10 +1341,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 let appName = oneFileJson.oneapp_metadata.app_name;
 
                 if (!fileMeta.parents || !fileMeta.parents.includes(rootFolderId)) {
-                    // 1. Création du dossier de l'app si inexistant
                     let appFolderId = await getOrCreateFolder(appName, rootFolderId);
                     
-                    // 2. Récupération des infos de l'app source ET vérification du propriétaire
                     let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name,ownedByMe', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                     let appMeta = await appMetaRes.json();
                     let realAppName = appMeta.name.replace('.oneapp', '');
@@ -1272,27 +1350,23 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let appShortcutName = realAppName + ".oneapp";
                     let dataShortcutName = fileMeta.name;
 
-                    // 3. Création du raccourci de l'app UNIQUEMENT si l'utilisateur ne la possède pas déjà
                     if (appMeta.ownedByMe === false) {
                         await createShortcutIfNeeded(sourceAppId, appFolderId, appShortcutName);
                     }
                     
-                    // 4. Raccourci des données dans le dossier de l'app
                     await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
                 }
             
-            // Nettoyage URL
             window.history.pushState(null, '', window.location.pathname);
             
             await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
         } catch(e) {
             console.error(e);
-                alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
+                showAlert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
                 document.getElementById('loading-apps').style.display = 'none';
             }
         }
 
-        // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
             document.getElementById('loading-apps').style.display = 'block';
@@ -1318,6 +1392,9 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                 let oneFileJson = await dataRes.json();
 
+                LocalDB.saveItem({ id: appFileId, type: 'app', name: appName, content: appHtml, lastAccessed: Date.now() }).catch(console.error);
+                LocalDB.saveItem({ id: oneFileId, type: 'data', name: oneFileName, content: oneFileJson, lastAccessed: Date.now() }).catch(console.error);
+
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
                 window.currentLoadedAppData = oneFileJson.app_data || []; 
@@ -1328,7 +1405,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
                 appDataCurrentIndex = 0;
                 
-                // Détection de la Lecture Seule via Capabilities API
                 let canEdit = fileMeta.capabilities ? fileMeta.capabilities.canEdit : true;
                 isAppReadOnly = !canEdit;
 
@@ -1389,7 +1465,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur critique lors du téléchargement des fichiers.");
+                showAlert("Erreur critique lors du téléchargement des fichiers.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
@@ -1475,7 +1551,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         async function validatePermissionChange() {
             const selectedRadio = document.querySelector('input[name="share-level"]:checked');
             if (!selectedRadio) {
-                alert("Veuillez sélectionner un niveau d'accès.");
+                showAlert("Veuillez sélectionner un niveau d'accès.");
                 return;
             }
             const level = selectedRadio.value;
@@ -1504,7 +1580,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     let data = await res.json();
                     window.currentAnyonePermissionId = data.id;
                 }
-                alert("Droits mis à jour avec succès !");
+                showAlert("Droits mis à jour avec succès !");
 
                 let timeRes = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
                 let timeData = await timeRes.json();
@@ -1512,7 +1588,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
             } catch(e) {
                 console.error(e);
-                alert("Erreur lors du changement de permission.");
+                showAlert("Erreur lors du changement de permission.");
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
@@ -1524,7 +1600,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             const linkInput = document.getElementById('share-link-input');
             linkInput.select();
             document.execCommand('copy');
-            alert("Lien copié !");
+            showAlert("Lien copié !");
         }
 
         function nativeShare() {
@@ -1543,7 +1619,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('qr-code-container').style.display = 'block';
         }
 
-        // --- LOGIQUE D'INSTALLATION (HTML) ---
         function toggleInstallSection() {
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
@@ -1551,7 +1626,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         async function installAppFromHtml() {
             const htmlContent = document.getElementById('json-input').value.trim();
-            if (!htmlContent) return alert("Veuillez coller le code HTML.");
+            if (!htmlContent) return showAlert("Veuillez coller le code HTML.");
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -1583,7 +1658,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
                 await makeFilePublic(createdFile.id);
 
-                alert(`L'application "${appName}" a été installée avec succès !`);
+                showAlert(`L'application "${appName}" a été installée avec succès !`);
                 
                 document.getElementById('json-input').value = '';
                 toggleInstallSection();
@@ -1592,39 +1667,10 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur lors de l'installation sur Google Drive.");
+                showAlert("Erreur lors de l'installation sur Google Drive.");
                 document.getElementById('install-loader').style.display = 'none';
             }
         }
-
-        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
-        let editorHistory = [];
-        let editorCurrentIndex = -1;
-        let editingAppFileId = null;
-
-        const fullCodeInput = document.getElementById('editor-full-code');
-        const editorStatusMsg = document.getElementById('editor-status');
-
-        function showEditorStatus(msg) {
-            editorStatusMsg.innerText = msg;
-            setTimeout(() => { if (editorStatusMsg.innerText === msg) editorStatusMsg.innerText = "Prêt."; }, 4000);
-        }
-
-        function saveEditorState(newCode) {
-            if (editorCurrentIndex < editorHistory.length - 1) {
-                editorHistory = editorHistory.slice(0, editorCurrentIndex + 1);
-            }
-            editorHistory.push(newCode);
-            if (editorHistory.length > 50) editorHistory.shift();
-            editorCurrentIndex = editorHistory.length - 1;
-        }
-
-        fullCodeInput.addEventListener('change', () => {
-            if (fullCodeInput.value !== editorHistory[editorCurrentIndex]) {
-                saveEditorState(fullCodeInput.value);
-                showEditorStatus("Sauvegarde manuelle dans l'historique.");
-            }
-        });
 
         function toggleEditHeaderMenu() {
             const menu = document.getElementById('edit-header-menu');
@@ -1654,7 +1700,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
         
         async function duplicateAppFromEditor() {
-            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!navigator.onLine) return showAlert("Vous êtes hors ligne. Vérifiez votre connexion.");
             if (!editingAppFileId) return;
 
             const currentName = document.getElementById('edit-app-title-input').value;
@@ -1691,7 +1737,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 let createdFile = await response.json();
                 await makeFilePublic(createdFile.id);
 
-                alert(`La copie "${newName}" a été créée avec succès !`);
+                showAlert(`La copie "${newName}" a été créée avec succès !`);
                 showEditorStatus("Prêt.");
                 
                 closeAppEditor();
@@ -1699,7 +1745,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur lors de la copie.");
-                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+                showAlert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
             }
         }
         
@@ -1724,7 +1770,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         async function deleteAppFromEditor() {
-            if (!confirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?")) return;
+            if (!(await showConfirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?"))) return;
 
             showEditorStatus("Suppression en cours...");
             document.getElementById('edit-header-menu').classList.remove('active');
@@ -1739,7 +1785,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 closeAppEditor();
                 await listInstalledApps();
             } catch (e) {
-                alert("Erreur lors de la suppression.");
+                showAlert("Erreur lors de la suppression.");
                 showEditorStatus("Prêt.");
             }
         }
@@ -1762,6 +1808,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
                 let appData = await response.text();
                 
+                LocalDB.saveItem({ id: fileId, type: 'app', name: appName, content: appData, lastAccessed: Date.now() }).catch(console.error);
+
                 fullCodeInput.value = appData;
                 saveEditorState(appData);
                 
@@ -1771,7 +1819,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
             } catch (error) {
                 console.error("Erreur éditeur :", error);
-                alert("Impossible de charger le code source depuis Drive.");
+                showAlert("Impossible de charger le code source depuis Drive.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
             }
@@ -1792,14 +1840,14 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             const aiPrompt = `Voici le code source de mon application One App (JSON) : \n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nApporte les modifications demandées et renvoie-moi UNIQUEMENT l'intégralité du code HTML valide, sans formatage tronqué.`;
 
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Le code et les instructions ont été copiés ! Ouvrez Gemini, collez ce texte, ajoutez votre demande, et générez le nouveau code.");
+                showAlert("Le code et les instructions ont été copiés ! Ouvrez Gemini, collez ce texte, ajoutez votre demande, et générez le nouveau code.");
             }).catch(err => {
-                alert("Erreur lors de la copie.");
+                showAlert("Erreur lors de la copie.");
             });
         }
 
-        function clearEditor() {
-            if (confirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
+        async function clearEditor() {
+            if (await showConfirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
                 fullCodeInput.value = '';
                 saveEditorState('');
                 showEditorStatus("Éditeur vidé.");
@@ -1847,11 +1895,13 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
                 await makeFilePublic(editingAppFileId);
                 
+                LocalDB.saveItem({ id: editingAppFileId, type: 'app', name: document.getElementById('edit-app-title-input').value, content: htmlString, lastAccessed: Date.now() }).catch(console.error);
+
                 showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
-                alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
+                showAlert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
             }
         }
 
@@ -1871,7 +1921,6 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
         }
 
-        // --- MACHINE À REMONTER LE TEMPS (HISTORIQUE) ---
         async function fetchRevisions(fileId) {
             let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime)&orderBy=modifiedTime desc`, {
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
@@ -1986,7 +2035,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                         }
                     } catch(e) {
                         console.error(e);
-                        alert("Erreur lors du chargement de cette version. Le fichier est peut-être corrompu.");
+                        showAlert("Erreur lors du chargement de cette version. Le fichier est peut-être corrompu.");
                     } finally {
                         list.style.opacity = '1';
                     }
@@ -2010,8 +2059,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             historyMode = null;
         }
 
-        function restoreDataVersion(pastData) {
-            if (!confirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente.")) return;
+        async function restoreDataVersion(pastData) {
+            if (!(await showConfirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente."))) return;
             
             localContent = pastData;
             isDirty = true;
@@ -2074,12 +2123,11 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 
             } catch (e) {
                 console.error(e);
-                alert("Erreur lors de la création de la copie.");
+                showAlert("Erreur lors de la création de la copie.");
                 closeHistorySidebar();
             }
         }
 
-        // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
         document.addEventListener('keydown', (e) => {
             const isCmdOrCtrl = e.ctrlKey || e.metaKey;
 
