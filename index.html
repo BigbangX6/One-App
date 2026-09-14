@@ -9,446 +9,445 @@
     <script src="config.js"></script>
 
     <style>
-        /* --- VARIABLES CSS --- */
+    /* --- VARIABLES CSS --- */
+    :root {
+        --bg-color: #f5f5f7;
+        --surface-color: #ffffff;
+        --text-primary: #1d1d1f;
+        --text-secondary: #86868b;
+        --border-color: #d2d2d7;
+        --accent-color: #8b5cf6; 
+        --accent-hover: #7c3aed;
+        --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
         :root {
-            --bg-color: #f5f5f7;
-            --surface-color: #ffffff;
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-            --border-color: #d2d2d7;
-            --accent-color: #8b5cf6; 
-            --accent-hover: #7c3aed;
-            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+            --bg-color: #000000;
+            --surface-color: #1c1c1e;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --border-color: #38383a;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
         }
+    }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #000000;
-                --surface-color: #1c1c1e;
-                --text-primary: #f5f5f7;
-                --text-secondary: #a1a1a6;
-                --border-color: #38383a;
-                --shadow: 0 4px 24px rgba(0,0,0,0.4);
-            }
-        }
+    /* --- STYLES GLOBAUX --- */
+    body, html {
+        margin: 0;
+        padding: 0; height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background-color: var(--bg-color); color: var(--text-primary);
+        display: flex; justify-content: center; align-items: flex-start;
+        transition: background-color 0.3s ease, color 0.3s ease;
+        padding-top: 40px; box-sizing: border-box;
+    }
 
-        /* --- STYLES GLOBAUX --- */
-        body, html {
-            margin: 0;
-            padding: 0; height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg-color); color: var(--text-primary);
-            display: flex; justify-content: center; align-items: flex-start;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            padding-top: 40px; box-sizing: border-box;
-        }
+    .app-container {
+        background-color: var(--surface-color);
+        border-radius: 20px;
+        box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
+        border: 1px solid var(--border-color); box-sizing: border-box;
+    }
 
-        .app-container {
-            background-color: var(--surface-color);
-            border-radius: 20px;
-            box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
-            border: 1px solid var(--border-color); box-sizing: border-box;
-        }
+    /* --- VUES --- */
+    #unauthenticated-view { text-align: center; }
+    #authenticated-view { display: none; }
+    
+    .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
+    h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
+    p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
 
-        /* --- VUES --- */
-        #unauthenticated-view { text-align: center; }
-        #authenticated-view { display: none; }
-        
-        .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
-        h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
-        p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
+    .custom-btn {
+        background-color: var(--surface-color);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
+        font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
+        align-items: center; justify-content: center; gap: 12px; width: 100%;
+        transition: background 0.2s;
+    }
+    .custom-btn:hover { background-color: var(--bg-color); }
+    
+    .primary-btn {
+        background-color: var(--accent-color);
+        color: white; border: none;
+        padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
+    }
+    .primary-btn:hover { background-color: var(--accent-hover); }
 
-        .custom-btn {
-            background-color: var(--surface-color);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
-            font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; gap: 12px; width: 100%;
-            transition: background 0.2s;
-        }
-        .custom-btn:hover { background-color: var(--bg-color); }
-        
-        .primary-btn {
-            background-color: var(--accent-color);
-            color: white; border: none;
-            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
-        }
-        .primary-btn:hover { background-color: var(--accent-hover); }
+    .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
 
-        .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
+    /* --- TABLEAU DE BORD --- */
+    .user-header {
+        display: flex;
+        align-items: center; gap: 12px; margin-bottom: 24px;
+        padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
+    }
+    .user-info h2 { font-size: 16px; margin: 0; }
+    .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
 
-        /* --- TABLEAU DE BORD --- */
-        .user-header {
-            display: flex;
-            align-items: center; gap: 12px; margin-bottom: 24px;
-            padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
-        }
-        .user-info h2 { font-size: 16px; margin: 0; }
-        .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+    .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
 
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-        .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
+    /* Grille des applications */
+    #app-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
+    }
+    .app-card {
+        background: var(--bg-color);
+        border: 1px solid var(--border-color); border-radius: 12px;
+        padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
+    .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
+    .app-card span { display: block; font-size: 13px; font-weight: 600; }
 
-        /* Grille des applications */
-        #app-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
-        }
-        .app-card {
-            background: var(--bg-color);
-            border: 1px solid var(--border-color); border-radius: 12px;
-            padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
-        }
-        .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
-        .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
-        .app-card span { display: block; font-size: 13px; font-weight: 600; }
+    /* Sous-menu App (Espace de travail) */
+    .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
+    .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
+    .submenu-search:focus { border-color: var(--accent-color); }
+    
+    .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+    .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
+    .file-item:hover { border-color: var(--accent-color); }
+    .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
+    .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
+    .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
+    .file-item-menu:hover { color: var(--text-primary); }
+    
+    .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
+    .file-item-dropdown.active { display: flex; }
+    .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .file-item-dropdown button:hover { background: var(--bg-color); }
+    .file-item-dropdown button.danger { color: #ef4444; }
 
-        /* Sous-menu App (Espace de travail) */
-        .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
-        .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
-        .submenu-search:focus { border-color: var(--accent-color); }
-        
-        .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
-        .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
-        .file-item:hover { border-color: var(--accent-color); }
-        .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
-        .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
-        .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
-        .file-item-menu:hover { color: var(--text-primary); }
-        
-        .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
-        .file-item-dropdown.active { display: flex; }
-        .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        .file-item-dropdown button:hover { background: var(--bg-color); }
-        .file-item-dropdown button.danger { color: #ef4444; }
+    /* Bandeau d'exécution (Look Google Docs) */
+    .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
+    .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
+    .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
+    .execution-title-input:hover { border-color: var(--border-color); }
+    .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+    
+    .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
+    .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+    
+    /* Menu Options du Bandeau */
+    .header-menu-container { position: relative; }
+    .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
+    .header-dropdown.active { display: flex; }
+    .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+    .header-dropdown button:hover { background: var(--bg-color); }
+    .header-dropdown button.danger { color: #ef4444; }
 
-        /* Bandeau d'exécution (Look Google Docs) */
-        .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
-        .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
-        .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-        .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
-        .execution-title-input:hover { border-color: var(--border-color); }
-        .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
-        
-        .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
-        .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-        
-        /* Menu Options du Bandeau */
-        .header-menu-container { position: relative; }
-        .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
-        .header-dropdown.active { display: flex; }
-        .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
-        .header-dropdown button:hover { background: var(--bg-color); }
-        .header-dropdown button.danger { color: #ef4444; }
+    /* Vue Invitation */
+    #shared-invite-view { text-align: center; display: none; }
+    
+    /* Utilitaires Responsive */
+    @media (max-width: 600px) {
+        .hide-on-mobile { display: none !important; }
+        .show-on-mobile-inline { display: inline !important; }
+    }
 
-        /* Vue Invitation */
-        #shared-invite-view { text-align: center; display: none; }
-        
-        /* Utilitaires Responsive */
-        @media (max-width: 600px) {
-            .hide-on-mobile { display: none !important; }
-            .show-on-mobile-inline { display: inline !important; }
-        }
+    /* Modal d'installation */
+    #install-section {
+        display: none;
+        background: var(--bg-color); padding: 20px; border-radius: 12px;
+        border: 1px solid var(--border-color); margin-top: 20px;
+    }
+    textarea {
+        width: 100%;
+        height: 150px; background: var(--surface-color); color: var(--text-primary);
+        border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
+        font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
+    }
 
-        /* Modal d'installation */
-        #install-section {
-            display: none;
-            background: var(--bg-color); padding: 20px; border-radius: 12px;
-            border: 1px solid var(--border-color); margin-top: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 150px; background: var(--surface-color); color: var(--text-primary);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
-            font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
-        }
+    /* --- HISTORIQUE (SIDEBAR) --- */
+    #history-sidebar {
+        position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
+        background: var(--surface-color); border-left: 1px solid var(--border-color);
+        box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
+        transform: translateX(100%); transition: transform 0.3s ease;
+        display: flex; flex-direction: column;
+    }
+    #history-sidebar.open { transform: translateX(0); }
+    .history-header {
+        padding: 16px; border-bottom: 1px solid var(--border-color);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .history-close-btn {
+        background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
+    }
+    .history-close-btn:hover { color: #ef4444; }
+    #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    
+    .history-item {
+        padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
+        cursor: pointer; background: var(--bg-color); transition: 0.2s;
+    }
+    .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
+    .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    
+    /* History Action Buttons area */
+    #history-actions { 
+        padding: 16px; border-top: 1px solid var(--border-color); display: none; 
+        flex-direction: column; gap: 10px; 
+    }
 
-        /* --- HISTORIQUE (SIDEBAR) --- */
-        #history-sidebar {
-            position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
-            background: var(--surface-color); border-left: 1px solid var(--border-color);
-            box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
-            transform: translateX(100%); transition: transform 0.3s ease;
-            display: flex; flex-direction: column;
-        }
-        #history-sidebar.open { transform: translateX(0); }
-        .history-header {
-            padding: 16px; border-bottom: 1px solid var(--border-color);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
-        .history-close-btn {
-            background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
-        }
-        .history-close-btn:hover { color: #ef4444; }
-        #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        
-        .history-item {
-            padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
-            cursor: pointer; background: var(--bg-color); transition: 0.2s;
-        }
-        .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
-        .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-        .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-        
-        /* History Action Buttons area */
-        #history-actions { 
-            padding: 16px; border-top: 1px solid var(--border-color); display: none; 
-            flex-direction: column; gap: 10px; 
-        }
+    /* Floating button to restore history view on mobile */
+    #history-floating-btn {
+        position: fixed; bottom: 20px; right: 20px; z-index: 2100;
+        background: var(--surface-color); color: var(--text-primary);
+        border: 1px solid var(--border-color); border-radius: 20px;
+        padding: 12px 24px; font-size: 14px; font-weight: bold;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
+        transition: transform 0.2s;
+    }
+    #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
 
-        /* Floating button to restore history view on mobile */
-        #history-floating-btn {
-            position: fixed; bottom: 20px; right: 20px; z-index: 2100;
-            background: var(--surface-color); color: var(--text-primary);
-            border: 1px solid var(--border-color); border-radius: 20px;
-            padding: 12px 24px; font-size: 14px; font-weight: bold;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
-            transition: transform 0.2s;
-        }
-        #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
+    /* Animation pulsation bouton copie */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
 
-        /* Animation pulsation bouton copie */
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
-        }
-
-        /* Custom Alert Modal styles */
-        .custom-modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.5); z-index: 10001; display: none;
-            justify-content: center; align-items: center;
-        }
-        .custom-modal-box {
-            background: var(--surface-color); padding: 24px; border-radius: 12px;
-            max-width: 400px; width: 90%; box-shadow: var(--shadow);
-            color: var(--text-primary); text-align: center; border: 1px solid var(--border-color);
-        }
-        .custom-modal-buttons {
-            display: flex; gap: 10px; justify-content: center; margin-top: 20px;
-        }
-    </style>
+    /* Custom Alert Modal styles */
+    .custom-modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.5); z-index: 10001; display: none;
+        justify-content: center; align-items: center;
+    }
+    .custom-modal-box {
+        background: var(--surface-color); padding: 24px; border-radius: 12px;
+        max-width: 400px; width: 90%; box-shadow: var(--shadow);
+        color: var(--text-primary); text-align: center; border: 1px solid var(--border-color);
+    }
+    .custom-modal-buttons {
+        display: flex; gap: 10px; justify-content: center; margin-top: 20px;
+    }
+</style>
 </head>
 <body>
 
+    <!-- --- INTERFACES UTILISATEUR --- -->
     <!-- Custom Modal for Alerts and Confirms -->
-    <div id="custom-modal" class="custom-modal-overlay">
-        <div class="custom-modal-box">
-            <div id="custom-modal-text" style="margin-bottom: 16px; font-size: 15px; line-height: 1.4;"></div>
-            <div class="custom-modal-buttons">
-                <button id="custom-modal-cancel" class="custom-btn" style="display:none; flex: 1;">Annuler</button>
-                <button id="custom-modal-ok" class="primary-btn" style="flex: 1;">OK</button>
-            </div>
+<div id="custom-modal" class="custom-modal-overlay">
+    <div class="custom-modal-box">
+        <div id="custom-modal-text" style="margin-bottom: 16px; font-size: 15px; line-height: 1.4;"></div>
+        <div class="custom-modal-buttons">
+            <button id="custom-modal-cancel" class="custom-btn" style="display:none; flex: 1;">Annuler</button>
+            <button id="custom-modal-ok" class="primary-btn" style="flex: 1;">OK</button>
         </div>
     </div>
+</div>
 
-    <div id="unauthenticated-view" class="app-container">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-        <h1>One App</h1>
-        <p class="subtitle">Votre Personal Cloud décentralisé</p>
-        <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
-    </div>
+<div id="unauthenticated-view" class="app-container">
+    <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+    <h1>One App</h1>
+    <p class="subtitle">Votre Personal Cloud décentralisé</p>
+    <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
+</div>
 
-    <div id="shared-invite-view" class="app-container">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-        <h1 id="invite-title">Fichier Partagé</h1>
-        <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
-        <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
-        <button class="custom-btn" onclick="showAlert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
-    </div>
-
+<div id="shared-invite-view" class="app-container">
+    <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+    <h1 id="invite-title">Fichier Partagé</h1>
+    <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
+    <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
+    <button class="custom-btn" onclick="showAlert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
+</div>
     <div id="authenticated-view" class="app-container">
-        <div class="user-header">
-            <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-            <div class="user-info">
-                <h2 id="user-greeting">Mon Compte</h2>
-                <p id="user-email">Chargement...</p>
-                <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
-            </div>
-        </div>
-
-        <div class="header-actions">
-            <div class="section-title">Mes Applications</div>
-            <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
-        </div>
-
-        <div id="app-grid">
-            </div>
-        <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
-
-        <div id="install-section">
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
-                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
-            </div>
-            <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
-            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
-            <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
-            <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
-            <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
+    <div class="user-header">
+        <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+        <div class="user-info">
+            <h2 id="user-greeting">Mon Compte</h2>
+            <p id="user-email">Chargement...</p>
+            <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
         </div>
     </div>
 
+    <div class="header-actions">
+        <div class="section-title">Mes Applications</div>
+        <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
+    </div>
+
+    <div id="app-grid">
+        </div>
+    <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
+
+    <div id="install-section">
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
+            Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
+        </div>
+        <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
+        <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
+        <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
+        <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
+        <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
+    </div>
+</div>
     <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
-        <header class="execution-header">
-            <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <div class="execution-title-wrapper">
-                    <span id="running-app-name" class="execution-app-name">App Name</span>
-                    <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
-                </div>
+    <header class="execution-header">
+        <div class="execution-left">
+            <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+            <div class="execution-title-wrapper">
+                <span id="running-app-name" class="execution-app-name">App Name</span>
+                <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
             </div>
-            
-            <div class="execution-center">
-                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
-                </button>
-                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
-                </button>
-                <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
-                </button>
-            </div>
-
-            <div class="execution-right">
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
-                    ✏️ <span class="hide-on-mobile">Édition</span>
-                </button>
-                
-                <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
-                    🔒 Partager
-                </button>
-                
-                <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
-                    <div class="header-dropdown" id="execution-header-menu">
-                        <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
-                        <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                        <button onclick="showAlert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
-                        <button onclick="showDataHistory()">🕒 Historique des versions</button>
-                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
-                    </div>
-                </div>
-            </div>
-        </header>
-        <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a;">
-            Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
         </div>
-        <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
-            </div>
-    </div>
+        
+        <div class="execution-center">
+            <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
+            </button>
+            <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
+            </button>
+            <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
+            </button>
+        </div>
 
+        <div class="execution-right">
+            <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+            
+            <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
+                ✏️ <span class="hide-on-mobile">Édition</span>
+            </button>
+            
+            <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
+                🔒 Partager
+            </button>
+            
+            <div class="header-menu-container">
+                <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                <div class="header-dropdown" id="execution-header-menu">
+                    <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
+                    <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
+                    <button onclick="showAlert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                    <button onclick="showDataHistory()">🕒 Historique des versions</button>
+                    <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                    <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a;">
+        Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
+    </div>
+    <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
+        </div>
+</div>
+
+<div id="history-sidebar">
+    <div class="history-header">
+        <h3>Historique des versions</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
+            <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+        </div>
+    </div>
+    <div id="history-list">
+        <!-- Items will be injected here -->
+    </div>
+    <div id="history-actions">
+        <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
+        <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
+    </div>
+</div>
+
+<button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
+
+<!-- Modale de Partage -->
+<div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
+    <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
+        <h3 style="margin-top:0;">Partager ce fichier</h3>
+        
+        <div id="share-permissions-block" style="margin-bottom:16px;">
+            <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
+            <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
+            <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
+        </div>
+        <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
+        
+        <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+            Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
+        </div>
+
+        <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
+        <div style="display:flex; gap:10px;">
+            <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
+            <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
+            <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
+        </div>
+        <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
+            <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
+        </div>
+        <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
+    </div>
+</div>
     <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
-        <header class="execution-header">
-            <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <div class="execution-title-wrapper">
-                    <span class="execution-app-name">Éditeur One App</span>
-                    <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
+    <header class="execution-header">
+        <div class="execution-left">
+            <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+            <div class="execution-title-wrapper">
+                <span class="execution-app-name">Éditeur One App</span>
+                <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
+            </div>
+        </div>
+        
+        <div class="execution-center">
+            <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
+            <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+        </div>
+
+        <div class="execution-right">
+            <div class="header-menu-container">
+                <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                <div class="header-dropdown" id="edit-header-menu">
+                    <button onclick="showAlert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
+                    <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
+                    <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
+                    <button onclick="showAppHistory()">🕒 Historique des versions</button>
+                    <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                    <button class="danger" onclick="deleteAppFromEditor()">🗑️ Supprimer l'application</button>
                 </div>
             </div>
+
+            <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
             
-            <div class="execution-center">
-                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
-            </div>
-
-            <div class="execution-right">
-                <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
-                    <div class="header-dropdown" id="edit-header-menu">
-                        <button onclick="showAlert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
-                        <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
-                        <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
-                        <button onclick="showAppHistory()">🕒 Historique des versions</button>
-                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                        <button class="danger" onclick="deleteAppFromEditor()">🗑️ Supprimer l'application</button>
-                    </div>
-                </div>
-
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn" onclick="closeAppEditor()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
-            </div>
-        </header>
-
-        <div style="padding: 15px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 15px;">
-            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-                <strong>Comment modifier votre application ?</strong><br>
-                1. Copiez le code actuel avec le bouton ci-dessous.<br>
-                2. Ouvrez Gemini, activez la fonctionnalité Canvas, et collez les instructions en demandant vos modifications.<br>
-                3. Une fois terminé, copiez le code final fourni par l'IA et collez-le dans la zone ci-dessous.
-            </div>
-
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="primary-btn" onclick="copyCodeForAI()" style="flex: 1; min-width: 200px; font-size: 14px;">📋 1. Copier le code & instructions</button>
-                <button class="custom-btn" onclick="clearEditor()" style="flex: 1; min-width: 150px; color: #ef4444; border-color: #ef4444; font-size: 14px;">🗑️ Vider l'éditeur</button>
-                <button class="primary-btn" onclick="saveEditorCode()" style="flex: 1; min-width: 200px; background-color: #10b981; font-size: 14px;">💾 2. Sauvegarder les modifications</button>
-            </div>
-
-            <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
-
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
+            <button class="custom-btn" onclick="closeAppEditor()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
         </div>
+    </header>
+
+    <div style="padding: 15px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 15px;">
+        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+            <strong>Comment modifier votre application ?</strong><br>
+            1. Copiez le code actuel avec le bouton ci-dessous.<br>
+            2. Ouvrez Gemini, activez la fonctionnalité Canvas, et collez les instructions en demandant vos modifications.<br>
+            3. Une fois terminé, copiez le code final fourni par l'IA et collez-le dans la zone ci-dessous.
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="primary-btn" onclick="copyCodeForAI()" style="flex: 1; min-width: 200px; font-size: 14px;">📋 1. Copier le code & instructions</button>
+            <button class="custom-btn" onclick="clearEditor()" style="flex: 1; min-width: 150px; color: #ef4444; border-color: #ef4444; font-size: 14px;">🗑️ Vider l'éditeur</button>
+            <button class="primary-btn" onclick="saveEditorCode()" style="flex: 1; min-width: 200px; background-color: #10b981; font-size: 14px;">💾 2. Sauvegarder les modifications</button>
+        </div>
+
+        <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
+
+        <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
     </div>
-
-    <div id="history-sidebar">
-        <div class="history-header">
-            <h3>Historique des versions</h3>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
-                <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
-            </div>
-        </div>
-        <div id="history-list">
-            <!-- Items will be injected here -->
-        </div>
-        <div id="history-actions">
-            <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
-            <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
-        </div>
-    </div>
-    
-    <button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
-
-    <!-- Modale de Partage -->
-    <div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
-        <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
-            <h3 style="margin-top:0;">Partager ce fichier</h3>
-            
-            <div id="share-permissions-block" style="margin-bottom:16px;">
-                <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
-                <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
-                <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
-            </div>
-            <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
-            
-            <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
-                Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
-            </div>
-
-            <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
-            <div style="display:flex; gap:10px;">
-                <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
-                <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
-                <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
-            </div>
-            <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
-                <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
-            </div>
-            <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
-        </div>
-    </div>
+</div>
 
     <script>
+        // --- LOGIQUE GLOBALE (MOTEURS JS) ---
         // --- CUSTOM ALERTS & CONFIRMS (Sécurité Canvas) ---
         window.showAlert = function(msg) {
             const modal = document.getElementById('custom-modal');
@@ -1034,7 +1033,6 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
                 showAlert("Erreur lors de la création du fichier sur Drive.");
             }
         }
-
         window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
@@ -1500,7 +1498,6 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
             }
             await listInstalledApps();
         }
-
         async function openShareModal() {
             if(!currentActiveOneFileId) return;
             document.getElementById('share-modal-overlay').style.display = 'flex';
@@ -2144,7 +2141,6 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
-
     </script>
 </body>
 </html>
