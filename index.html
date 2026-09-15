@@ -1185,14 +1185,12 @@ window.addEventListener('message', async (event) => {
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
             const syncBtn = document.getElementById('sync-status-btn');
-            const banner = document.getElementById('readonly-banner');
             const copyBtn = document.getElementById('btn-create-copy');
             
             if (isAppReadOnly) {
                 btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
                 if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
-                if(banner) banner.style.display = 'block';
                 if (copyBtn) {
                     copyBtn.style.animation = 'pulse 2s infinite';
                     copyBtn.innerHTML = '✨ Créer une copie pour éditer';
@@ -1202,7 +1200,6 @@ window.addEventListener('message', async (event) => {
             } else {
                 btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                 btn.style.background = "transparent";
-                if(banner) banner.style.display = 'none';
                 if (copyBtn) {
                     copyBtn.style.animation = '';
                     copyBtn.innerHTML = '📄 Créer une copie';
