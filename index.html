@@ -8,7 +8,8 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="config.js"></script>
 
-    <style>
+    <!-- [ONEAPP_BEGIN: head_styles.html] -->
+<style>
     /* --- VARIABLES CSS --- */
     :root {
         --bg-color: #f5f5f7;
@@ -233,11 +234,13 @@
         display: flex; gap: 10px; justify-content: center; margin-top: 20px;
     }
 </style>
+<!-- [ONEAPP_END: head_styles.html] -->
 </head>
 <body>
 
     <!-- --- INTERFACES UTILISATEUR --- -->
-    <!-- Custom Modal for Alerts and Confirms -->
+    <!-- [ONEAPP_BEGIN: ui_auth.html] -->
+<!-- Custom Modal for Alerts and Confirms -->
 <div id="custom-modal" class="custom-modal-overlay">
     <div class="custom-modal-box">
         <div id="custom-modal-text" style="margin-bottom: 16px; font-size: 15px; line-height: 1.4;"></div>
@@ -262,7 +265,9 @@
     <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
     <button class="custom-btn" onclick="showAlert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
 </div>
-    <div id="authenticated-view" class="app-container">
+<!-- [ONEAPP_END: ui_auth.html] -->
+    <!-- [ONEAPP_BEGIN: ui_dashboard.html] -->
+<div id="authenticated-view" class="app-container">
     <div class="user-header">
         <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
         <div class="user-info">
@@ -292,7 +297,9 @@
         <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
     </div>
 </div>
-    <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
+<!-- [ONEAPP_END: ui_dashboard.html] -->
+    <!-- [ONEAPP_BEGIN: ui_execution.html] -->
+<div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
     <header class="execution-header">
         <div class="execution-left">
             <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
@@ -392,7 +399,9 @@
         <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
     </div>
 </div>
-    <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
+<!-- [ONEAPP_END: ui_execution.html] -->
+    <!-- [ONEAPP_BEGIN: ui_editor.html] -->
+<div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
     <header class="execution-header">
         <div class="execution-left">
             <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
@@ -445,10 +454,12 @@
         <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
     </div>
 </div>
+<!-- [ONEAPP_END: ui_editor.html] -->
 
     <script>
         // --- LOGIQUE GLOBALE (MOTEURS JS) ---
-        // --- CUSTOM ALERTS & CONFIRMS (Sécurité Canvas) ---
+        // [ONEAPP_BEGIN: logic_auth_drive.html]
+// --- CUSTOM ALERTS & CONFIRMS (Sécurité Canvas) ---
         window.showAlert = function(msg) {
             const modal = document.getElementById('custom-modal');
             document.getElementById('custom-modal-text').innerText = msg;
@@ -1033,7 +1044,9 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
                 showAlert("Erreur lors de la création du fichier sur Drive.");
             }
         }
-        window.addEventListener('message', async (event) => {
+// [ONEAPP_END: logic_auth_drive.html]
+        // [ONEAPP_BEGIN: logic_sandbox.html]
+window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
             if (event.data.type === 'LOAD_DATA_REQUEST') {
@@ -1498,7 +1511,9 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
             }
             await listInstalledApps();
         }
-        async function openShareModal() {
+// [ONEAPP_END: logic_sandbox.html]
+        // [ONEAPP_BEGIN: logic_editor.html]
+async function openShareModal() {
             if(!currentActiveOneFileId) return;
             document.getElementById('share-modal-overlay').style.display = 'flex';
             document.getElementById('execution-header-menu').classList.remove('active');
@@ -2141,6 +2156,7 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
+// [ONEAPP_END: logic_editor.html]
     </script>
 </body>
 </html>
