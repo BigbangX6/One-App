@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>One App - Personal Cloud</title>
-    <link rel="icon" type="image/png" href="/icon-512.png">
+    
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-512.png">
+    <meta name="theme-color" content="#8b5cf6">
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="config.js"></script>
@@ -581,42 +584,28 @@
             db: null,
             init: function() {
                 return new Promise((resolve, reject) => {
-                    if (this.db) return resolve(this.db);
-                    const request = indexedDB.open("OneAppDB", 1);
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains("files")) {
-                            db.createObjectStore("files", { keyPath: 'id' });
-                        }
+                    const request = indexedDB.open('OneAppDB', 1);
+                    request.onupgradeneeded = (e) => {
+                        let db = e.target.result;
+                        if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id' });
                     };
-                    request.onsuccess = (event) => {
-                        this.db = event.target.result;
-                        resolve(this.db);
-                    };
-                    request.onerror = (event) => {
-                        console.error("IndexedDB error:", event.target.error);
-                        reject(event.target.error);
-                    };
+                    request.onsuccess = (e) => { this.db = e.target.result; resolve(); };
+                    request.onerror = (e) => reject(e);
                 });
             },
             saveItem: function(item) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) return reject("DB not initialized");
-                    const transaction = this.db.transaction(["files"], "readwrite");
-                    const store = transaction.objectStore("files");
-                    const request = store.put(item);
+                return new Promise((resolve) => {
+                    if(!this.db) return resolve();
+                    const request = this.db.transaction(['files'], 'readwrite').objectStore('files').put(item);
                     request.onsuccess = () => resolve();
-                    request.onerror = (event) => reject(event.target.error);
                 });
             },
             getItem: function(id) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) return reject("DB not initialized");
-                    const transaction = this.db.transaction(["files"], "readonly");
-                    const store = transaction.objectStore("files");
-                    const request = store.get(id);
-                    request.onsuccess = (event) => resolve(event.target.result);
-                    request.onerror = (event) => reject(event.target.error);
+                return new Promise((resolve) => {
+                    if(!this.db) return resolve(null);
+                    const request = this.db.transaction(['files'], 'readonly').objectStore('files').get(id);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = () => resolve(null);
                 });
             }
         };
@@ -650,6 +639,8 @@
         }
 
         window.onload = function() {
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(console.error); }
+            
             const savedToken = localStorage.getItem('oneapp_gdrive_token');
             const savedExpire = localStorage.getItem('oneapp_gdrive_expire');
 
@@ -709,13 +700,26 @@
         }
 
         async function initializeAppSystem() {
-            await LocalDB.init(); 
-            rootFolderId = await getOrCreateFolder("One App", "root");
+            await LocalDB.init(); // On allume le disque dur en priorité
             
-            createLauncherDocIfNeeded(rootFolderId);
-
             const urlParams = new URLSearchParams(window.location.search);
             const sharedFileId = urlParams.get('file');
+            const lastFileId = localStorage.getItem('oneapp_last_file');
+            const lastAppId = localStorage.getItem('oneapp_last_app');
+
+            // LE DÉMARRAGE ÉCLAIR
+            if (!sharedFileId && lastFileId && lastAppId) {
+                let localData = await LocalDB.getItem(lastFileId);
+                let localApp = await LocalDB.getItem(lastAppId);
+                if (localData && localApp) {
+                    // Ouverture instantanée depuis la RAM
+                    await openAppEnvironment(lastAppId, localApp.name, lastFileId, localData.name, null, localApp.content, localData.content);
+                }
+            }
+
+            // Le reste de l'initialisation classique continue en arrière-plan
+            rootFolderId = await getOrCreateFolder("One App", "root");
+            createLauncherDocIfNeeded(rootFolderId);
 
             if (sharedFileId) {
                 listInstalledApps();
@@ -1186,12 +1190,14 @@ window.addEventListener('message', async (event) => {
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
             const syncBtn = document.getElementById('sync-status-btn');
+            const banner = document.getElementById('readonly-banner');
             const copyBtn = document.getElementById('btn-create-copy');
             
             if (isAppReadOnly) {
                 btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
                 if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
+                if(banner) banner.style.display = 'block';
                 if (copyBtn) {
                     copyBtn.style.animation = 'pulse 2s infinite';
                     copyBtn.innerHTML = '✨ Créer une copie pour éditer';
@@ -1201,6 +1207,7 @@ window.addEventListener('message', async (event) => {
             } else {
                 btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
                 btn.style.background = "transparent";
+                if(banner) banner.style.display = 'none';
                 if (copyBtn) {
                     copyBtn.style.animation = '';
                     copyBtn.innerHTML = '📄 Créer une copie';
@@ -1268,7 +1275,7 @@ window.addEventListener('message', async (event) => {
                     appDataHistory = [JSON.parse(JSON.stringify(freshData))];
                     appDataCurrentIndex = 0;
 
-                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
+                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                     
                     showAlert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
 
@@ -1291,7 +1298,7 @@ window.addEventListener('message', async (event) => {
                     isDirty = false;
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
 
-                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
+                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
@@ -1342,7 +1349,7 @@ window.addEventListener('message', async (event) => {
                         currentFileVersion = driveTime;
                         localContent = freshData;
 
-                        LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() }).catch(console.error);
+                        LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                         
                         const iframe = document.querySelector('#iframe-container iframe');
                         if (iframe) {
@@ -1444,9 +1451,12 @@ window.addEventListener('message', async (event) => {
             }
         }
 
-        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
+        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null, localAppHtml = null, localOneFileJson = null) {
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
-            document.getElementById('loading-apps').style.display = 'block';
+            
+            if (!localAppHtml || !localOneFileJson) {
+                document.getElementById('loading-apps').style.display = 'block';
+            }
 
             try {
                 let fileMeta;
@@ -1463,14 +1473,22 @@ window.addEventListener('message', async (event) => {
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let appHtml = await appRes.text();
+                let appHtml = localAppHtml;
+                if (!appHtml) {
+                    let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    appHtml = await appRes.text();
+                }
 
-                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let oneFileJson = await dataRes.json();
+                let oneFileJson = localOneFileJson;
+                if (!oneFileJson) {
+                    let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    oneFileJson = await dataRes.json();
+                }
 
-                LocalDB.saveItem({ id: appFileId, type: 'app', name: appName, content: appHtml, lastAccessed: Date.now() }).catch(console.error);
-                LocalDB.saveItem({ id: oneFileId, type: 'data', name: oneFileName, content: oneFileJson, lastAccessed: Date.now() }).catch(console.error);
+                LocalDB.saveItem({ id: appFileId, type: 'app', name: appName, content: appHtml, lastAccessed: Date.now() });
+                LocalDB.saveItem({ id: oneFileId, type: 'data', name: oneFileName, content: oneFileJson, lastAccessed: Date.now() });
+                localStorage.setItem('oneapp_last_file', oneFileId);
+                localStorage.setItem('oneapp_last_app', appFileId);
 
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
@@ -1886,7 +1904,7 @@ async function openShareModal() {
                 
                 let appData = await response.text();
                 
-                LocalDB.saveItem({ id: fileId, type: 'app', name: appName, content: appData, lastAccessed: Date.now() }).catch(console.error);
+                LocalDB.saveItem({ id: fileId, type: 'app', name: appName, content: appData, lastAccessed: Date.now() });
 
                 fullCodeInput.value = appData;
                 saveEditorState(appData);
@@ -1973,7 +1991,7 @@ async function openShareModal() {
                 
                 await makeFilePublic(editingAppFileId);
                 
-                LocalDB.saveItem({ id: editingAppFileId, type: 'app', name: document.getElementById('edit-app-title-input').value, content: htmlString, lastAccessed: Date.now() }).catch(console.error);
+                LocalDB.saveItem({ id: editingAppFileId, type: 'app', name: document.getElementById('edit-app-title-input').value, content: htmlString, lastAccessed: Date.now() });
 
                 showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
