@@ -80,7 +80,7 @@ async function handleDrive(route) {
     if (q.includes("contains '.onefile'")) list = list.filter(f => f.name.includes('.onefile'));
     const par = q.match(/'([^']+)' in parents/); if (par) list = list.filter(f => (f.parents || []).includes(par[1]));
     if (q.includes('shortcut')) list = [];
-    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime })) });
+    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime, description: f.description, shortcutDetails: f.shortcutDetails })) });
   }
   if (!id && method === 'POST') {
     let meta, content = '';
@@ -96,7 +96,7 @@ async function handleDrive(route) {
   if (!f) return json({ error: { message: 'not found' } }, 404);
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
-    return json({ id: f.id, name: f.name, parents: f.parents, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
+    return json({ id: f.id, name: f.name, parents: f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
   }
   if (method === 'PATCH' && isUpload) {
     if (ctl.patchDelay) await new Promise(r => setTimeout(r, ctl.patchDelay));
@@ -407,6 +407,8 @@ await test("Compteur (Gemini) : Annuler remet l'écran à jour", async (page) =>
   await frame.click('.btn-add');
   await frame.waitForSelector('.player-card', { timeout: 3000 });
   await frame.click('.score-btn.positive >> nth=0'); // +1
+  // le clic est transmis à One App par message : on attend qu'il soit reçu
+  await page.waitForFunction(() => appDataHistory.length === 3);
   await page.evaluate(() => appUndo());
   await wait(200);
   eq(await frame.textContent('.player-score'), '0', 'score après annulation');
@@ -420,6 +422,24 @@ await test("Fermer une app avec le sous-menu ouvert : pas d'erreur, sous-menu ro
   await page.evaluate(() => closeApp());
   await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1, null, { timeout: 5000 });
   eq(await page.textContent('.submenu-title'), "L'agenda - Fichiers", 'sous-menu rouvert');
+});
+
+await test("Icône d'une app partagée (raccourci) : lue sur l'app d'origine", async (page) => {
+  add({ id: 'sharedapp', name: 'Partagée.oneapp', mimeType: 'text/html', parents: ['autre'], content: APP_HTML, description: '🎲' });
+  add({ id: 'sc1', name: 'Partagée.oneapp', mimeType: 'application/vnd.google-apps.shortcut', parents: ['fold1'],
+        shortcutDetails: { targetId: 'sharedapp' } });
+  await page.evaluate(() => listInstalledApps());
+  await page.waitForFunction(() => document.querySelectorAll('.app-card').length === 3);
+  const card = page.locator('.app-card', { hasText: 'Partagée' }).first();
+  eq(await card.locator('div').first().textContent(), '🎲', 'icône affichée');
+});
+
+await test("Icône SVG avec currentColor : affichée dans la couleur d'accent", async (page) => {
+  files.app1.description = "&lt;svg viewBox='0 0 24 24' width='32' height='32'&gt;&lt;path fill='currentColor' d='M4 6H2v14h14v-2H4V6z'/&gt;&lt;/svg&gt;";
+  await page.evaluate(() => listInstalledApps());
+  await page.waitForFunction(() => document.querySelector('.app-card img'));
+  const src = decodeURIComponent(await page.getAttribute('.app-card img', 'src'));
+  if (src.includes('currentColor') || !src.includes('#8b5cf6')) throw new Error('couleur non appliquée : ' + src);
 });
 
 await browser.close();

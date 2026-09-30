@@ -790,6 +790,21 @@
                 return;
             }
             
+            // Une app partagée apparaît chez moi sous forme de raccourci Drive, dont la
+            // description (l'icône) est vide : on lit celle de l'app d'origine, ce qui
+            // suit aussi les changements d'icône faits ensuite par son auteur
+            const SHORTCUT_MIME = 'application/vnd.google-apps.shortcut';
+            await Promise.all((data.files || [])
+                .filter(f => f.mimeType === SHORTCUT_MIME && f.shortcutDetails)
+                .map(async (f) => {
+                    try {
+                        const target = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(f.shortcutDetails.targetId)}?fields=description`);
+                        if (target.description) f.description = target.description;
+                    } catch (e) {
+                        console.warn("Icône de l'app partagée inaccessible :", e.message);
+                    }
+                }));
+
             document.getElementById('loading-apps').style.display = 'none';
 
             if (data.files && data.files.length > 0) {
@@ -828,6 +843,9 @@
             if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
                 let svg = rawIcon.includes('<svg') ? rawIcon : new DOMParser().parseFromString(rawIcon, 'text/html').body.textContent;
                 if (!svg.includes('xmlns=')) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+                // Affiché comme image, currentColor vaudrait noir : on applique la couleur d'accent
+                const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#8b5cf6';
+                svg = svg.replace(/currentColor/g, accent);
                 const img = document.createElement('img');
                 img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
                 img.alt = '';
@@ -1111,7 +1129,7 @@ One App exécute des applications web dans un cadre isolé et enregistre leurs d
 
 2. MÉTADONNÉES (dans <head>)
 - <title>Nom de l'application</title> : c'est le nom affiché dans One App.
-- <meta name="oneapp-icon" content="📒"> : un seul emoji qui représente l'app.
+- <meta name="oneapp-icon" content="📒"> : UN SEUL emoji qui représente l'app (pas de SVG, pas d'image, pas de texte).
 
 3. DONNÉES
 - Toutes les données de l'utilisateur tiennent dans UN SEUL objet JavaScript appelé "state".
