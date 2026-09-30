@@ -221,6 +221,11 @@
 </head>
 <body>
 
+    <div id="session-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:4000; background:#fff3cd; color:#b45309; border-bottom:1px solid #fde68a; padding:10px 16px; font-size:14px; font-weight:600; justify-content:center; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span>Votre session Google a expiré. Vos modifications sont conservées en attente.</span>
+        <button class="primary-btn" onclick="reconnectFromBanner()" style="padding:6px 14px;">Se reconnecter</button>
+    </div>
+
     <div id="unauthenticated-view" class="app-container">
         <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
         <h1>One App</h1>
@@ -457,9 +462,180 @@
             window.location.reload();
         }
 
+        // --- ACCÈS DRIVE CENTRALISÉ ---
+        // Toutes les requêtes Google passent par driveFetch : ajout du jeton,
+        // renouvellement automatique en cas d'expiration (401) et levée d'une
+        // erreur si la réponse n'est pas OK (fetch ne le fait pas tout seul).
+        class DriveError extends Error {
+            constructor(message, status) {
+                super(message);
+                this.status = status; // 0 = réseau indisponible
+            }
+        }
+
+        let tokenRenewalPromise = null;
+        let tokenRenewalResolve = null;
+
+        function isTokenExpired() {
+            const expire = parseInt(localStorage.getItem('oneapp_gdrive_expire') || '0');
+            return !globalAccessToken || Date.now() > expire - 60000; // marge d'1 min
+        }
+
+        function storeToken(tokenResponse) {
+            globalAccessToken = tokenResponse.access_token;
+            const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
+            localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
+            localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
+        }
+
+        function getTokenClient() {
+            if (tokenClient) return tokenClient;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (!tokenResponse || !tokenResponse.access_token) {
+                        // Accès refusé : les requêtes en attente patientent, on affiche le bandeau
+                        if (tokenRenewalResolve) showSessionBanner();
+                        return;
+                    }
+                    storeToken(tokenResponse);
+
+                    if (tokenRenewalResolve) {
+                        // Renouvellement en cours de session : on débloque les requêtes en attente
+                        hideSessionBanner();
+                        const resolve = tokenRenewalResolve;
+                        tokenRenewalResolve = null;
+                        tokenRenewalPromise = null;
+                        resolve();
+                        return;
+                    }
+
+                    // Première connexion
+                    document.getElementById('unauthenticated-view').style.display = 'none';
+                    document.getElementById('authenticated-view').style.display = 'block';
+                    document.getElementById('user-email').innerText = "Chargement du profil...";
+                    fetchUserProfile();
+                    initializeAppSystem();
+                },
+                error_callback: (err) => {
+                    // Popup bloquée ou fermée : on demande un clic à l'utilisateur
+                    console.warn("Renouvellement du jeton impossible sans clic :", err && err.type);
+                    if (tokenRenewalResolve) showSessionBanner();
+                }
+            });
+            return tokenClient;
+        }
+
+        // Renvoie une promesse résolue quand un jeton valide est disponible.
+        // Les sauvegardes en attente patientent au lieu d'échouer.
+        function renewToken() {
+            if (tokenRenewalPromise) return tokenRenewalPromise;
+            tokenRenewalPromise = new Promise((resolve) => { tokenRenewalResolve = resolve; });
+            if (typeof google === 'undefined') {
+                showSessionBanner();
+            } else {
+                try {
+                    getTokenClient().requestAccessToken({ prompt: '' });
+                } catch (e) {
+                    showSessionBanner();
+                }
+            }
+            return tokenRenewalPromise;
+        }
+
+        function showSessionBanner() {
+            document.getElementById('session-banner').style.display = 'flex';
+        }
+
+        function hideSessionBanner() {
+            document.getElementById('session-banner').style.display = 'none';
+        }
+
+        function reconnectFromBanner() {
+            // Appelé depuis un clic : le navigateur autorise la popup Google
+            if (typeof google === 'undefined') {
+                alert("Le script Google ne s'est pas chargé. Vérifiez votre connexion puis réessayez.");
+                return;
+            }
+            getTokenClient().requestAccessToken({ prompt: '' });
+        }
+
+        async function driveFetch(url, options = {}, allowRetry = true) {
+            if (isTokenExpired()) await renewToken();
+
+            const headers = Object.assign({}, options.headers || {}, { 'Authorization': `Bearer ${globalAccessToken}` });
+            let res;
+            try {
+                res = await fetch(url, Object.assign({}, options, { headers }));
+            } catch (e) {
+                throw new DriveError("Réseau indisponible", 0);
+            }
+
+            if (res.status === 401 && allowRetry) {
+                localStorage.setItem('oneapp_gdrive_expire', '0');
+                await renewToken();
+                return driveFetch(url, options, false);
+            }
+            if (!res.ok) {
+                let detail = '';
+                try { detail = (await res.json()).error.message; } catch (e) {}
+                throw new DriveError(`Drive a répondu ${res.status}${detail ? ' : ' + detail : ''}`, res.status);
+            }
+            return res;
+        }
+
+        async function driveJson(url, options) {
+            return (await driveFetch(url, options)).json();
+        }
+
+        // Échappe une valeur insérée dans une requête Drive (q=...)
+        function escapeDriveQuery(value) {
+            return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        // Crée un fichier (métadonnées + contenu) en une seule requête multipart
+        async function driveCreateFile(metadata, content, contentType) {
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+            const body =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + `Content-Type: ${contentType}\r\n\r\n` + content + close_delim;
+
+            return driveJson(UPLOAD_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                body: body
+            });
+        }
+
+        // Crée un .onefile (document de données) dans le dossier donné
+        async function createOneFile(fileName, folderId, appName, appFileId, appData) {
+            const oneFile = {
+                oneapp_metadata: {
+                    app_name: appName,
+                    source_app_drive_id: appFileId,
+                    version_timestamp: new Date().toISOString()
+                },
+                app_data: appData
+            };
+            const metadata = { name: `${fileName}.onefile`, mimeType: "application/json", parents: [folderId] };
+            return driveCreateFile(metadata, JSON.stringify(oneFile), 'application/json');
+        }
+
+        async function getParentFolderId(fileId) {
+            try {
+                const data = await driveJson(`${DRIVE_API_URL}/${fileId}?fields=parents`);
+                return data.parents ? data.parents[0] : rootFolderId;
+            } catch (e) {
+                return rootFolderId;
+            }
+        }
+
         async function fetchUserProfile() {
             try {
-                let res = await fetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
+                let res = await driveFetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json");
                 let info = await res.json();
                 if (info.email) {
                     currentUserEmail = info.email;
@@ -504,35 +680,19 @@
                 return;
             }
 
-            if (!tokenClient) {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: (tokenResponse) => {
-                        if (tokenResponse && tokenResponse.access_token) {
-                            globalAccessToken = tokenResponse.access_token;
-                            
-                            // Sauvegarde du jeton en local
-                            const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
-                            localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
-                            localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
-
-                            document.getElementById('unauthenticated-view').style.display = 'none';
-                            document.getElementById('authenticated-view').style.display = 'block';
-                            document.getElementById('user-email').innerText = "Chargement du profil...";
-                            
-                            fetchUserProfile();
-                            initializeAppSystem();
-                        }
-                    }
-                });
-            }
-            tokenClient.requestAccessToken();
+            getTokenClient().requestAccessToken();
         }
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
         async function initializeAppSystem() {
-            rootFolderId = await getOrCreateFolder("One App", "root");
+            try {
+                rootFolderId = await getOrCreateFolder("One App", "root");
+            } catch (e) {
+                console.error("Initialisation impossible :", e);
+                document.getElementById('loading-apps').style.display = 'none';
+                alert("Impossible d'accéder à votre Google Drive (" + e.message + "). Rechargez la page pour réessayer.");
+                return;
+            }
             
             // Lancement silencieux de la création du Launcher PDF
             createLauncherDocIfNeeded(rootFolderId);
@@ -552,27 +712,25 @@
         async function createLauncherDocIfNeeded(folderId) {
             try {
                 const query = encodeURIComponent(`name = '#Ouvrir One App.pdf' and '${folderId}' in parents and trashed = false`);
-                let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
-                let data = await response.json();
+                let data = await driveJson(`${DRIVE_API_URL}?q=${query}`);
                 
                 if (data.files && data.files.length > 0) return; // Le fichier existe déjà
 
-                // Récupération du PDF source depuis GitHub
-                let pdfRes = await fetch('https://bigbangx6.github.io/One-App/Launcher.pdf');
+                // Récupération du PDF source (hébergé à côté de index.html)
+                let pdfRes = await fetch(new URL('Launcher.pdf', window.location.href));
+                if (!pdfRes.ok) throw new Error("Launcher.pdf introuvable");
                 let pdfBlob = await pdfRes.blob();
 
                 // Création des métadonnées
-                let metaRes = await fetch(DRIVE_API_URL, {
+                let createdFile = await driveJson(DRIVE_API_URL, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: "#Ouvrir One App.pdf", parents: [folderId], mimeType: "application/pdf" })
                 });
-                let createdFile = await metaRes.json();
 
                 // Upload du binaire
-                await fetch(`https://www.googleapis.com/upload/drive/v3/files/${createdFile.id}?uploadType=media`, {
+                await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${createdFile.id}?uploadType=media`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}` },
                     body: pdfBlob
                 });
             } catch (e) {
@@ -582,9 +740,9 @@
 
         async function makeFilePublic(fileId) {
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role: "reader", type: "anyone" })
                 });
             } catch (e) {
@@ -593,20 +751,18 @@
         }
 
         async function getOrCreateFolder(folderName, parentId) {
-            const query = encodeURIComponent(`name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`);
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
-            let data = await response.json();
+            const query = encodeURIComponent(`name = '${escapeDriveQuery(folderName)}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`);
+            let data = await driveJson(`${DRIVE_API_URL}?q=${query}`);
             
             if (data.files && data.files.length > 0) {
                 return data.files[0].id;
             } else {
                 const metadata = { name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] };
-                let createRes = await fetch(DRIVE_API_URL, {
+                let newFolder = await driveJson(DRIVE_API_URL, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(metadata)
                 });
-                let newFolder = await createRes.json();
                 return newFolder.id;
             }
         }
@@ -617,10 +773,15 @@
             if(activeSubmenu) activeSubmenu = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
-            let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`, { 
-                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-            });
-            let data = await response.json();
+            let data;
+            try {
+                data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`);
+            } catch (e) {
+                console.error("Erreur chargement des applications :", e);
+                document.getElementById('loading-apps').style.display = 'none';
+                document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: #ef4444; text-align:center; padding: 20px;">Impossible de charger vos applications. Vérifiez votre connexion puis rechargez la page.</p>';
+                return;
+            }
             
             document.getElementById('loading-apps').style.display = 'none';
 
@@ -734,14 +895,15 @@
                 return;
             }
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: `${newName}.onefile` })
                 });
                 console.log("MOTEUR : Nom du fichier mis à jour avec succès.");
             } catch (e) {
                 console.error("Erreur renommage en direct :", e);
+                alert("Le fichier n'a pas pu être renommé (" + e.message + ").");
             }
         }
         
@@ -758,38 +920,19 @@
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let parentData = await parentRes.json();
-                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+                // Le fichier d'origine est enregistré avant d'ouvrir la copie
+                if (!(await flushSync())) {
+                    document.getElementById('loading-apps').style.display = 'none';
+                    document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
+                    return;
+                }
+
+                let parentFolderId = await getParentFolderId(currentActiveOneFileId);
 
                 const appName = currentOneFileMetadata.app_name;
                 const appFileId = currentOneFileMetadata.source_app_drive_id;
 
-                const newOneFile = {
-                    oneapp_metadata: {
-                        app_name: appName,
-                        source_app_drive_id: appFileId,
-                        version_timestamp: new Date().toISOString()
-                    },
-                    app_data: localContent
-                };
-
-                const fullFileName = `${newName}.onefile`;
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
-                const metadata = { name: fullFileName, mimeType: "application/json", parents: [parentFolderId] };
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
-
-                let response = await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-                let createdFile = await response.json();
+                let createdFile = await createOneFile(newName, parentFolderId, appName, appFileId, localContent);
                 
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
@@ -806,10 +949,7 @@
         async function loadAppFiles(folderId, appFileId, appName) {
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
             try {
-                let response = await fetch(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`, {
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-                });
-                let data = await response.json();
+                let data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`);
                 
                 const listContainer = document.getElementById('submenu-file-list');
                 document.getElementById('submenu-loader').style.display = 'none';
@@ -842,6 +982,10 @@
                 }
             } catch (e) {
                 console.error(e);
+                const loader = document.getElementById('submenu-loader');
+                if (loader) loader.style.display = 'none';
+                const listContainer = document.getElementById('submenu-file-list');
+                if (listContainer) listContainer.innerHTML = '<div style="text-align:center; color:#ef4444; font-size:13px; padding:10px;">Impossible de charger les fichiers. Vérifiez votre connexion.</div>';
             }
         }
 
@@ -858,9 +1002,9 @@
             
             document.getElementById('submenu-loader').style.display = 'block';
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: `${newName}.onefile` })
                 });
                 document.getElementById('submenu-file-list').innerHTML = '';
@@ -876,9 +1020,9 @@
             
             document.getElementById('submenu-loader').style.display = 'block';
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ trashed: true })
                 });
                 document.getElementById('submenu-file-list').innerHTML = '';
@@ -909,36 +1053,13 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (!fileName || fileName.trim() === "") return;
 
             document.getElementById('submenu-loader').style.display = 'block';
-            
-            const newOneFile = {
-                oneapp_metadata: {
-                    app_name: appName,
-                    source_app_drive_id: appFileId,
-                    version_timestamp: new Date().toISOString()
-                },
-                app_data: []
-            };
-
-            const fullFileName = `${fileName}.onefile`;
-            const boundary = '-------314159265358979323846';
-            const delimiter = "\r\n--" + boundary + "\r\n";
-            const close_delim = "\r\n--" + boundary + "--";
-
-            const metadata = { name: fullFileName, mimeType: "application/json", parents: [folderId] };
-            const multipartRequestBody =
-                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
 
             try {
-                let response = await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-                let createdFile = await response.json();
+                let createdFile = await createOneFile(fileName, folderId, appName, appFileId, []);
                 openAppEnvironment(appFileId, appName, createdFile.id, fileName);
             } catch(e) {
                 console.error(e);
+                document.getElementById('submenu-loader').style.display = 'none';
                 alert("Erreur lors de la création du fichier sur Drive.");
             }
         }
@@ -973,28 +1094,16 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                 const newData = event.data.payload;
                 
                 if (appDataCurrentIndex === -1 || JSON.stringify(appDataHistory[appDataCurrentIndex]) !== JSON.stringify(newData)) {
-                if (appDataCurrentIndex < appDataHistory.length - 1) {
-                    appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    if (appDataCurrentIndex < appDataHistory.length - 1) {
+                        appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
+                    }
+                    appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
+                    if (appDataHistory.length > 50) appDataHistory.shift();
+                    appDataCurrentIndex = appDataHistory.length - 1;
                 }
-                appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
-                if (appDataHistory.length > 50) appDataHistory.shift();
-                appDataCurrentIndex = appDataHistory.length - 1;
-            }
 
-            // Tampon de frappe (Debounce)
-            localContent = newData;
-            isDirty = true;
-            
-            const syncBtn = document.getElementById('sync-status-btn');
-            if (syncBtn) {
-                syncBtn.innerHTML = SVG_LOADING;
-                syncBtn.style.opacity = '0.5';
-            }
-            
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                syncToDrive();
-                }, 3000);
+                // Tampon de frappe (Debounce)
+                markDirty(newData);
             }
         });
 
@@ -1004,11 +1113,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             appDataCurrentIndex--;
             const oldData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: oldData }, '*');
-            
-            localContent = oldData;
-            isDirty = true;
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => { syncToDrive(); }, 3000);
+            markDirty(oldData);
         }
 
         function appRedo() {
@@ -1016,25 +1121,19 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             appDataCurrentIndex++;
             const newData = appDataHistory[appDataCurrentIndex];
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'RESTORE_DATA', payload: newData }, '*');
-            
-            localContent = newData;
-            isDirty = true;
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => { syncToDrive(); }, 3000);
+            markDirty(newData);
         }
 
         function toggleAppMode() {
             if (isViewingHistory) return;
             isAppReadOnly = !isAppReadOnly;
             const btn = document.getElementById('toggle-readonly-btn');
-            const syncBtn = document.getElementById('sync-status-btn');
             const banner = document.getElementById('readonly-banner');
             const copyBtn = document.getElementById('btn-create-copy');
             
             if (isAppReadOnly) {
                 btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
                 btn.style.background = "var(--bg-color)";
-                if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
                 if(banner) banner.style.display = 'block';
                 if (copyBtn) {
                     copyBtn.style.animation = 'pulse 2s infinite';
@@ -1057,163 +1156,216 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
         }
 
-        // --- LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
-        async function syncToDrive() {
-            if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent || isViewingHistory) return;
+        // --- LE BOUCLIER DE SAUVEGARDE (FILE D'ATTENTE + RÉCONCILIATION) ---
+        // Chaque modification locale incrémente localRevision. Une synchro envoie
+        // un instantané : si d'autres modifications arrivent pendant l'envoi, une
+        // nouvelle synchro est relancée. En cas d'échec, rien n'est marqué comme
+        // enregistré et un nouvel essai est programmé (5 s, 10 s, ... 60 s max).
+        let localRevision = 0;
+        let syncPromise = null;
+        let retryDelay = 0;
+        let lastSyncError = null;
 
+        function setSyncStatus(state, detail) {
+            const syncBtn = document.getElementById('sync-status-btn');
+            if (!syncBtn) return;
+            const states = {
+                idle:    { svg: SVG_SYNC,    opacity: '1',   title: "Tout est enregistré. Cliquer pour vérifier le Cloud." },
+                pending: { svg: SVG_LOADING, opacity: '0.5', title: "Modifications en attente d'enregistrement..." },
+                syncing: { svg: SVG_LOADING, opacity: '0.5', title: "Enregistrement sur Google Drive..." },
+                done:    { svg: SVG_DONE,    opacity: '1',   title: "Enregistré sur Google Drive." },
+                error:   { svg: SVG_SYNC,    opacity: '1',   title: "Échec de l'enregistrement, nouvel essai automatique. " + (detail || '') }
+            };
+            const s = states[state] || states.idle;
+            syncBtn.innerHTML = s.svg;
+            syncBtn.style.opacity = s.opacity;
+            syncBtn.style.color = state === 'error' ? '#ef4444' : '';
+            syncBtn.title = s.title;
+        }
+
+        function scheduleSync(delay) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { syncToDrive(); }, delay);
+        }
+
+        // Point d'entrée unique pour toute modification des données du fichier ouvert
+        function markDirty(newData) {
+            localContent = newData;
+            isDirty = true;
+            localRevision++;
+            setSyncStatus('pending');
+            scheduleSync(3000);
+        }
+
+        // Version distante connue : headRevisionId ne change qu'avec le contenu
+        // (contrairement à modifiedTime, modifié aussi par un renommage ou un partage)
+        function rememberRemoteVersion(meta) {
+            currentFileVersion = {
+                rev: (meta && meta.headRevisionId) || null,
+                time: (meta && meta.modifiedTime) || null
+            };
+        }
+
+        function isRemoteNewer(remote) {
+            if (!currentFileVersion) return false;
+            if (remote.headRevisionId && currentFileVersion.rev) {
+                return remote.headRevisionId !== currentFileVersion.rev;
+            }
+            return !!(remote.modifiedTime && currentFileVersion.time && new Date(remote.modifiedTime) > new Date(currentFileVersion.time));
+        }
+
+        // Remplace les données affichées par la version du Cloud
+        function applyRemoteData(freshData, remoteMeta) {
+            window.currentLoadedAppData = freshData;
+            localContent = freshData;
+            isDirty = false;
+            rememberRemoteVersion(remoteMeta);
+
+            const iframe = document.querySelector('#iframe-container iframe');
+            if (iframe && !isViewingHistory) {
+                iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
+            }
+
+            appDataHistory = [JSON.parse(JSON.stringify(freshData))];
+            appDataCurrentIndex = 0;
+        }
+
+        function syncToDrive() {
+            // Une synchro est déjà en cours : elle se relancera d'elle-même si besoin
+            if (syncPromise) return syncPromise;
+            if (!isDirty || !currentActiveOneFileId || !currentOneFileMetadata) return Promise.resolve();
+
+            clearTimeout(debounceTimer);
+            syncPromise = performSync().finally(() => {
+                syncPromise = null;
+                isSyncing = false;
+                if (isDirty && currentActiveOneFileId) {
+                    scheduleSync(lastSyncError ? retryDelay : 1000);
+                }
+            });
+            return syncPromise;
+        }
+
+        async function performSync() {
             isSyncing = true;
+            setSyncStatus('syncing');
+
+            const fileId = currentActiveOneFileId;
+            const sentRevision = localRevision;
+            const sentContent = localContent;
 
             try {
-                let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let fileMeta = await metaRes.json();
-                let driveTime = fileMeta.modifiedTime;
+                const remote = await driveJson(`${DRIVE_API_URL}/${fileId}?fields=modifiedTime,headRevisionId`);
+                if (fileId !== currentActiveOneFileId) return;
 
-                if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
-                    // --- CAS CONFLIT ---
-                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
-
-                    const backupName = `${document.getElementById('running-file-title').value} - Copie de secours.onefile`;
-                    const boundary = '-------314159265358979323846';
-                    const delimiter = "\r\n--" + boundary + "\r\n";
-                    const close_delim = "\r\n--" + boundary + "--";
-
-                    let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let parentData = await parentRes.json();
-                    let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
-
-                    const backupOneFile = {
-                        oneapp_metadata: currentOneFileMetadata,
-                        app_data: localContent
-                    };
-
-                    const metadata = { name: backupName, mimeType: "application/json", parents: [parentFolderId] };
-                    const multipartRequestBody =
-                        delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                        delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(backupOneFile) + close_delim;
-
-                    await fetch(UPLOAD_API_URL, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                        body: multipartRequestBody
-                    });
-
-                    let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let freshOneFileJson = await dataRes.json();
-                    
-                    let freshData = freshOneFileJson.app_data || [];
-                    window.currentLoadedAppData = freshData;
-                    
-                    const iframe = document.querySelector('#iframe-container iframe');
-                    if (iframe) {
-                        iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
-                    }
-
-                    currentFileVersion = driveTime;
-                    isDirty = false;
-                    localContent = freshData;
-                    
-                    appDataHistory = [JSON.parse(JSON.stringify(freshData))];
-                    appDataCurrentIndex = 0;
-                    
-                    alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
-
+                if (isRemoteNewer(remote)) {
+                    await resolveConflict(fileId, sentContent, remote);
                 } else {
                     // --- CAS NORMAL (PATCH) ---
                     currentOneFileMetadata.version_timestamp = new Date().toISOString();
                     const updatedData = {
                         oneapp_metadata: currentOneFileMetadata,
-                        app_data: localContent
+                        app_data: sentContent
                     };
 
-                    let patchRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${currentActiveOneFileId}?uploadType=media&fields=id,modifiedTime`, {
+                    const patchData = await driveJson(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&fields=id,modifiedTime,headRevisionId`, {
                         method: 'PATCH',
-                        headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(updatedData)
                     });
-                    
-                    let patchData = await patchRes.json();
-                    
-                    currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
-                    isDirty = false;
+                    if (fileId !== currentActiveOneFileId) return;
+
+                    rememberRemoteVersion(patchData);
+                    // Des modifications arrivées pendant l'envoi restent à enregistrer
+                    if (localRevision === sentRevision) isDirty = false;
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
-                    
-                    const syncBtn = document.getElementById('sync-status-btn');
-                    if (syncBtn) {
-                        syncBtn.innerHTML = SVG_DONE;
-                        syncBtn.style.opacity = '1';
-                        setTimeout(() => {
-                            if (syncBtn && !isDirty && !isSyncing) {
-                                syncBtn.innerHTML = SVG_SYNC;
-                            }
-                        }, 3000);
-                    }
+                }
+
+                lastSyncError = null;
+                retryDelay = 0;
+                if (isDirty) {
+                    setSyncStatus('pending');
+                } else {
+                    setSyncStatus('done');
+                    setTimeout(() => { if (!isDirty && !isSyncing && !lastSyncError) setSyncStatus('idle'); }, 3000);
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
-                alert("Erreur de synchronisation avec Google Drive.");
-                const syncBtn = document.getElementById('sync-status-btn');
-                if (syncBtn) {
-                    syncBtn.innerHTML = SVG_SYNC;
-                    syncBtn.style.opacity = '1';
-                }
-            } finally {
-                isSyncing = false;
+                lastSyncError = e;
+                retryDelay = Math.min(Math.max(retryDelay * 2, 5000), 60000);
+                setSyncStatus('error', e.message);
             }
         }
 
-        // --- LE RADAR SILENCIEUX (POLLING) ---
-        async function checkCloudVersion() {
-            if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
-            
-            const syncBtn = document.getElementById('sync-status-btn');
-            if (syncBtn) {
-                syncBtn.innerHTML = SVG_LOADING;
-                syncBtn.style.opacity = '0.5';
+        async function resolveConflict(fileId, myContent, remote) {
+            alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
+
+            const baseName = document.getElementById('running-file-title').value;
+            const parentFolderId = await getParentFolderId(fileId);
+            await createOneFile(`${baseName} - Copie de secours`, parentFolderId,
+                currentOneFileMetadata.app_name, currentOneFileMetadata.source_app_drive_id, myContent);
+
+            const freshOneFileJson = await driveJson(`${DRIVE_API_URL}/${fileId}?alt=media`);
+            if (fileId !== currentActiveOneFileId) return;
+            applyRemoteData(freshOneFileJson.app_data || [], remote);
+
+            alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+        }
+
+        // Enregistre immédiatement ce qui est en attente. Renvoie false si
+        // l'utilisateur préfère ne pas continuer malgré un échec.
+        async function flushSync() {
+            for (let i = 0; i < 3 && isDirty; i++) {
+                clearTimeout(debounceTimer);
+                if (syncPromise) await syncPromise;
+                else await syncToDrive();
+                if (lastSyncError) break;
             }
+            clearTimeout(debounceTimer);
+            if (!isDirty) return true;
+
+            const reason = lastSyncError ? lastSyncError.message : "erreur inconnue";
+            const proceed = confirm(`Certaines modifications n'ont pas pu être enregistrées sur Google Drive (${reason}).\n\nContinuer quand même et les perdre ?`);
+            if (!proceed) scheduleSync(retryDelay || 3000);
+            return proceed;
+        }
+
+        // --- LE RADAR SILENCIEUX (POLLING) ---
+        async function checkCloudVersion(manual = false) {
+            if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
+            // Hors clic manuel, on n'ouvre pas de fenêtre de reconnexion juste pour vérifier
+            if (!manual && isTokenExpired() && !isDirty) return;
+
+            const fileId = currentActiveOneFileId;
+            if (manual) setSyncStatus('syncing');
 
             try {
-                let metaRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let fileMeta = await metaRes.json();
-                let driveTime = fileMeta.modifiedTime;
+                const remote = await driveJson(`${DRIVE_API_URL}/${fileId}?fields=modifiedTime,headRevisionId`);
+                if (fileId !== currentActiveOneFileId || isSyncing) return;
 
-                if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
+                if (isRemoteNewer(remote)) {
                     if (!isDirty) {
                         console.log("MOTEUR : Nouvelle version détectée sur le Cloud. Mise à jour silencieuse...");
-                        let dataRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                        let freshOneFileJson = await dataRes.json();
-                        
-                        let freshData = freshOneFileJson.app_data || [];
-                        window.currentLoadedAppData = freshData;
-                        currentFileVersion = driveTime;
-                        localContent = freshData;
-                        
-                        const iframe = document.querySelector('#iframe-container iframe');
-                        if (iframe) {
-                            iframe.contentWindow.postMessage({ type: 'RESTORE_DATA', payload: freshData }, '*');
-                        }
-                        
-                        appDataHistory = [JSON.parse(JSON.stringify(freshData))];
-                        appDataCurrentIndex = 0;
+                        const freshOneFileJson = await driveJson(`${DRIVE_API_URL}/${fileId}?alt=media`);
+                        if (fileId !== currentActiveOneFileId || isDirty || isSyncing) return;
+                        applyRemoteData(freshOneFileJson.app_data || [], remote);
                     } else {
-                        console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
-                        if (!isAppReadOnly) {
-                            isAppReadOnly = true; 
-                            toggleAppMode(); // Passage forcé en lecture seule avant le conflit
-                        }
+                        // Modifications locales + nouvelle version distante : on résout
+                        // le conflit tout de suite (copie de secours + rechargement)
+                        console.log("MOTEUR : Nouvelle version détectée pendant des modifications locales. Résolution immédiate.");
+                        syncToDrive();
                     }
                 }
             } catch (e) {
                 console.error("Erreur Polling :", e);
             } finally {
-                if (syncBtn) {
-                    syncBtn.innerHTML = SVG_SYNC;
-                    syncBtn.style.opacity = '1';
-                }
+                if (manual && !isSyncing && !lastSyncError) setSyncStatus(isDirty ? 'pending' : 'idle');
             }
         }
 
         function forceRefresh() {
-            checkCloudVersion();
+            if (isDirty) syncToDrive();
+            else checkCloudVersion(true);
         }
 
         function startPolling() {
@@ -1224,22 +1376,34 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
                 if (pollingInterval) clearInterval(pollingInterval);
+                // Sur mobile, l'onglet peut être tué en arrière-plan : on enregistre tout de suite
+                if (isDirty) syncToDrive();
             } else {
                 if (currentActiveOneFileId) startPolling();
             }
         });
 
+        window.addEventListener('online', () => {
+            if (isDirty) syncToDrive();
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            if (isDirty || isSyncing) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
         async function createShortcutIfNeeded(targetId, folderId, name) {
             try {
-                const query = encodeURIComponent(`mimeType='application/vnd.google-apps.shortcut' and shortcutDetails.targetId='${targetId}' and trashed=false`);
-                let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
-                let data = await response.json();
+                const query = encodeURIComponent(`mimeType='application/vnd.google-apps.shortcut' and shortcutDetails.targetId='${escapeDriveQuery(targetId)}' and trashed=false`);
+                let data = await driveJson(`${DRIVE_API_URL}?q=${query}`);
                 if (data.files && data.files.length > 0) return; // Shortcut already exists
                 
                 const metadata = { name: name, mimeType: "application/vnd.google-apps.shortcut", parents: [folderId], shortcutDetails: { targetId: targetId } };
-                await fetch(DRIVE_API_URL, {
+                await driveFetch(DRIVE_API_URL, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(metadata)
                 });
             } catch(e) { console.error("Erreur création shortcut:", e); }
@@ -1249,31 +1413,23 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').innerText = "Ouverture du fichier partagé...";
             document.getElementById('loading-apps').style.display = 'block';
             try {
-                let metaRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?fields=id,name,capabilities,parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                if (metaRes.status === 401) { logout(); return; }
-                if (!metaRes.ok) throw new Error("Fichier inaccessible");
-                let fileMeta = await metaRes.json();
-                
-                let dataRes = await fetch(`${DRIVE_API_URL}/${sharedFileId}?alt=media`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let oneFileJson = await dataRes.json();
+                const safeFileId = encodeURIComponent(sharedFileId);
+                let fileMeta = await driveJson(`${DRIVE_API_URL}/${safeFileId}?fields=id,name,capabilities,parents,ownedByMe`);
+                let oneFileJson = await driveJson(`${DRIVE_API_URL}/${safeFileId}?alt=media`);
                 
                 let sourceAppId = oneFileJson.oneapp_metadata.source_app_drive_id;
                 let appName = oneFileJson.oneapp_metadata.app_name;
 
-                if (!fileMeta.parents || !fileMeta.parents.includes(rootFolderId)) {
+                // Fichier d'un autre utilisateur : on l'ajoute à "mon" espace via des raccourcis
+                if (!fileMeta.ownedByMe) {
                     // 1. Création du dossier de l'app si inexistant
                     let appFolderId = await getOrCreateFolder(appName, rootFolderId);
                     
                     // Récupération du vrai nom de l'app
-                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let appMeta = await appMetaRes.json();
+                    // (ownedByMe évite un doublon de raccourci si l'app m'appartient déjà)
+                    let appMeta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(sourceAppId)}?fields=name,ownedByMe`);
                     let realAppName = appMeta.name.replace('.oneapp', '');
-                    
-                    // Vérification si l'utilisateur possède l'application (Évite doublon de raccourcis)
-                    let appCheckQuery = encodeURIComponent(`id='${sourceAppId}' and 'me' in owners and trashed=false`);
-                    let appCheckRes = await fetch(`${DRIVE_API_URL}?q=${appCheckQuery}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let appCheckData = await appCheckRes.json();
-                    let ownsApp = appCheckData.files && appCheckData.files.length > 0;
+                    let ownsApp = appMeta.ownedByMe === true;
 
                     let appShortcutName = realAppName + ".oneapp";
                     let dataShortcutName = fileMeta.name;
@@ -1284,15 +1440,15 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     }
                     
                     // Raccourci des données dans le dossier de l'app
-                await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
-            }
-            
-            // Nettoyage URL
-            window.history.pushState(null, '', window.location.pathname);
-            
-            await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
-        } catch(e) {
-            console.error(e);
+                    await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
+                }
+                
+                // Nettoyage URL
+                window.history.pushState(null, '', window.location.pathname);
+                
+                await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
+            } catch(e) {
+                console.error(e);
                 alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
                 document.getElementById('loading-apps').style.display = 'none';
             }
@@ -1300,36 +1456,33 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         // --- LE CHARGEUR D'APPLICATION ---
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
+            // Un fichier est déjà ouvert : on enregistre ce qui est en attente avant de changer
+            if (currentActiveOneFileId && !(await flushSync())) return;
+
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                let fileMeta;
-                if (capabilities) {
-                    fileMeta = { capabilities: capabilities };
-                    let timeRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    let timeData = await timeRes.json();
-                    currentFileVersion = timeData.modifiedTime;
-                } else {
-                    let metaRes = await fetch(`${DRIVE_API_URL}/${oneFileId}?fields=modifiedTime,capabilities`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    fileMeta = await metaRes.json();
-                    currentFileVersion = fileMeta.modifiedTime;
-                }
+                let fileMeta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?fields=modifiedTime,headRevisionId,capabilities`);
+                if (capabilities) fileMeta.capabilities = capabilities;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let appRes = await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(appFileId)}?alt=media`);
                 let appHtml = await appRes.text();
 
-                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let oneFileJson = await dataRes.json();
+                let oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
 
+                clearTimeout(debounceTimer);
+                rememberRemoteVersion(fileMeta);
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
                 window.currentLoadedAppData = oneFileJson.app_data || []; 
                 localContent = window.currentLoadedAppData;
                 isDirty = false;
-                isSyncing = false;
+                lastSyncError = null;
+                retryDelay = 0;
+                setSyncStatus('idle');
 
                 appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
                 appDataCurrentIndex = 0;
@@ -1403,6 +1556,9 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         async function closeApp() {
+            // On n'abandonne jamais des modifications sans le dire
+            if (!(await flushSync())) return;
+
             clearTimeout(debounceTimer);
             if (pollingInterval) clearInterval(pollingInterval);
 
@@ -1417,6 +1573,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             localContent = null;
             isDirty = false;
             isSyncing = false;
+            lastSyncError = null;
+            retryDelay = 0;
             closeHistorySidebar(); 
 
             if (activeSubmenu) {
@@ -1441,8 +1599,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('qr-code-container').style.display = 'none';
             
             try {
-                let res = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=permissions,capabilities`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
-                let data = await res.json();
+                let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=permissions,capabilities`);
                 
                 const permBlock = document.getElementById('share-permissions-block');
                 const validateBtn = document.getElementById('btn-validate-share');
@@ -1495,26 +1652,27 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             try {
                 if (level === 'private') {
                     if (window.currentAnyonePermissionId) {
-                        await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions/${window.currentAnyonePermissionId}`, {
-                            method: 'DELETE',
-                            headers: {'Authorization': 'Bearer ' + globalAccessToken}
+                        await driveFetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions/${window.currentAnyonePermissionId}`, {
+                            method: 'DELETE'
                         });
                         window.currentAnyonePermissionId = null;
                     }
                 } else {
-                    let res = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions`, {
+                    let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions`, {
                         method: 'POST',
-                        headers: {'Authorization': 'Bearer ' + globalAccessToken, 'Content-Type': 'application/json'},
+                        headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ role: level, type: 'anyone' })
                     });
-                    let data = await res.json();
                     window.currentAnyonePermissionId = data.id;
                 }
                 alert("Droits mis à jour avec succès !");
 
-                let timeRes = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
-                let timeData = await timeRes.json();
-                currentFileVersion = timeData.modifiedTime;
+                // Un changement de droits modifie modifiedTime : sans headRevisionId,
+                // on met à jour la référence pour ne pas croire à un conflit
+                if (!currentFileVersion || !currentFileVersion.rev) {
+                    let meta = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime,headRevisionId`);
+                    rememberRemoteVersion(meta);
+                }
 
             } catch(e) {
                 console.error(e);
@@ -1571,21 +1729,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
             try {
                 const appFolderId = await getOrCreateFolder(appName, rootFolderId);
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
                 const metadata = { name: fileName, mimeType: "text/html", parents: [appFolderId], description: appIcon };
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
-
-                let response = await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-                let createdFile = await response.json();
+                let createdFile = await driveCreateFile(metadata, htmlContent, 'text/html');
                 
                 await makeFilePublic(createdFile.id);
 
@@ -1647,15 +1792,16 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             }
             
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: `${newName}.oneapp` })
                 });
                 console.log("ÉDITEUR : Nom de l'app mis à jour avec succès.");
                 listInstalledApps(); 
             } catch (e) {
                 console.error("Erreur renommage application :", e);
+                alert("L'application n'a pas pu être renommée (" + e.message + ").");
             }
         }
         
@@ -1678,23 +1824,8 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
             try {
                 const appFolderId = await getOrCreateFolder(newName, rootFolderId);
-
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
                 const metadata = { name: `${newName}.oneapp`, mimeType: "text/html", parents: [appFolderId], description: appIcon };
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: text/html\r\n\r\n' + currentCode + close_delim;
-
-                let response = await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-                
-                let createdFile = await response.json();
+                let createdFile = await driveCreateFile(metadata, currentCode, 'text/html');
                 await makeFilePublic(createdFile.id);
 
                 alert(`La copie "${newName}" a été créée avec succès !`);
@@ -1736,9 +1867,9 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('edit-header-menu').classList.remove('active');
 
             try {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
+                await driveFetch(`https://www.googleapis.com/drive/v3/files/${editingAppFileId}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ trashed: true })
                 });
                 
@@ -1760,11 +1891,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                let response = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-                });
-                
-                if (!response.ok) throw new Error("Erreur de téléchargement");
+                let response = await driveFetch(`${DRIVE_API_URL}/${fileId}?alt=media`);
                 
                 let appData = await response.text();
                 
@@ -1842,12 +1969,9 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     delimiter + 'Content-Type: text/html\r\n\r\n' + htmlString + close_delim;
 
                 const url = `https://www.googleapis.com/upload/drive/v3/files/${editingAppFileId}?uploadType=multipart`;
-                await fetch(url, {
+                await driveFetch(url, {
                     method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${globalAccessToken}`,
-                        'Content-Type': `multipart/related; boundary=${boundary}`
-                    },
+                    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
                     body: multipartRequestBody
                 });
                 
@@ -1879,17 +2003,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         // --- MACHINE À REMONTER LE TEMPS (HISTORIQUE) ---
         async function fetchRevisions(fileId) {
-            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime)&orderBy=modifiedTime desc`, {
-                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-            });
-            let data = await res.json();
+            let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime)`);
             return data.revisions || [];
         }
 
         async function fetchRevisionContent(fileId, revisionId) {
-            let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${globalAccessToken}` }
-            });
+            let res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions/${revisionId}?alt=media`);
             return await res.text();
         }
 
@@ -2020,14 +2139,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (!confirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente.")) return;
             
             localContent = pastData;
-            isDirty = true;
-            
             appDataHistory = [JSON.parse(JSON.stringify(pastData))];
             appDataCurrentIndex = 0;
             
-            closeHistorySidebar(); 
+            closeHistorySidebar(); // renvoie localContent (la version restaurée) à l'app
             
-            clearTimeout(debounceTimer);
+            markDirty(pastData);
             syncToDrive();
         }
 
@@ -2041,39 +2158,12 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             document.getElementById('history-actions').style.display = 'none';
 
             try {
-                let parentRes = await fetch(`${DRIVE_API_URL}/${currentActiveOneFileId}?fields=parents`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                let parentData = await parentRes.json();
-                let parentFolderId = parentData.parents ? parentData.parents[0] : rootFolderId;
+                let parentFolderId = await getParentFolderId(currentActiveOneFileId);
 
                 const appName = currentOneFileMetadata.app_name;
                 const appFileId = currentOneFileMetadata.source_app_drive_id;
 
-                const newOneFile = {
-                    oneapp_metadata: {
-                        app_name: appName,
-                        source_app_drive_id: appFileId,
-                        version_timestamp: new Date().toISOString()
-                    },
-                    app_data: pastData
-                };
-
-                const fullFileName = `${fileName}.onefile`;
-                const boundary = '-------314159265358979323846';
-                const delimiter = "\r\n--" + boundary + "\r\n";
-                const close_delim = "\r\n--" + boundary + "--";
-
-                const metadata = { name: fullFileName, mimeType: "application/json", parents: [parentFolderId] };
-                const multipartRequestBody =
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(newOneFile) + close_delim;
-
-                let response = await fetch(UPLOAD_API_URL, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: multipartRequestBody
-                });
-                
-                let createdFile = await response.json();
+                let createdFile = await createOneFile(fileName, parentFolderId, appName, appFileId, pastData);
                 
                 closeHistorySidebar(); 
                 openAppEnvironment(appFileId, appName, createdFile.id, fileName); 
