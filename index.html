@@ -363,8 +363,8 @@
             <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
                 <strong>Comment modifier votre application ?</strong><br>
                 1. Copiez le code actuel avec le bouton ci-dessous.<br>
-                2. Ouvrez Gemini, activez la fonctionnalité Canvas, et collez les instructions en demandant vos modifications.<br>
-                3. Une fois terminé, copiez le code final fourni par l'IA et collez-le dans la zone ci-dessous.
+                2. Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez le texte et décrivez la modification souhaitée à la dernière ligne.<br>
+                3. Copiez la réponse de l'IA et collez-la dans la zone ci-dessous (le texte autour du code est retiré automatiquement).
             </div>
 
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -1033,18 +1033,95 @@
             }
         }
 
-        function copyAppGenerationPrompt() {
-            const prompt = `Tu es le développeur expert de "One App". L'utilisateur veut générer une nouvelle application.
+        // --- CONTRAT ONE APP (règles données à n'importe quelle IA) ---
+        // Ce texte est la référence unique du format .oneapp : il sert à la
+        // création d'une app comme à sa modification dans l'éditeur.
+        const ONEAPP_RULES = `RÈGLES D'UNE "ONE APP" (à respecter strictement)
 
-RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
-1. "Single-File HTML": Génère un unique fichier <!DOCTYPE html> monolithique. TOUT le CSS (dans <style>) et le JS (dans <script>) doivent être intégrés.
-2. "Métadonnées": Place le nom dans la balise <title> et une icône dans <meta name="oneapp-icon" content="[Emoji ou SVG]">.
-3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
-4. "Moteur One App": Tu DOIS inclure ce Mock API au début du script pour que l'app tourne dans le Canvas Gemini : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
-5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée.
-Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
+One App exécute des applications web dans un cadre isolé et enregistre leurs données dans le Google Drive de l'utilisateur. Une One App est UN SEUL fichier HTML.
+
+1. FORMAT DE TA RÉPONSE
+- Réponds avec le fichier HTML COMPLET, de <!DOCTYPE html> jusqu'à </html>, dans un seul bloc de code.
+- Ne tronque jamais le code : pas de "...", pas de "reste inchangé", pas de parties à compléter.
+- Tout le CSS va dans <style>, tout le JavaScript dans <script>. Aucun fichier séparé.
+- Une bibliothèque externe n'est permise que via <script src="https://..."> vers un CDN public.
+
+2. MÉTADONNÉES (dans <head>)
+- <title>Nom de l'application</title> : c'est le nom affiché dans One App.
+- <meta name="oneapp-icon" content="📒"> : un seul emoji qui représente l'app.
+
+3. DONNÉES
+- Toutes les données de l'utilisateur tiennent dans UN SEUL objet JavaScript appelé "state".
+- Il doit être convertible en JSON : pas de fonctions, pas d'objets Date (utilise des chaînes ISO), pas de références circulaires.
+- N'utilise JAMAIS localStorage, sessionStorage, IndexedDB ni les cookies : ils sont bloqués. One App enregistre à ta place.
+- N'envoie pas les données vers un serveur.
+
+4. API ONE APP
+One App fournit automatiquement l'objet window.OneAppAPI :
+- OneAppAPI.loadData() → Promise qui renvoie { app_data, readOnly }. À appeler une seule fois au démarrage. Pour un nouveau document, app_data vaut [] : utilise alors l'état par défaut.
+- OneAppAPI.saveData(state) → à appeler après CHAQUE modification faite par l'utilisateur, avec l'état COMPLET. One App gère le délai, l'historique et Google Drive. Ne l'appelle pas au démarrage.
+- OneAppAPI.onDataChange(callback) → callback(data) est appelé quand les données sont remplacées de l'extérieur (Annuler/Rétablir, historique des versions, modification depuis un autre appareil). Remplace state par data et redessine tout l'écran. N'appelle pas saveData dans ce callback.
+- OneAppAPI.onModeChange(callback) → callback(readOnly) est appelé quand le mode lecture seule change. En lecture seule, désactive tout ce qui modifie les données.
+- N'implémente pas ton propre Annuler/Rétablir : One App s'en charge (boutons et Ctrl+Z).
+
+5. SQUELETTE OBLIGATOIRE
+Ton script doit suivre cette structure (le premier bloc permet de tester l'app en dehors de One App ; dans One App, il est ignoré) :
+
+<script>
+window.OneAppAPI = window.OneAppAPI || {
+  loadData: async () => ({ app_data: [], readOnly: false }),
+  saveData: (data) => console.log("[Test] saveData", data),
+  onDataChange: () => {},
+  onModeChange: () => {}
+};
+
+const DEFAULT_STATE = { /* structure de départ des données */ };
+let state = structuredClone(DEFAULT_STATE);
+let readOnly = false;
+
+// Accepte un nouveau document ([]) ou des données d'une ancienne version de l'app
+function normalize(data) {
+  if (!data || Array.isArray(data) || typeof data !== "object") return structuredClone(DEFAULT_STATE);
+  return { ...structuredClone(DEFAULT_STATE), ...data };
+}
+
+// Redessine TOUT l'écran à partir de state et de readOnly
+function render() { /* ... */ }
+
+// À appeler après chaque action de l'utilisateur qui modifie state
+function commit() {
+  if (readOnly) return;
+  render();
+  OneAppAPI.saveData(state);
+}
+
+OneAppAPI.onDataChange((data) => { state = normalize(data); render(); });
+OneAppAPI.onModeChange((value) => { readOnly = value; render(); });
+
+OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
+  state = normalize(app_data);
+  readOnly = value;
+  render();
+});
+<\/script>
+
+6. ENVIRONNEMENT
+- L'app s'affiche en plein écran sous la barre One App : mise en page responsive, du mobile (320 px) au grand écran.
+- Les nouvelles fenêtres (window.open, target="_blank") et les téléchargements sont bloqués.
+
+7. MÉMOIRE POUR LES FUTURES MODIFICATIONS
+Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : le but de l'app, la structure exacte de state, et les choix importants. Mets-le à jour à chaque modification. N'y mets aucune donnée personnelle (le code de l'app est partagé par lien).`;
+
+        function copyAppGenerationPrompt() {
+            const prompt = `Crée une application "One App".
+
+${ONEAPP_RULES}
+
+MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
+                alert("Règles copiées ! Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez ce texte, remplacez la dernière ligne par votre besoin, puis revenez coller le HTML obtenu ici.");
+            }).catch(() => {
+                alert("La copie a échoué. Vérifiez que le navigateur autorise l'accès au presse-papiers.");
             });
         }
 
@@ -1065,7 +1142,72 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
-        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
+        // Cette fonction n'est pas exécutée ici : son code source est injecté en
+        // tête de chaque app (voir injectBridge) et s'exécute dans l'iframe.
+        function oneAppBridge() {
+            const dataListeners = [];
+            const modeListeners = [];
+            const send = (type, payload) => window.parent.postMessage({ type: type, payload: payload }, '*');
+            const notify = (listeners, value) => listeners.forEach((cb) => {
+                try { cb(value); } catch (e) { console.error('[One App]', e); }
+            });
+
+            window.OneAppAPI = {
+                loadData: function () {
+                    return new Promise(function (resolve) {
+                        const listener = function (event) {
+                            if (event.source !== window.parent || !event.data || event.data.type !== 'LOAD_DATA_RESPONSE') return;
+                            window.removeEventListener('message', listener);
+                            resolve(event.data.payload);
+                        };
+                        window.addEventListener('message', listener);
+                        send('LOAD_DATA_REQUEST');
+                    });
+                },
+                saveData: function (data) {
+                    // Copie JSON : données détachées de l'app et garanties sérialisables
+                    send('SAVE_DATA_REQUEST', data === undefined ? null : JSON.parse(JSON.stringify(data)));
+                },
+                onDataChange: function (cb) { if (typeof cb === 'function') dataListeners.push(cb); },
+                onModeChange: function (cb) { if (typeof cb === 'function') modeListeners.push(cb); },
+                askGemini: function () { console.warn("[One App] askGemini n'est pas disponible."); }
+            };
+
+            window.addEventListener('message', function (event) {
+                if (event.source !== window.parent || !event.data) return;
+                if (event.data.type === 'RESTORE_DATA') {
+                    notify(dataListeners, event.data.payload);
+                    // Compatibilité avec les apps créées avant onDataChange
+                    if (typeof window.OneAppInternal_OnRestore === 'function') window.OneAppInternal_OnRestore(event.data.payload);
+                }
+                if (event.data.type === 'SET_READ_ONLY') {
+                    notify(modeListeners, event.data.payload);
+                    if (typeof window.OneAppInternal_OnModeChange === 'function') window.OneAppInternal_OnModeChange(event.data.payload);
+                }
+            });
+
+            // Ctrl+Z / Ctrl+Y dans l'app : transmis à One App, sauf dans un champ
+            // de saisie où l'annulation native du navigateur reste prioritaire
+            document.addEventListener('keydown', function (e) {
+                if (!(e.ctrlKey || e.metaKey)) return;
+                const key = e.key.toLowerCase();
+                if (key !== 'z' && key !== 'y') return;
+                const t = e.target;
+                if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+                e.preventDefault();
+                send((key === 'y' || e.shiftKey) ? 'REDO_REQUEST' : 'UNDO_REQUEST');
+            }, true);
+        }
+
+        // Insère le pont juste après <head> (ou <html>, ou le doctype) pour qu'il
+        // s'exécute avant le script de l'app, quelle que soit l'écriture de la balise
+        function injectBridge(appHtml) {
+            const tag = '<script>(' + oneAppBridge.toString() + ')();<\/script>';
+            const anchor = appHtml.match(/<head(\s[^>]*)?>/i) || appHtml.match(/<html(\s[^>]*)?>/i) || appHtml.match(/<!doctype[^>]*>/i);
+            if (!anchor) return tag + appHtml;
+            const at = anchor.index + anchor[0].length;
+            return appHtml.slice(0, at) + tag + appHtml.slice(at);
+        }
 
         let currentRunningApp = null;
         let currentActiveOneFileId = null;
@@ -1082,8 +1224,15 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             if (event.data.type === 'LOAD_DATA_REQUEST') {
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
-                    payload: { readOnly: isAppReadOnly, app_data: window.currentLoadedAppData || [] }
+                    // localContent = dernières données connues (modifs locales comprises)
+                    payload: { readOnly: isAppReadOnly || isViewingHistory, app_data: localContent !== null ? localContent : (window.currentLoadedAppData || []) }
                 }, '*');
+            }
+            else if (event.data.type === 'UNDO_REQUEST') {
+                appUndo();
+            }
+            else if (event.data.type === 'REDO_REQUEST') {
+                appRedo();
             } 
             else if (event.data.type === 'SAVE_DATA_REQUEST') {
                 if (isAppReadOnly || isViewingHistory) {
@@ -1521,12 +1670,7 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
                     if (banner) banner.style.display = 'none';
                 }
 
-                let fullHTML = appHtml;
-                if (fullHTML.includes('<head>')) {
-                    fullHTML = fullHTML.replace('<head>', '<head><script>' + apiBridgeScript + '<\/script>');
-                } else {
-                    fullHTML = '<script>' + apiBridgeScript + '<\/script>' + fullHTML;
-                }
+                let fullHTML = injectBridge(appHtml);
 
                 const iframe = document.createElement('iframe');
                 iframe.sandbox = "allow-scripts allow-modals"; 
@@ -1713,9 +1857,34 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
         }
 
+        // Extrait le HTML d'une réponse d'IA : retire les balises ```html et le
+        // texte éventuel avant <!DOCTYPE>/<html> ou après </html>
+        function extractAppHtml(text) {
+            let html = (text || '').trim();
+            const fence = html.match(/```(?:html)?\s*\n([\s\S]*?)\n?```/i);
+            if (fence && /<html|<!doctype/i.test(fence[1])) html = fence[1].trim();
+
+            const start = html.search(/<!doctype html|<html[\s>]/i);
+            if (start > 0) html = html.slice(start);
+            const end = html.toLowerCase().lastIndexOf('</html>');
+            if (end !== -1) html = html.slice(0, end + '</html>'.length);
+            return html;
+        }
+
+        // Signale les erreurs fréquentes des IA ; renvoie false si l'utilisateur annule
+        function confirmAppHtml(html) {
+            const problems = [];
+            if (!/<\/html>\s*$/i.test(html)) problems.push("- Le code semble incomplet (pas de </html> à la fin) : l'IA l'a peut-être tronqué.");
+            if (!/OneAppAPI/.test(html)) problems.push("- L'app n'utilise pas l'API One App : ses données ne seront pas enregistrées.");
+            if (/localStorage|indexedDB/i.test(html)) problems.push("- L'app utilise localStorage ou IndexedDB, qui sont bloqués dans One App.");
+            if (problems.length === 0) return true;
+            return confirm("Attention :\n" + problems.join("\n") + "\n\nContinuer quand même ?");
+        }
+
         async function installAppFromHtml() {
-            const htmlContent = document.getElementById('json-input').value.trim();
+            const htmlContent = extractAppHtml(document.getElementById('json-input').value);
             if (!htmlContent) return alert("Veuillez coller le code HTML.");
+            if (!confirmAppHtml(htmlContent)) return;
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -1921,12 +2090,23 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
 
         function copyCodeForAI() {
             const currentCode = fullCodeInput.value;
-            
-            const aiPrompt = `Voici le code source de mon application One App (JSON) : \n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nApporte les modifications demandées et renvoie-moi UNIQUEMENT l'intégralité du code HTML valide, sans formatage tronqué.`;
+
+            const aiPrompt = `Modifie mon application "One App" existante.
+
+${ONEAPP_RULES}
+
+CODE ACTUEL DE L'APPLICATION :
+\`\`\`html
+${currentCode}
+\`\`\`
+
+Conserve la structure de state : les documents déjà enregistrés doivent continuer à s'ouvrir (complète normalize() si tu ajoutes des champs).
+
+MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
 
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Le code et les instructions ont été copiés ! Ouvrez Gemini, collez ce texte, ajoutez votre demande, et générez le nouveau code.");
-            }).catch(err => {
+                alert("Le code et les règles ont été copiés ! Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez ce texte, remplacez la dernière ligne par votre demande, puis revenez coller le nouveau code ici.");
+            }).catch(() => {
                 alert("Erreur lors de la copie.");
             });
         }
@@ -1940,9 +2120,11 @@ Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
         }
 
         async function saveEditorCode() {
-            let currentCode = fullCodeInput.value.trim();
+            let currentCode = extractAppHtml(fullCodeInput.value);
 
             if (!currentCode) return showEditorStatus("Le champ de code est vide.");
+            if (!confirmAppHtml(currentCode)) return;
+            fullCodeInput.value = currentCode;
 
             saveEditorState(currentCode);
             showEditorStatus("Sauvegarde cloud en cours...");
