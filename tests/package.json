@@ -1,0 +1,11 @@
+{
+  "name": "one-app-tests",
+  "private": true,
+  "description": "Banc d'essai de One App (Chromium + faux Google Drive)",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

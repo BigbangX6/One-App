@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compteur de Points</title>
+    <meta name="oneapp-icon" content="🎲">
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --text-color: #0f172a;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --danger: #ef4444;
+            --btn-bg: #e2e8f0;
+            --btn-hover: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 1rem;
+        }
+
+        #app-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-color);
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            z-index: 10;
+        }
+
+        #add-player-form {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        #new-player-name {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #new-player-name:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-add {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-add:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #players-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .player-card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .delete-btn:hover {
+            background-color: #fee2e2;
+            color: var(--danger);
+        }
+
+        .player-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            width: 85%;
+            word-wrap: break-word;
+        }
+
+        .player-score {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-controls {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .score-btn {
+            flex: 1;
+            padding: 0.75rem 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            background-color: var(--btn-bg);
+            color: var(--text-color);
+            transition: background-color 0.1s;
+            touch-action: manipulation; /* Évite le zoom sur double tap sur mobile */
+        }
+
+        .score-btn:hover {
+            background-color: var(--btn-hover);
+        }
+
+        .score-btn.positive {
+            color: #166534;
+            background-color: #dcfce7;
+        }
+        .score-btn.positive:hover {
+            background-color: #bbf7d0;
+        }
+
+        .score-btn.negative {
+            color: #991b1b;
+            background-color: #fee2e2;
+        }
+        .score-btn.negative:hover {
+            background-color: #fecaca;
+        }
+
+        /* Mode lecture seule */
+        body.readonly #new-player-name,
+        body.readonly .btn-add,
+        body.readonly .score-btn,
+        body.readonly .delete-btn {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <!--
+      BUT DE L'APP :
+      Un compteur de points simple et rapide pour n'importe quel jeu.
+      Permet d'ajouter des joueurs à la volée et de modifier leur score (+/- 1, +/- 5).
+
+      STRUCTURE DE 'state' :
+      {
+        players: [
+          {
+            id: string, (identifiant unique)
+            name: string, (nom du joueur)
+            score: number (score actuel)
+          }
+        ]
+      }
+
+      CHOIX TECHNIQUES :
+      - Utilisation de CSS Grid pour un affichage responsive (mobile et PC).
+      - Boutons larges pour un usage facile sur écran tactile (touch-action: manipulation).
+      - Le formulaire en haut empêche le rechargement et garde le focus pour ajouter rapidement plusieurs joueurs.
+    -->
+
+    <div id="app-container">
+        <header>
+            <form id="add-player-form">
+                <input type="text" id="new-player-name" placeholder="Nom du joueur..." autocomplete="off" required>
+                <button type="submit" class="btn-add">Ajouter</button>
+            </form>
+        </header>
+
+        <main id="players-container">
+            <!-- Les cartes des joueurs seront injectées ici par JavaScript -->
+        </main>
+    </div>
+
+    <script>
+        // SQUELETTE ONE APP OBLIGATOIRE
+        window.OneAppAPI = window.OneAppAPI || {
+            loadData: async () => ({ app_data: [], readOnly: false }),
+            saveData: (data) => console.log("[Test] saveData", data),
+            onDataChange: () => {},
+            onModeChange: () => {}
+        };
+
+        const DEFAULT_STATE = {
+            players: []
+        };
+        let state = structuredClone(DEFAULT_STATE);
+        let readOnly = false;
+
+        function normalize(data) {
+            if (!data || Array.isArray(data) || typeof data !== "object") return structuredClone(DEFAULT_STATE);
+            return { ...structuredClone(DEFAULT_STATE), ...data };
+        }
+
+        // REDESSINE TOUT L'ÉCRAN
+        function render() {
+            // Gérer le mode lecture seule global
+            document.body.classList.toggle('readonly', readOnly);
+            document.getElementById('new-player-name').disabled = readOnly;
+            document.querySelector('.btn-add').disabled = readOnly;
+
+            const container = document.getElementById('players-container');
+            container.innerHTML = '';
+
+            state.players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+
+                // Prévention XSS pour le nom
+                const safeName = document.createElement('div');
+                safeName.textContent = player.name;
+                safeName.className = 'player-name';
+
+                card.innerHTML = `
+                    <button class="delete-btn" onclick="deletePlayer('${player.id}')" title="Supprimer le joueur">×</button>
+                    ${safeName.outerHTML}
+                    <div class="player-score">${player.score}</div>
+                    <div class="score-controls">
+                        <button class="score-btn negative" onclick="updateScore('${player.id}', -5)">-5</button>
+                        <button class="score-btn negative" onclick="updateScore('${player.id}', -1)">-1</button>
+                        <button class="score-btn positive" onclick="updateScore('${player.id}', 1)">+1</button>
+                        <button class="score-btn positive" onclick="updateScore('${player.id}', 5)">+5</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // SAUVEGARDE ET MET À JOUR
+        function commit() {
+            if (readOnly) return;
+            render();
+            OneAppAPI.saveData(state);
+        }
+
+        // INIT ET SYNCHRONISATION
+        OneAppAPI.onDataChange((data) => { state = normalize(data); render(); });
+        OneAppAPI.onModeChange((value) => { readOnly = value; render(); });
+
+        OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
+            state = normalize(app_data);
+            readOnly = value;
+            render();
+        });
+
+
+        // --- LOGIQUE SPÉCIFIQUE DE L'APPLICATION ---
+
+        // Génère un ID unique
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        // Ajouter un joueur
+        document.getElementById('add-player-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (readOnly) return;
+
+            const input = document.getElementById('new-player-name');
+            const name = input.value.trim();
+
+            if (name) {
+                state.players.push({
+                    id: generateId(),
+                    name: name,
+                    score: 0
+                });
+                input.value = '';
+                // Garder le focus pour ajouter quelqu'un d'autre rapidement si on est sur PC
+                if (window.innerWidth > 768) {
+                    input.focus();
+                }
+                commit();
+            }
+        });
+
+        // Mettre à jour le score globalement
+        window.updateScore = function(id, delta) {
+            if (readOnly) return;
+            const player = state.players.find(p => p.id === id);
+            if (player) {
+                player.score += delta;
+                commit();
+            }
+        };
+
+        // Supprimer un joueur
+        window.deletePlayer = function(id) {
+            if (readOnly) return;
+            if (confirm("Voulez-vous vraiment retirer ce joueur de la partie ?")) {
+                state.players = state.players.filter(p => p.id !== id);
+                commit();
+            }
+        };
+    </script>
+</body>
+</html>

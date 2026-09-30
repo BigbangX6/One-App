@@ -993,8 +993,12 @@
             try {
                 let data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`);
                 
+                // Le sous-menu a pu être fermé ou remplacé pendant le chargement
                 const listContainer = document.getElementById('submenu-file-list');
-                document.getElementById('submenu-loader').style.display = 'none';
+                const loader = document.getElementById('submenu-loader');
+                if (!listContainer || !activeSubmenu || activeSubmenu.dataset.folderId !== String(folderId)) return;
+                loader.style.display = 'none';
+                listContainer.innerHTML = '';
 
                 if (data.files && data.files.length > 0) {
                     data.files.forEach(f => {
@@ -1167,6 +1171,7 @@ OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
 6. ENVIRONNEMENT
 - L'app s'affiche en plein écran sous la barre One App : mise en page responsive, du mobile (320 px) au grand écran.
 - Les nouvelles fenêtres (window.open, target="_blank") et les téléchargements sont bloqués.
+- Formulaires : dans l'événement "submit", appelle toujours event.preventDefault() (sinon la page de l'app se recharge).
 
 7. MÉMOIRE POUR LES FUTURES MODIFICATIONS
 Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : le but de l'app, la structure exacte de state, et les choix importants. Mets-le à jour à chaque modification. N'y mets aucune donnée personnelle (le code de l'app est partagé par lien).`;
@@ -1732,7 +1737,9 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 let fullHTML = injectBridge(appHtml);
 
                 const iframe = document.createElement('iframe');
-                iframe.sandbox = "allow-scripts allow-modals"; 
+                // allow-forms : sans lui, l'événement submit des formulaires n'est jamais
+                // déclenché (les apps générées par IA en utilisent très souvent)
+                iframe.sandbox = "allow-scripts allow-modals allow-forms";
                 iframe.srcdoc = fullHTML;
                 iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 
@@ -1780,16 +1787,11 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             retryDelay = 0;
             closeHistorySidebar(); 
 
-            if (activeSubmenu) {
-                const appId = activeSubmenu.dataset.appId;
-                const appName = activeSubmenu.dataset.appName;
-                const folderId = activeSubmenu.dataset.folderId;
-                
-                document.getElementById('submenu-loader').style.display = 'block';
-                document.getElementById('submenu-file-list').innerHTML = '';
-                loadAppFiles(folderId, appId, appName);
-            }
+            // La liste des apps est reconstruite (ce qui supprime le sous-menu) :
+            // on rouvre ensuite le sous-menu de l'app qui était ouverte
+            const reopen = activeSubmenu ? { ...activeSubmenu.dataset } : null;
             await listInstalledApps();
+            if (reopen) toggleAppMenu(null, reopen.appId, reopen.appName, reopen.folderId);
         }
 
         async function openShareModal() {
