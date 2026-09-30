@@ -5,552 +5,424 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>One App - Personal Cloud</title>
     
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-512.png">
-    <meta name="theme-color" content="#8b5cf6">
-    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="config.js"></script>
 
-    <!-- [ONEAPP_BEGIN: head_styles.html] -->
-<style>
-    /* --- VARIABLES CSS --- */
-    :root {
-        --bg-color: #f5f5f7;
-        --surface-color: #ffffff;
-        --text-primary: #1d1d1f;
-        --text-secondary: #86868b;
-        --border-color: #d2d2d7;
-        --accent-color: #8b5cf6; 
-        --accent-hover: #7c3aed;
-        --shadow: 0 4px 24px rgba(0,0,0,0.08);
-    }
-
-    @media (prefers-color-scheme: dark) {
+    <style>
+        /* --- VARIABLES CSS --- */
         :root {
-            --bg-color: #000000;
-            --surface-color: #1c1c1e;
-            --text-primary: #f5f5f7;
-            --text-secondary: #a1a1a6;
-            --border-color: #38383a;
-            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --bg-color: #f5f5f7;
+            --surface-color: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: #d2d2d7;
+            --accent-color: #8b5cf6; 
+            --accent-hover: #7c3aed;
+            --shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
-    }
 
-    /* --- STYLES GLOBAUX --- */
-    body, html {
-        margin: 0;
-        padding: 0; height: 100%;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background-color: var(--bg-color); color: var(--text-primary);
-        display: flex; justify-content: center; align-items: flex-start;
-        transition: background-color 0.3s ease, color 0.3s ease;
-        padding-top: 40px; box-sizing: border-box;
-    }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --surface-color: #1c1c1e;
+                --text-primary: #f5f5f7;
+                --text-secondary: #a1a1a6;
+                --border-color: #38383a;
+                --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            }
+        }
 
-    .app-container {
-        background-color: var(--surface-color);
-        border-radius: 20px;
-        box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
-        border: 1px solid var(--border-color); box-sizing: border-box;
-    }
+        /* --- STYLES GLOBAUX --- */
+        body, html {
+            margin: 0;
+            padding: 0; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: var(--bg-color); color: var(--text-primary);
+            display: flex; justify-content: center; align-items: flex-start;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding-top: 40px; box-sizing: border-box;
+        }
 
-    /* --- VUES --- */
-    #unauthenticated-view { text-align: center; }
-    #authenticated-view { display: none; }
-    
-    .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
-    h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
-    p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
+        .app-container {
+            background-color: var(--surface-color);
+            border-radius: 20px;
+            box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
+            border: 1px solid var(--border-color); box-sizing: border-box;
+        }
 
-    .custom-btn {
-        background-color: var(--surface-color);
-        color: var(--text-primary);
-        border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
-        font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
-        align-items: center; justify-content: center; gap: 12px; width: 100%;
-        transition: background 0.2s;
-    }
-    .custom-btn:hover { background-color: var(--bg-color); }
-    
-    .primary-btn {
-        background-color: var(--accent-color);
-        color: white; border: none;
-        padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
-    }
-    .primary-btn:hover { background-color: var(--accent-hover); }
-
-    .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
-
-    /* --- TABLEAU DE BORD --- */
-    .user-header {
-        display: flex;
-        align-items: center; gap: 12px; margin-bottom: 24px;
-        padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
-    }
-    .user-info h2 { font-size: 16px; margin: 0; }
-    .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
-
-    .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
-
-    /* Grille des applications */
-    #app-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
-    }
-    .app-card {
-        background: var(--bg-color);
-        border: 1px solid var(--border-color); border-radius: 12px;
-        padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
-    }
-    .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
-    .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
-    .app-card span { display: block; font-size: 13px; font-weight: 600; }
-
-    /* Sous-menu App (Espace de travail) */
-    .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
-    .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
-    .submenu-search:focus { border-color: var(--accent-color); }
-    
-    .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
-    .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
-    .file-item:hover { border-color: var(--accent-color); }
-    .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
-    .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
-    .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
-    .file-item-menu:hover { color: var(--text-primary); }
-    
-    .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
-    .file-item-dropdown.active { display: flex; }
-    .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-    .file-item-dropdown button:hover { background: var(--bg-color); }
-    .file-item-dropdown button.danger { color: #ef4444; }
-
-    /* Bandeau d'exécution (Look Google Docs) */
-    .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-    .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
-    .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
-    .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-    .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
-    .execution-title-input:hover { border-color: var(--border-color); }
-    .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
-    
-    .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
-    .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-    
-    /* Menu Options du Bandeau */
-    .header-menu-container { position: relative; }
-    .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
-    .header-dropdown.active { display: flex; }
-    .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
-    .header-dropdown button:hover { background: var(--bg-color); }
-    .header-dropdown button.danger { color: #ef4444; }
-
-    /* Vue Invitation */
-    #shared-invite-view { text-align: center; display: none; }
-    
-    /* Utilitaires Responsive */
-    @media (max-width: 600px) {
-        .hide-on-mobile { display: none !important; }
-        .show-on-mobile-inline { display: inline !important; }
-
-        /* Ajustements du bandeau d'exécution pour mobile */
-        .execution-header { padding: 6px 8px; }
-        .execution-left { flex: 0 1 auto; padding-right: 8px; gap: 6px; min-width: 0; }
+        /* --- VUES --- */
+        #unauthenticated-view { text-align: center; }
+        #authenticated-view { display: none; }
         
-        /* Les boutons collés à gauche avec le titre, et qui poussent la croix à droite */
-        .execution-center { flex: 0 0 auto; gap: 0px; margin-right: auto; } 
-        .execution-right { flex: 0 0 auto; flex-basis: auto; }
+        .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
+        h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
+        p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
+
+        .custom-btn {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
+            font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; gap: 12px; width: 100%;
+            transition: background 0.2s;
+        }
+        .custom-btn:hover { background-color: var(--bg-color); }
         
-        /* Réduction des boutons centraux (Undo/Redo/Sync) */
-        .execution-center .custom-btn { padding: 4px; }
-        .execution-center .custom-btn svg { width: 20px; height: 20px; }
+        .primary-btn {
+            background-color: var(--accent-color);
+            color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+        .primary-btn:hover { background-color: var(--accent-hover); }
+
+        .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
+
+        /* --- TABLEAU DE BORD --- */
+        .user-header {
+            display: flex;
+            align-items: center; gap: 12px; margin-bottom: 24px;
+            padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
+        }
+        .user-info h2 { font-size: 16px; margin: 0; }
+        .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+        .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
+
+        /* Grille des applications */
+        #app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
+        }
+        .app-card {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color); border-radius: 12px;
+            padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
+        .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
+        .app-card span { display: block; font-size: 13px; font-weight: 600; }
+
+        /* Sous-menu App (Espace de travail) */
+        .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
+        .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
+        .submenu-search:focus { border-color: var(--accent-color); }
         
-        /* Optimisation de l'espace texte */
-        .execution-title-input { font-size: 14px; padding: 0; text-overflow: ellipsis; }
-        .execution-app-name { font-size: 10px; }
-    }
+        .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+        .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
+        .file-item:hover { border-color: var(--accent-color); }
+        .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
+        .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
+        .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
+        .file-item-menu:hover { color: var(--text-primary); }
+        
+        .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
+        .file-item-dropdown.active { display: flex; }
+        .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .file-item-dropdown button:hover { background: var(--bg-color); }
+        .file-item-dropdown button.danger { color: #ef4444; }
 
-    /* Modal d'installation */
-    #install-section {
-        display: none;
-        background: var(--bg-color); padding: 20px; border-radius: 12px;
-        border: 1px solid var(--border-color); margin-top: 20px;
-    }
-    textarea {
-        width: 100%;
-        height: 150px; background: var(--surface-color); color: var(--text-primary);
-        border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
-        font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
-    }
+        /* Bandeau d'exécution (Look Google Docs) */
+        .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
+        .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
+        .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
+        .execution-title-input:hover { border-color: var(--border-color); }
+        .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+        
+        .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
+        .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+        
+        /* Menu Options du Bandeau */
+        .header-menu-container { position: relative; }
+        .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
+        .header-dropdown.active { display: flex; }
+        .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+        .header-dropdown button:hover { background: var(--bg-color); }
+        .header-dropdown button.danger { color: #ef4444; }
 
-    /* --- HISTORIQUE (SIDEBAR) --- */
-    #history-sidebar {
-        position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
-        background: var(--surface-color); border-left: 1px solid var(--border-color);
-        box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
-        transform: translateX(100%); transition: transform 0.3s ease;
-        display: flex; flex-direction: column;
-    }
-    #history-sidebar.open { transform: translateX(0); }
-    .history-header {
-        padding: 16px; border-bottom: 1px solid var(--border-color);
-        display: flex; justify-content: space-between; align-items: center;
-    }
-    .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
-    .history-close-btn {
-        background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
-    }
-    .history-close-btn:hover { color: #ef4444; }
-    #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-    
-    .history-item {
-        padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
-        cursor: pointer; background: var(--bg-color); transition: 0.2s;
-    }
-    .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
-    .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-    .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-    
-    /* History Action Buttons area */
-    #history-actions { 
-        padding: 16px; border-top: 1px solid var(--border-color); display: none; 
-        flex-direction: column; gap: 10px; 
-    }
+        /* Vue Invitation */
+        #shared-invite-view { text-align: center; display: none; }
+        
+        /* Utilitaires Responsive */
+        @media (max-width: 600px) {
+            .hide-on-mobile { display: none !important; }
+            .show-on-mobile-inline { display: inline !important; }
+        }
 
-    /* Floating button to restore history view on mobile */
-    #history-floating-btn {
-        position: fixed; bottom: 20px; right: 20px; z-index: 2100;
-        background: var(--surface-color); color: var(--text-primary);
-        border: 1px solid var(--border-color); border-radius: 20px;
-        padding: 12px 24px; font-size: 14px; font-weight: bold;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
-        transition: transform 0.2s;
-    }
-    #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
+        /* Modal d'installation */
+        #install-section {
+            display: none;
+            background: var(--bg-color); padding: 20px; border-radius: 12px;
+            border: 1px solid var(--border-color); margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px; background: var(--surface-color); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
+            font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
+        }
 
-    /* Animation pulsation bouton copie */
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-        100% { transform: scale(1); }
-    }
+        /* --- HISTORIQUE (SIDEBAR) --- */
+        #history-sidebar {
+            position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
+            background: var(--surface-color); border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
+            transform: translateX(100%); transition: transform 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        #history-sidebar.open { transform: translateX(0); }
+        .history-header {
+            padding: 16px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .history-close-btn {
+            background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
+        }
+        .history-close-btn:hover { color: #ef4444; }
+        #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        
+        .history-item {
+            padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
+            cursor: pointer; background: var(--bg-color); transition: 0.2s;
+        }
+        .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
+        .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        
+        /* History Action Buttons area */
+        #history-actions { 
+            padding: 16px; border-top: 1px solid var(--border-color); display: none; 
+            flex-direction: column; gap: 10px; 
+        }
 
-    /* Custom Alert Modal styles */
-    .custom-modal-overlay {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: rgba(0,0,0,0.5); z-index: 10001; display: none;
-        justify-content: center; align-items: center;
-    }
-    .custom-modal-box {
-        background: var(--surface-color); padding: 24px; border-radius: 12px;
-        max-width: 400px; width: 90%; box-shadow: var(--shadow);
-        color: var(--text-primary); text-align: center; border: 1px solid var(--border-color);
-    }
-    .custom-modal-buttons {
-        display: flex; gap: 10px; justify-content: center; margin-top: 20px;
-    }
-</style>
-<!-- [ONEAPP_END: head_styles.html] -->
+        /* Floating button to restore history view on mobile */
+        #history-floating-btn {
+            position: fixed; bottom: 20px; right: 20px; z-index: 2100;
+            background: var(--surface-color); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 20px;
+            padding: 12px 24px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
+            transition: transform 0.2s;
+        }
+        #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
+
+        /* Animation pulsation bouton copie */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+    </style>
 </head>
 <body>
 
-    <!-- --- INTERFACES UTILISATEUR --- -->
-    <!-- [ONEAPP_BEGIN: ui_auth.html] -->
-<!-- Custom Modal for Alerts and Confirms -->
-<div id="custom-modal" class="custom-modal-overlay">
-    <div class="custom-modal-box">
-        <div id="custom-modal-text" style="margin-bottom: 16px; font-size: 15px; line-height: 1.4;"></div>
-        <div class="custom-modal-buttons">
-            <button id="custom-modal-cancel" class="custom-btn" style="display:none; flex: 1;">Annuler</button>
-            <button id="custom-modal-ok" class="primary-btn" style="flex: 1;">OK</button>
-        </div>
-    </div>
-</div>
-
-<div id="unauthenticated-view" class="app-container">
-    <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-    <h1>One App</h1>
-    <p class="subtitle">Votre Personal Cloud décentralisé</p>
-    <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
-</div>
-
-<div id="shared-invite-view" class="app-container">
-    <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-    <h1 id="invite-title">Fichier Partagé</h1>
-    <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
-    <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
-    <button class="custom-btn" onclick="showAlert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
-</div>
-<!-- [ONEAPP_END: ui_auth.html] -->
-    <!-- [ONEAPP_BEGIN: ui_dashboard.html] -->
-<div id="authenticated-view" class="app-container">
-    <div class="user-header">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-        <div class="user-info">
-            <h2 id="user-greeting">Mon Compte</h2>
-            <p id="user-email">Chargement...</p>
-            <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
-        </div>
+    <div id="unauthenticated-view" class="app-container">
+        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+        <h1>One App</h1>
+        <p class="subtitle">Votre Personal Cloud décentralisé</p>
+        <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
     </div>
 
-    <div class="header-actions">
-        <div class="section-title">Mes Applications</div>
-        <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
+    <div id="shared-invite-view" class="app-container">
+        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        <h1 id="invite-title">Fichier Partagé</h1>
+        <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
+        <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
+        <button class="custom-btn" onclick="alert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
     </div>
 
-    <div id="app-grid">
-        </div>
-    <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
-
-    <div id="install-section">
-        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
-            Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
-        </div>
-        <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
-        <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
-        <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
-        <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
-        <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
-    </div>
-</div>
-<!-- [ONEAPP_END: ui_dashboard.html] -->
-    <!-- [ONEAPP_BEGIN: ui_execution.html] -->
-<div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
-    <header class="execution-header">
-        <div class="execution-left">
-            <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-            <div class="execution-title-wrapper">
-                <span id="running-app-name" class="execution-app-name">App Name</span>
-                <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
+    <div id="authenticated-view" class="app-container">
+        <div class="user-header">
+            <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+            <div class="user-info">
+                <h2 id="user-greeting">Mon Compte</h2>
+                <p id="user-email">Chargement...</p>
+                <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
             </div>
         </div>
-        
-        <div class="execution-center">
-            <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
-            </button>
-            <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
-            </button>
-            <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
-            </button>
+
+        <div class="header-actions">
+            <div class="section-title">Mes Applications</div>
+            <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
         </div>
 
-        <div class="execution-right">
-            <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-            
-            <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
-                ✏️ <span class="hide-on-mobile">Édition</span>
-            </button>
-            
-            <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
-                🔒 Partager
-            </button>
-            
-            <div class="header-menu-container">
-                <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
-                <div class="header-dropdown" id="execution-header-menu">
-                    <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
-                    <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                    <button onclick="showAlert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
-                    <button onclick="showDataHistory()">🕒 Historique des versions</button>
-                    <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                    <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+        <div id="app-grid">
+            </div>
+        <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
+
+        <div id="install-section">
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
+                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
+            </div>
+            <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
+            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
+            <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
+            <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
+            <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
+        </div>
+    </div>
+
+    <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
+        <header class="execution-header">
+            <div class="execution-left">
+                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <div class="execution-title-wrapper">
+                    <span id="running-app-name" class="execution-app-name">App Name</span>
+                    <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
                 </div>
             </div>
-        </div>
-    </header>
-    <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px 30px 8px 8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a; position: relative;">
-        Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
-        <button onclick="document.getElementById('readonly-banner').style.display='none'" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 18px; cursor: pointer; color: #b45309; padding: 4px; line-height: 1;">✕</button>
-    </div>
-    <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
-        </div>
-</div>
-
-<div id="history-sidebar">
-    <div class="history-header">
-        <h3>Historique des versions</h3>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
-            <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
-        </div>
-    </div>
-    <div id="history-list">
-        <!-- Items will be injected here -->
-    </div>
-    <div id="history-actions">
-        <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
-        <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
-    </div>
-</div>
-
-<button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
-
-<!-- Modale de Partage -->
-<div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
-    <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
-        <h3 style="margin-top:0;">Partager ce fichier</h3>
-        
-        <div id="share-permissions-block" style="margin-bottom:16px;">
-            <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
-            <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
-            <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
-        </div>
-        <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
-        
-        <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
-            Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
-        </div>
-
-        <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
-        <div style="display:flex; gap:10px;">
-            <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
-            <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
-            <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
-        </div>
-        <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
-            <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
-        </div>
-        <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
-    </div>
-</div>
-<!-- [ONEAPP_END: ui_execution.html] -->
-    <!-- [ONEAPP_BEGIN: ui_editor.html] -->
-<div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
-    <header class="execution-header">
-        <div class="execution-left">
-            <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-            <div class="execution-title-wrapper">
-                <span id="running-app-name" class="execution-app-name">App Name</span>
-                <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
+            
+            <div class="execution-center">
+                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
+                </button>
+                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
+                </button>
+                <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
+                </button>
             </div>
-        </div>
-        
-        <div class="execution-center">
-            <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
-            </button>
-            <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
-            </button>
-            <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
-            </button>
-        </div>
 
-        <div class="execution-right">
-            <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-            
-            <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
-                ✏️ <span class="hide-on-mobile">Édition</span>
-            </button>
-            
-            <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
-                🔒 Partager
-            </button>
-            
-            <div class="header-menu-container">
-                <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
-                <div class="header-dropdown" id="execution-header-menu">
-                    <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
-                    <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                    <button onclick="showAlert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
-                    <button onclick="showDataHistory()">🕒 Historique des versions</button>
-                    <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                    <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+            <div class="execution-right">
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+                
+                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
+                    ✏️ <span class="hide-on-mobile">Édition</span>
+                </button>
+                
+                <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
+                    🔒 Partager
+                </button>
+                
+                <div class="header-menu-container">
+                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <div class="header-dropdown" id="execution-header-menu">
+                        <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
+                        <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
+                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                        <button onclick="showDataHistory()">🕒 Historique des versions</button>
+                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+                    </div>
                 </div>
             </div>
+        </header>
+        <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a;">
+            Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
         </div>
-    </header>
+        <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
+            </div>
+    </div>
+
+    <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
+        <header class="execution-header">
+            <div class="execution-left">
+                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <div class="execution-title-wrapper">
+                    <span class="execution-app-name">Éditeur One App</span>
+                    <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
+                </div>
+            </div>
+            
+            <div class="execution-center">
+                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
+                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+            </div>
+
+            <div class="execution-right">
+                <div class="header-menu-container">
+                    <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <div class="header-dropdown" id="edit-header-menu">
+                        <button onclick="alert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
+                        <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
+                        <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
+                        <button onclick="showAppHistory()">🕒 Historique des versions</button>
+                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
+                        <button class="danger" onclick="deleteAppFromEditor()">🗑️ Supprimer l'application</button>
+                    </div>
+                </div>
+
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+                
+                <button class="custom-btn" onclick="closeAppEditor()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
+            </div>
+        </header>
+
+        <div style="padding: 15px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 15px;">
+            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                <strong>Comment modifier votre application ?</strong><br>
+                1. Copiez le code actuel avec le bouton ci-dessous.<br>
+                2. Ouvrez Gemini, activez la fonctionnalité Canvas, et collez les instructions en demandant vos modifications.<br>
+                3. Une fois terminé, copiez le code final fourni par l'IA et collez-le dans la zone ci-dessous.
+            </div>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="primary-btn" onclick="copyCodeForAI()" style="flex: 1; min-width: 200px; font-size: 14px;">📋 1. Copier le code & instructions</button>
+                <button class="custom-btn" onclick="clearEditor()" style="flex: 1; min-width: 150px; color: #ef4444; border-color: #ef4444; font-size: 14px;">🗑️ Vider l'éditeur</button>
+                <button class="primary-btn" onclick="saveEditorCode()" style="flex: 1; min-width: 200px; background-color: #10b981; font-size: 14px;">💾 2. Sauvegarder les modifications</button>
+            </div>
+
+            <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
+
+            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
+        </div>
+    </div>
+
+    <div id="history-sidebar">
+        <div class="history-header">
+            <h3>Historique des versions</h3>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
+                <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+            </div>
+        </div>
+        <div id="history-list">
+            <!-- Items will be injected here -->
+        </div>
+        <div id="history-actions">
+            <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
+            <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
+        </div>
+    </div>
     
-    <!-- Nouveau bandeau de lecture seule -->
-    <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px 30px 8px 8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a; position: relative;">
-        Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
-        <button onclick="document.getElementById('readonly-banner').style.display='none'" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 18px; cursor: pointer; color: #b45309; padding: 4px; line-height: 1;">✕</button>
-    </div>
-    
-    <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
-    </div>
-</div>
+    <button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
 
-<div id="history-sidebar">
-    <div class="history-header">
-        <h3>Historique des versions</h3>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
-            <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
-        </div>
-    </div>
-    <div id="history-list">
-        <!-- Items will be injected here -->
-    </div>
-    <div id="history-actions">
-        <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
-        <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
-    </div>
-</div>
+    <!-- Modale de Partage -->
+    <div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
+        <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
+            <h3 style="margin-top:0;">Partager ce fichier</h3>
+            
+            <div id="share-permissions-block" style="margin-bottom:16px;">
+                <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
+                <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
+                <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
+            </div>
+            <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
+            
+            <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+                Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
+            </div>
 
-<button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
-
-<!-- Modale de Partage -->
-<div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
-    <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
-        <h3 style="margin-top:0;">Partager ce fichier</h3>
-        
-        <div id="share-permissions-block" style="margin-bottom:16px;">
-            <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
-            <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
-            <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
+            <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
+            <div style="display:flex; gap:10px;">
+                <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
+                <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
+                <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
+            </div>
+            <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
+                <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
+            </div>
+            <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
         </div>
-        <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
-        
-        <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
-            Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
-        </div>
-
-        <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
-        <div style="display:flex; gap:10px;">
-            <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
-            <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
-            <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
-        </div>
-        <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
-            <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
-        </div>
-        <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
     </div>
-</div>
-<!-- [ONEAPP_END: ui_editor.html] -->
 
     <script>
-        // --- LOGIQUE GLOBALE (MOTEURS JS) ---
-        // [ONEAPP_BEGIN: logic_auth_drive.html]
-// --- CUSTOM ALERTS & CONFIRMS (Sécurité Canvas) ---
-        window.showAlert = function(msg) {
-            const modal = document.getElementById('custom-modal');
-            document.getElementById('custom-modal-text').innerText = msg;
-            document.getElementById('custom-modal-cancel').style.display = 'none';
-            modal.style.display = 'flex';
-            document.getElementById('custom-modal-ok').onclick = () => modal.style.display = 'none';
-        };
-
-        window.showConfirm = function(msg) {
-            return new Promise(resolve => {
-                const modal = document.getElementById('custom-modal');
-                document.getElementById('custom-modal-text').innerText = msg;
-                document.getElementById('custom-modal-cancel').style.display = 'block';
-                modal.style.display = 'flex';
-                document.getElementById('custom-modal-ok').onclick = () => { modal.style.display = 'none'; resolve(true); };
-                document.getElementById('custom-modal-cancel').onclick = () => { modal.style.display = 'none'; resolve(false); };
-            });
-        };
-
         // --- CONSTANTES SVG ---
         const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
         const SVG_LOADING = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/><path d="M440-360v-168l-56 56-56-56 152-152 152 152-56 56-56-56v168h-80Z"/></svg>';
@@ -579,48 +451,6 @@
         let isViewingHistory = false;
         let historyMode = null; // 'data' ou 'app'
 
-        // --- CONTRÔLEUR DE BASE DE DONNÉES (INDEXEDDB) ---
-        const LocalDB = {
-            db: null,
-            init: function() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('OneAppDB', 1);
-                    request.onupgradeneeded = (e) => {
-                        let db = e.target.result;
-                        if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id' });
-                    };
-                    request.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-                    request.onerror = (e) => reject(e);
-                });
-            },
-            saveItem: function(item) {
-                return new Promise((resolve) => {
-                    if(!this.db) return resolve();
-                    const request = this.db.transaction(['files'], 'readwrite').objectStore('files').put(item);
-                    request.onsuccess = () => resolve();
-                });
-            },
-            getItem: function(id) {
-                return new Promise((resolve) => {
-                    if(!this.db) return resolve(null);
-                    const request = this.db.transaction(['files'], 'readonly').objectStore('files').get(id);
-                    request.onsuccess = (e) => resolve(e.target.result);
-                    request.onerror = () => resolve(null);
-                });
-            }
-        };
-
-        // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
-        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
-
-        let currentRunningApp = null;
-        let currentActiveOneFileId = null;
-        let currentOneFileMetadata = null;
-        
-        let appDataHistory = [];
-        let appDataCurrentIndex = -1;
-        let isAppReadOnly = false;
-
         function logout() {
             localStorage.removeItem('oneapp_gdrive_token');
             localStorage.removeItem('oneapp_gdrive_expire');
@@ -638,9 +468,8 @@
             } catch(e) { console.error("Impossible de récupérer le profil"); }
         }
 
+        // 1. Initialisation Google OAuth (Sécurisée et persistante)
         window.onload = function() {
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(console.error); }
-            
             const savedToken = localStorage.getItem('oneapp_gdrive_token');
             const savedExpire = localStorage.getItem('oneapp_gdrive_expire');
 
@@ -660,17 +489,18 @@
                 }
             }
             
+            // Initialisation SVG par défaut
             const syncBtn = document.getElementById('sync-status-btn');
             if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
         };
 
         function authorizeAndConnect() {
             if (!CLIENT_ID) {
-                showAlert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
+                alert("Erreur : Le fichier config.js est introuvable ou mal écrit. Videz le cache de votre navigateur (Hard Reload).");
                 return;
             }
             if (typeof google === 'undefined') {
-                showAlert("Erreur : Le script Google ne s'est pas chargé. Désactivez votre bloqueur de publicités ou vérifiez votre connexion.");
+                alert("Erreur : Le script Google ne s'est pas chargé. Désactivez votre bloqueur de publicités ou vérifiez votre connexion.");
                 return;
             }
 
@@ -682,6 +512,7 @@
                         if (tokenResponse && tokenResponse.access_token) {
                             globalAccessToken = tokenResponse.access_token;
                             
+                            // Sauvegarde du jeton en local
                             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
                             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
                             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
@@ -699,30 +530,19 @@
             tokenClient.requestAccessToken();
         }
 
+        // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
         async function initializeAppSystem() {
-            await LocalDB.init(); // On allume le disque dur en priorité
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            const sharedFileId = urlParams.get('file');
-            const lastFileId = localStorage.getItem('oneapp_last_file');
-            const lastAppId = localStorage.getItem('oneapp_last_app');
-
-            // LE DÉMARRAGE ÉCLAIR
-            if (!sharedFileId && lastFileId && lastAppId) {
-                let localData = await LocalDB.getItem(lastFileId);
-                let localApp = await LocalDB.getItem(lastAppId);
-                if (localData && localApp) {
-                    // Ouverture instantanée depuis la RAM
-                    await openAppEnvironment(lastAppId, localApp.name, lastFileId, localData.name, null, localApp.content, localData.content);
-                }
-            }
-
-            // Le reste de l'initialisation classique continue en arrière-plan
             rootFolderId = await getOrCreateFolder("One App", "root");
+            
+            // Lancement silencieux de la création du Launcher PDF
             createLauncherDocIfNeeded(rootFolderId);
 
+            // Vérification des liens magiques au démarrage
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedFileId = urlParams.get('file');
+
             if (sharedFileId) {
-                listInstalledApps();
+                listInstalledApps(); // Charge l'accueil en arrière-plan
                 await checkSharedLink(sharedFileId);
             } else {
                 await listInstalledApps();
@@ -735,11 +555,13 @@
                 let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
                 let data = await response.json();
                 
-                if (data.files && data.files.length > 0) return; 
+                if (data.files && data.files.length > 0) return; // Le fichier existe déjà
 
+                // Récupération du PDF source depuis GitHub
                 let pdfRes = await fetch('https://bigbangx6.github.io/One-App/Launcher.pdf');
                 let pdfBlob = await pdfRes.blob();
 
+                // Création des métadonnées
                 let metaRes = await fetch(DRIVE_API_URL, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}`, 'Content-Type': 'application/json' },
@@ -747,6 +569,7 @@
                 });
                 let createdFile = await metaRes.json();
 
+                // Upload du binaire
                 await fetch(`https://www.googleapis.com/upload/drive/v3/files/${createdFile.id}?uploadType=media`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${globalAccessToken}` },
@@ -896,6 +719,7 @@
             loadAppFiles(appFolderId, appFileId, appName);
         }
 
+        // --- GESTION DU BANDEAU D'EXÉCUTION ---
         function toggleHeaderMenu() {
             const menu = document.getElementById('execution-header-menu');
             if(menu) menu.classList.toggle('active');
@@ -922,7 +746,7 @@
         }
         
         async function duplicateActiveFile() {
-            if (!navigator.onLine) return showAlert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
             if (!currentActiveOneFileId || !localContent) return;
 
             const currentName = document.getElementById('running-file-title').value;
@@ -975,7 +799,7 @@
                 console.error(e);
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
-                showAlert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
             }
         }
 
@@ -1042,13 +866,13 @@
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appFileId, appName);
             } catch (e) {
-                showAlert("Erreur lors du renommage.");
+                alert("Erreur lors du renommage.");
                 document.getElementById('submenu-loader').style.display = 'none';
             }
         }
 
         async function deleteFile(fileId, folderId, appFileId, appName) {
-            if (!(await showConfirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?"))) return;
+            if (!confirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?")) return;
             
             document.getElementById('submenu-loader').style.display = 'block';
             try {
@@ -1060,7 +884,7 @@
                 document.getElementById('submenu-file-list').innerHTML = '';
                 loadAppFiles(folderId, appFileId, appName);
             } catch (e) {
-                showAlert("Erreur lors de la suppression.");
+                alert("Erreur lors de la suppression.");
                 document.getElementById('submenu-loader').style.display = 'none';
             }
         }
@@ -1073,10 +897,11 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
 2. "Métadonnées": Place le nom dans la balise <title> et une icône dans <meta name="oneapp-icon" content="[Emoji ou SVG]">.
 3. "Mémoire IA": Sauvegarde tout ton contexte (Data Schema, paramètres, but) dans un bloc de commentaires HTML <!-- ... --> au début du <body>.
 4. "Moteur One App": Tu DOIS inclure ce Mock API au début du script pour que l'app tourne dans le Canvas Gemini : window.OneAppAPI = window.OneAppAPI || { loadData: async () => ({ readOnly: false, app_data: [] }), saveData: (data) => console.log("Mock:", data) };
-5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée. Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`; 
-            navigator.clipboard.writeText(prompt).then(() => { 
-                showAlert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici."); 
-            }); 
+5. "Logique": Appelle 'window.OneAppAPI.loadData().then(...)' au lancement, et 'window.OneAppAPI.saveData(donnees)' à chaque modification locale de la donnée.
+Mon besoin : Je veux une application de [INSERER VOTRE BESOIN ICI].`;
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert("Règles copiées ! Allez sur Gemini, collez ce texte, ajoutez votre besoin à la fin, puis revenez coller le HTML ici.");
+            });
         }
 
         async function createNewFile(appFileId, appName, folderId) {
@@ -1114,12 +939,23 @@ RÈGLES ARCHITECTURALES STRICTES (.oneapp) :
                 openAppEnvironment(appFileId, appName, createdFile.id, fileName);
             } catch(e) {
                 console.error(e);
-                showAlert("Erreur lors de la création du fichier sur Drive.");
+                alert("Erreur lors de la création du fichier sur Drive.");
             }
         }
-// [ONEAPP_END: logic_auth_drive.html]
-        // [ONEAPP_BEGIN: logic_sandbox.html]
-window.addEventListener('message', async (event) => {
+
+        // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
+        const apiBridgeScript = "window.OneAppAPI={loadData:function(){return new Promise((resolve)=>{const listener=(event)=>{if(event.data.type==='LOAD_DATA_RESPONSE'){window.removeEventListener('message',listener);resolve(event.data.payload);}};window.addEventListener('message',listener);window.parent.postMessage({type:'LOAD_DATA_REQUEST'},'*');});},saveData:function(data){window.parent.postMessage({type:'SAVE_DATA_REQUEST',payload:data},'*');},askGemini:function(promptText){window.parent.postMessage({type:'ASK_GEMINI_REQUEST',payload:promptText},'*');}};window.addEventListener('message',(event)=>{if(event.data.type==='RESTORE_DATA'&&window.OneAppInternal_OnRestore){window.OneAppInternal_OnRestore(event.data.payload);}if(event.data.type==='SET_READ_ONLY'&&window.OneAppInternal_OnModeChange){window.OneAppInternal_OnModeChange(event.data.payload);}});";
+
+        let currentRunningApp = null;
+        let currentActiveOneFileId = null;
+        let currentOneFileMetadata = null;
+        
+        let appDataHistory = [];
+        let appDataCurrentIndex = -1;
+        let isAppReadOnly = false;
+        
+        // Le "Gardien" du Moteur : Écoute les requêtes du Sandbox
+        window.addEventListener('message', async (event) => {
             if (!document.querySelector('#iframe-container iframe') || event.source !== document.querySelector('#iframe-container iframe').contentWindow) return;
 
             if (event.data.type === 'LOAD_DATA_REQUEST') {
@@ -1140,11 +976,12 @@ window.addEventListener('message', async (event) => {
                 if (appDataCurrentIndex < appDataHistory.length - 1) {
                     appDataHistory = appDataHistory.slice(0, appDataCurrentIndex + 1);
                 }
-                appDataHistory.push(JSON.parse(JSON.stringify(newData)));
+                appDataHistory.push(JSON.parse(JSON.stringify(newData))); // Deep copy
                 if (appDataHistory.length > 50) appDataHistory.shift();
                 appDataCurrentIndex = appDataHistory.length - 1;
             }
 
+            // Tampon de frappe (Debounce)
             localContent = newData;
             isDirty = true;
             
@@ -1161,6 +998,7 @@ window.addEventListener('message', async (event) => {
             }
         });
 
+        // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
         function appUndo() {
             if (isAppReadOnly || isViewingHistory || appDataCurrentIndex <= 0) return;
             appDataCurrentIndex--;
@@ -1219,6 +1057,7 @@ window.addEventListener('message', async (event) => {
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
         }
 
+        // --- LE BOUCLIER DE SAUVEGARDE (IF-MATCH / RÉCONCILIATION) ---
         async function syncToDrive() {
             if (isSyncing || !isDirty || !currentActiveOneFileId || !currentOneFileMetadata || !localContent || isViewingHistory) return;
 
@@ -1230,7 +1069,8 @@ window.addEventListener('message', async (event) => {
                 let driveTime = fileMeta.modifiedTime;
 
                 if (driveTime && new Date(driveTime) > new Date(currentFileVersion)) {
-                    showAlert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
+                    // --- CAS CONFLIT ---
+                    alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
 
                     const backupName = `${document.getElementById('running-file-title').value} - Copie de secours.onefile`;
                     const boundary = '-------314159265358979323846';
@@ -1274,12 +1114,11 @@ window.addEventListener('message', async (event) => {
                     
                     appDataHistory = [JSON.parse(JSON.stringify(freshData))];
                     appDataCurrentIndex = 0;
-
-                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                     
-                    showAlert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+                    alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
 
                 } else {
+                    // --- CAS NORMAL (PATCH) ---
                     currentOneFileMetadata.version_timestamp = new Date().toISOString();
                     const updatedData = {
                         oneapp_metadata: currentOneFileMetadata,
@@ -1297,8 +1136,6 @@ window.addEventListener('message', async (event) => {
                     currentFileVersion = patchData.modifiedTime || new Date().toISOString(); 
                     isDirty = false;
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
-
-                    LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                     
                     const syncBtn = document.getElementById('sync-status-btn');
                     if (syncBtn) {
@@ -1313,7 +1150,7 @@ window.addEventListener('message', async (event) => {
                 }
             } catch (e) {
                 console.error("Erreur de synchronisation Cloud :", e);
-                showAlert("Erreur de synchronisation avec Google Drive.");
+                alert("Erreur de synchronisation avec Google Drive.");
                 const syncBtn = document.getElementById('sync-status-btn');
                 if (syncBtn) {
                     syncBtn.innerHTML = SVG_SYNC;
@@ -1324,6 +1161,7 @@ window.addEventListener('message', async (event) => {
             }
         }
 
+        // --- LE RADAR SILENCIEUX (POLLING) ---
         async function checkCloudVersion() {
             if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
             
@@ -1348,8 +1186,6 @@ window.addEventListener('message', async (event) => {
                         window.currentLoadedAppData = freshData;
                         currentFileVersion = driveTime;
                         localContent = freshData;
-
-                        LocalDB.saveItem({ id: currentActiveOneFileId, type: 'data', name: document.getElementById('running-file-title').value, content: { oneapp_metadata: currentOneFileMetadata, app_data: localContent }, lastAccessed: Date.now() });
                         
                         const iframe = document.querySelector('#iframe-container iframe');
                         if (iframe) {
@@ -1362,7 +1198,7 @@ window.addEventListener('message', async (event) => {
                         console.log("MOTEUR : Nouvelle version détectée, mais des modifications locales sont en cours. Résolution au prochain enregistrement.");
                         if (!isAppReadOnly) {
                             isAppReadOnly = true; 
-                            toggleAppMode(); 
+                            toggleAppMode(); // Passage forcé en lecture seule avant le conflit
                         }
                     }
                 }
@@ -1398,7 +1234,7 @@ window.addEventListener('message', async (event) => {
                 const query = encodeURIComponent(`mimeType='application/vnd.google-apps.shortcut' and shortcutDetails.targetId='${targetId}' and trashed=false`);
                 let response = await fetch(`${DRIVE_API_URL}?q=${query}`, { headers: { 'Authorization': `Bearer ${globalAccessToken}` }});
                 let data = await response.json();
-                if (data.files && data.files.length > 0) return; 
+                if (data.files && data.files.length > 0) return; // Shortcut already exists
                 
                 const metadata = { name: name, mimeType: "application/vnd.google-apps.shortcut", parents: [folderId], shortcutDetails: { targetId: targetId } };
                 await fetch(DRIVE_API_URL, {
@@ -1425,38 +1261,47 @@ window.addEventListener('message', async (event) => {
                 let appName = oneFileJson.oneapp_metadata.app_name;
 
                 if (!fileMeta.parents || !fileMeta.parents.includes(rootFolderId)) {
+                    // 1. Création du dossier de l'app si inexistant
                     let appFolderId = await getOrCreateFolder(appName, rootFolderId);
                     
-                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name,ownedByMe', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    // Récupération du vrai nom de l'app
+                    let appMetaRes = await fetch(DRIVE_API_URL + '/' + sourceAppId + '?fields=name', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
                     let appMeta = await appMetaRes.json();
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     
+                    // Vérification si l'utilisateur possède l'application (Évite doublon de raccourcis)
+                    let appCheckQuery = encodeURIComponent(`id='${sourceAppId}' and 'me' in owners and trashed=false`);
+                    let appCheckRes = await fetch(`${DRIVE_API_URL}?q=${appCheckQuery}`, { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                    let appCheckData = await appCheckRes.json();
+                    let ownsApp = appCheckData.files && appCheckData.files.length > 0;
+
                     let appShortcutName = realAppName + ".oneapp";
                     let dataShortcutName = fileMeta.name;
 
-                    if (appMeta.ownedByMe === false) {
+                    if (!ownsApp) {
+                        // Raccourci de l'app dans le dossier de l'app
                         await createShortcutIfNeeded(sourceAppId, appFolderId, appShortcutName);
                     }
                     
-                    await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
-                }
+                    // Raccourci des données dans le dossier de l'app
+                await createShortcutIfNeeded(sharedFileId, appFolderId, dataShortcutName);
+            }
             
+            // Nettoyage URL
             window.history.pushState(null, '', window.location.pathname);
             
             await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
         } catch(e) {
             console.error(e);
-                showAlert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
+                alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
                 document.getElementById('loading-apps').style.display = 'none';
             }
         }
 
-        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null, localAppHtml = null, localOneFileJson = null) {
+        // --- LE CHARGEUR D'APPLICATION ---
+        async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
-            
-            if (!localAppHtml || !localOneFileJson) {
-                document.getElementById('loading-apps').style.display = 'block';
-            }
+            document.getElementById('loading-apps').style.display = 'block';
 
             try {
                 let fileMeta;
@@ -1473,22 +1318,11 @@ window.addEventListener('message', async (event) => {
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                let appHtml = localAppHtml;
-                if (!appHtml) {
-                    let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    appHtml = await appRes.text();
-                }
+                let appRes = await fetch(DRIVE_API_URL + '/' + appFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let appHtml = await appRes.text();
 
-                let oneFileJson = localOneFileJson;
-                if (!oneFileJson) {
-                    let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
-                    oneFileJson = await dataRes.json();
-                }
-
-                LocalDB.saveItem({ id: appFileId, type: 'app', name: appName, content: appHtml, lastAccessed: Date.now() });
-                LocalDB.saveItem({ id: oneFileId, type: 'data', name: oneFileName, content: oneFileJson, lastAccessed: Date.now() });
-                localStorage.setItem('oneapp_last_file', oneFileId);
-                localStorage.setItem('oneapp_last_app', appFileId);
+                let dataRes = await fetch(DRIVE_API_URL + '/' + oneFileId + '?alt=media', { headers: { 'Authorization': 'Bearer ' + globalAccessToken } });
+                let oneFileJson = await dataRes.json();
 
                 currentActiveOneFileId = oneFileId;
                 currentOneFileMetadata = oneFileJson.oneapp_metadata;
@@ -1500,6 +1334,7 @@ window.addEventListener('message', async (event) => {
                 appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
                 appDataCurrentIndex = 0;
                 
+                // Détection de la Lecture Seule via Capabilities API
                 let canEdit = fileMeta.capabilities ? fileMeta.capabilities.canEdit : true;
                 isAppReadOnly = !canEdit;
 
@@ -1560,7 +1395,7 @@ window.addEventListener('message', async (event) => {
 
             } catch (error) {
                 console.error(error);
-                showAlert("Erreur critique lors du téléchargement des fichiers.");
+                alert("Erreur critique lors du téléchargement des fichiers.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
@@ -1595,9 +1430,8 @@ window.addEventListener('message', async (event) => {
             }
             await listInstalledApps();
         }
-// [ONEAPP_END: logic_sandbox.html]
-        // [ONEAPP_BEGIN: logic_editor.html]
-async function openShareModal() {
+
+        async function openShareModal() {
             if(!currentActiveOneFileId) return;
             document.getElementById('share-modal-overlay').style.display = 'flex';
             document.getElementById('execution-header-menu').classList.remove('active');
@@ -1647,7 +1481,7 @@ async function openShareModal() {
         async function validatePermissionChange() {
             const selectedRadio = document.querySelector('input[name="share-level"]:checked');
             if (!selectedRadio) {
-                showAlert("Veuillez sélectionner un niveau d'accès.");
+                alert("Veuillez sélectionner un niveau d'accès.");
                 return;
             }
             const level = selectedRadio.value;
@@ -1676,7 +1510,7 @@ async function openShareModal() {
                     let data = await res.json();
                     window.currentAnyonePermissionId = data.id;
                 }
-                showAlert("Droits mis à jour avec succès !");
+                alert("Droits mis à jour avec succès !");
 
                 let timeRes = await fetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime`, {headers: {'Authorization': 'Bearer ' + globalAccessToken}});
                 let timeData = await timeRes.json();
@@ -1684,7 +1518,7 @@ async function openShareModal() {
 
             } catch(e) {
                 console.error(e);
-                showAlert("Erreur lors du changement de permission.");
+                alert("Erreur lors du changement de permission.");
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
@@ -1696,7 +1530,7 @@ async function openShareModal() {
             const linkInput = document.getElementById('share-link-input');
             linkInput.select();
             document.execCommand('copy');
-            showAlert("Lien copié !");
+            alert("Lien copié !");
         }
 
         function nativeShare() {
@@ -1715,6 +1549,7 @@ async function openShareModal() {
             document.getElementById('qr-code-container').style.display = 'block';
         }
 
+        // --- LOGIQUE D'INSTALLATION (HTML) ---
         function toggleInstallSection() {
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
@@ -1722,7 +1557,7 @@ async function openShareModal() {
 
         async function installAppFromHtml() {
             const htmlContent = document.getElementById('json-input').value.trim();
-            if (!htmlContent) return showAlert("Veuillez coller le code HTML.");
+            if (!htmlContent) return alert("Veuillez coller le code HTML.");
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -1754,7 +1589,7 @@ async function openShareModal() {
                 
                 await makeFilePublic(createdFile.id);
 
-                showAlert(`L'application "${appName}" a été installée avec succès !`);
+                alert(`L'application "${appName}" a été installée avec succès !`);
                 
                 document.getElementById('json-input').value = '';
                 toggleInstallSection();
@@ -1763,10 +1598,39 @@ async function openShareModal() {
 
             } catch (error) {
                 console.error(error);
-                showAlert("Erreur lors de l'installation sur Google Drive.");
+                alert("Erreur lors de l'installation sur Google Drive.");
                 document.getElementById('install-loader').style.display = 'none';
             }
         }
+
+        // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
+        let editorHistory = [];
+        let editorCurrentIndex = -1;
+        let editingAppFileId = null;
+
+        const fullCodeInput = document.getElementById('editor-full-code');
+        const editorStatusMsg = document.getElementById('editor-status');
+
+        function showEditorStatus(msg) {
+            editorStatusMsg.innerText = msg;
+            setTimeout(() => { if (editorStatusMsg.innerText === msg) editorStatusMsg.innerText = "Prêt."; }, 4000);
+        }
+
+        function saveEditorState(newCode) {
+            if (editorCurrentIndex < editorHistory.length - 1) {
+                editorHistory = editorHistory.slice(0, editorCurrentIndex + 1);
+            }
+            editorHistory.push(newCode);
+            if (editorHistory.length > 50) editorHistory.shift();
+            editorCurrentIndex = editorHistory.length - 1;
+        }
+
+        fullCodeInput.addEventListener('change', () => {
+            if (fullCodeInput.value !== editorHistory[editorCurrentIndex]) {
+                saveEditorState(fullCodeInput.value);
+                showEditorStatus("Sauvegarde manuelle dans l'historique.");
+            }
+        });
 
         function toggleEditHeaderMenu() {
             const menu = document.getElementById('edit-header-menu');
@@ -1796,7 +1660,7 @@ async function openShareModal() {
         }
         
         async function duplicateAppFromEditor() {
-            if (!navigator.onLine) return showAlert("Vous êtes hors ligne. Vérifiez votre connexion.");
+            if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
             if (!editingAppFileId) return;
 
             const currentName = document.getElementById('edit-app-title-input').value;
@@ -1833,7 +1697,7 @@ async function openShareModal() {
                 let createdFile = await response.json();
                 await makeFilePublic(createdFile.id);
 
-                showAlert(`La copie "${newName}" a été créée avec succès !`);
+                alert(`La copie "${newName}" a été créée avec succès !`);
                 showEditorStatus("Prêt.");
                 
                 closeAppEditor();
@@ -1841,7 +1705,7 @@ async function openShareModal() {
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur lors de la copie.");
-                showAlert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
+                alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
             }
         }
         
@@ -1866,7 +1730,7 @@ async function openShareModal() {
         }
 
         async function deleteAppFromEditor() {
-            if (!(await showConfirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?"))) return;
+            if (!confirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?")) return;
 
             showEditorStatus("Suppression en cours...");
             document.getElementById('edit-header-menu').classList.remove('active');
@@ -1881,7 +1745,7 @@ async function openShareModal() {
                 closeAppEditor();
                 await listInstalledApps();
             } catch (e) {
-                showAlert("Erreur lors de la suppression.");
+                alert("Erreur lors de la suppression.");
                 showEditorStatus("Prêt.");
             }
         }
@@ -1904,8 +1768,6 @@ async function openShareModal() {
                 
                 let appData = await response.text();
                 
-                LocalDB.saveItem({ id: fileId, type: 'app', name: appName, content: appData, lastAccessed: Date.now() });
-
                 fullCodeInput.value = appData;
                 saveEditorState(appData);
                 
@@ -1915,7 +1777,7 @@ async function openShareModal() {
                 
             } catch (error) {
                 console.error("Erreur éditeur :", error);
-                showAlert("Impossible de charger le code source depuis Drive.");
+                alert("Impossible de charger le code source depuis Drive.");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
             }
@@ -1936,14 +1798,14 @@ async function openShareModal() {
             const aiPrompt = `Voici le code source de mon application One App (JSON) : \n\n\`\`\`json\n${currentCode}\n\`\`\`\n\nApporte les modifications demandées et renvoie-moi UNIQUEMENT l'intégralité du code HTML valide, sans formatage tronqué.`;
 
             navigator.clipboard.writeText(aiPrompt).then(() => {
-                showAlert("Le code et les instructions ont été copiés ! Ouvrez Gemini, collez ce texte, ajoutez votre demande, et générez le nouveau code.");
+                alert("Le code et les instructions ont été copiés ! Ouvrez Gemini, collez ce texte, ajoutez votre demande, et générez le nouveau code.");
             }).catch(err => {
-                showAlert("Erreur lors de la copie.");
+                alert("Erreur lors de la copie.");
             });
         }
 
-        async function clearEditor() {
-            if (await showConfirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
+        function clearEditor() {
+            if (confirm("Voulez-vous vraiment vider l'éditeur ? (Vous pourrez faire Annuler via le bouton Retour si besoin)")) {
                 fullCodeInput.value = '';
                 saveEditorState('');
                 showEditorStatus("Éditeur vidé.");
@@ -1991,13 +1853,11 @@ async function openShareModal() {
                 
                 await makeFilePublic(editingAppFileId);
                 
-                LocalDB.saveItem({ id: editingAppFileId, type: 'app', name: document.getElementById('edit-app-title-input').value, content: htmlString, lastAccessed: Date.now() });
-
                 showEditorStatus("Succès ! Application mise à jour sur Drive.");
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur : Échec lors de la communication avec Drive.");
-                showAlert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
+                alert("Erreur de sauvegarde : Un problème de réseau est survenu avec Google Drive.");
             }
         }
 
@@ -2017,6 +1877,7 @@ async function openShareModal() {
             }
         }
 
+        // --- MACHINE À REMONTER LE TEMPS (HISTORIQUE) ---
         async function fetchRevisions(fileId) {
             let res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/revisions?fields=revisions(id,modifiedTime)&orderBy=modifiedTime desc`, {
                 headers: { 'Authorization': `Bearer ${globalAccessToken}` }
@@ -2131,7 +1992,7 @@ async function openShareModal() {
                         }
                     } catch(e) {
                         console.error(e);
-                        showAlert("Erreur lors du chargement de cette version. Le fichier est peut-être corrompu.");
+                        alert("Erreur lors du chargement de cette version. Le fichier est peut-être corrompu.");
                     } finally {
                         list.style.opacity = '1';
                     }
@@ -2155,8 +2016,8 @@ async function openShareModal() {
             historyMode = null;
         }
 
-        async function restoreDataVersion(pastData) {
-            if (!(await showConfirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente."))) return;
+        function restoreDataVersion(pastData) {
+            if (!confirm("Voulez-vous restaurer cette version ? Elle écrasera votre travail actuel de façon permanente.")) return;
             
             localContent = pastData;
             isDirty = true;
@@ -2219,11 +2080,12 @@ async function openShareModal() {
                 
             } catch (e) {
                 console.error(e);
-                showAlert("Erreur lors de la création de la copie.");
+                alert("Erreur lors de la création de la copie.");
                 closeHistorySidebar();
             }
         }
 
+        // --- GESTION GLOBALE DES RACCOURCIS CLAVIER ---
         document.addEventListener('keydown', (e) => {
             const isCmdOrCtrl = e.ctrlKey || e.metaKey;
 
@@ -2240,7 +2102,6 @@ async function openShareModal() {
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
-// [ONEAPP_END: logic_editor.html]
     </script>
 </body>
 </html>
