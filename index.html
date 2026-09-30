@@ -513,6 +513,7 @@
 
                     // Première connexion
                     document.getElementById('unauthenticated-view').style.display = 'none';
+                    document.getElementById('shared-invite-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
                     document.getElementById('user-email').innerText = "Chargement du profil...";
                     fetchUserProfile();
@@ -664,6 +665,12 @@
                     document.querySelector('#unauthenticated-view button').innerHTML = "Renouveler la session en 1 clic";
                 }
             }
+
+            // Lien partagé ouvert sans être connecté : écran d'invitation dédié
+            if (!globalAccessToken && new URLSearchParams(window.location.search).get('file')) {
+                document.getElementById('unauthenticated-view').style.display = 'none';
+                document.getElementById('shared-invite-view').style.display = 'block';
+            }
             
             // Initialisation SVG par défaut
             const syncBtn = document.getElementById('sync-status-btn');
@@ -791,28 +798,17 @@
                     let parentFolderId = file.parents ? file.parents[0] : null;
                     let targetId = (file.mimeType === 'application/vnd.google-apps.shortcut' && file.shortcutDetails) ? file.shortcutDetails.targetId : file.id;
 
-                    let card = document.createElement('div');
-                    card.className = 'app-card';
-                    
-                    let rawIcon = file.description || "";
-                    let iconSvg = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
-
-                    if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
-                        const parser = new DOMParser();
-                        const decoded = parser.parseFromString(rawIcon, 'text/html').body.textContent || rawIcon;
-                        iconSvg = decoded;
-                    } else if (rawIcon) {
-                        iconSvg = `<div style="font-size: 32px; margin-bottom: 10px;">${rawIcon}</div>`;
-                    }
-
-                    if (!iconSvg || iconSvg.trim() === '' || iconSvg.trim().match(/^<div[^>]*>\s*<\/div>$/i)) {
-                        iconSvg = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
-                    }
                     if (!displayName || displayName.trim() === '') {
                         displayName = "Application en cours...";
                     }
 
-                    card.innerHTML = `${iconSvg}<span>${displayName}</span>`;
+                    // Construction par le DOM : un nom ou une icône piégés ne peuvent pas exécuter de code
+                    let card = document.createElement('div');
+                    card.className = 'app-card';
+                    card.appendChild(buildAppIcon(file.description));
+                    const label = document.createElement('span');
+                    label.textContent = displayName;
+                    card.appendChild(label);
                     
                     card.onclick = () => toggleAppMenu(card, targetId, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
@@ -821,6 +817,61 @@
                 document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
             }
         }
+
+        const DEFAULT_APP_ICON = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
+
+        // Icône d'app (stockée dans la description du fichier) : un emoji est
+        // affiché comme texte, un SVG comme image (aucun script ne peut s'y exécuter)
+        function buildAppIcon(rawIcon) {
+            rawIcon = (rawIcon || '').trim();
+
+            if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
+                let svg = rawIcon.includes('<svg') ? rawIcon : new DOMParser().parseFromString(rawIcon, 'text/html').body.textContent;
+                if (!svg.includes('xmlns=')) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+                const img = document.createElement('img');
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+                img.alt = '';
+                img.width = 32;
+                img.height = 32;
+                img.style.display = 'block';
+                img.style.margin = '0 auto 10px';
+                return img;
+            }
+
+            if (rawIcon) {
+                const div = document.createElement('div');
+                div.style.fontSize = '32px';
+                div.style.marginBottom = '10px';
+                div.textContent = rawIcon;
+                return div;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = DEFAULT_APP_ICON; // SVG fixe, défini ci-dessus
+            return wrapper.firstElementChild;
+        }
+
+        // Crée un bouton dont le libellé est du texte (jamais interprété comme HTML)
+        function makeButton(className, label, onClick) {
+            const btn = document.createElement('button');
+            if (className) btn.className = className;
+            btn.textContent = label;
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        // Ferme les menus déroulants lors d'un clic ailleurs (enregistré une seule fois)
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.file-item-menu')) {
+                document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
+            }
+            if (!e.target.closest('.header-menu-container')) {
+                const headerMenu = document.getElementById('execution-header-menu');
+                if(headerMenu) headerMenu.classList.remove('active');
+                const editHeaderMenu = document.getElementById('edit-header-menu');
+                if(editHeaderMenu) editHeaderMenu.classList.remove('active');
+            }
+        });
 
         let activeSubmenu = null;
 
@@ -840,19 +891,22 @@
             submenu.style.display = 'flex';
 
             submenu.innerHTML = `
-                <div style="font-weight:bold; color:var(--accent-color);">${appName} - Fichiers</div>
+                <div class="submenu-title" style="font-weight:bold; color:var(--accent-color);"></div>
                 <div class="submenu-header">
                     <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
-                    <button class="primary-btn" onclick="createNewFile('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${appFolderId}')" style="white-space: nowrap;">
+                    <button class="primary-btn" id="submenu-new-btn" style="white-space: nowrap;">
                         ➕ <span class="hide-on-mobile">Nouveau</span>
                     </button>
-                    <button class="custom-btn" onclick="openAppEditor('${appFileId}', '${appName.replace(/'/g, "\\'")}')" style="white-space: nowrap; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
+                    <button class="custom-btn" id="submenu-edit-btn" style="white-space: nowrap; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
                         ⚙️ <span class="hide-on-mobile">Modifier</span>
                     </button>
                 </div>
                 <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
                 <div class="file-list" id="submenu-file-list"></div>
             `;
+            submenu.querySelector('.submenu-title').textContent = `${appName} - Fichiers`;
+            submenu.querySelector('#submenu-new-btn').addEventListener('click', () => createNewFile(appFileId, appName, appFolderId));
+            submenu.querySelector('#submenu-edit-btn').addEventListener('click', () => openAppEditor(appFileId, appName));
 
             document.getElementById('app-grid').appendChild(submenu);
             activeSubmenu = submenu;
@@ -863,18 +917,6 @@
                     const name = item.querySelector('.file-item-name').innerText.toLowerCase();
                     item.style.display = name.includes(term) ? 'flex' : 'none';
                 });
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.file-item-menu')) {
-                    document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
-                }
-                if (!e.target.closest('.header-menu-container')) {
-                    const headerMenu = document.getElementById('execution-header-menu');
-                    if(headerMenu) headerMenu.classList.remove('active');
-                    const editHeaderMenu = document.getElementById('edit-header-menu');
-                    if(editHeaderMenu) editHeaderMenu.classList.remove('active');
-                }
             });
 
             loadAppFiles(appFolderId, appFileId, appName);
@@ -961,20 +1003,37 @@
                         let fName = f.name.replace('.onefile', '');
                         let targetId = (f.mimeType === 'application/vnd.google-apps.shortcut' && f.shortcutDetails) ? f.shortcutDetails.targetId : f.id;
                         
+                        // Construction par le DOM : le nom d'un fichier partagé est choisi par
+                        // quelqu'un d'autre et ne doit jamais être interprété comme du HTML
+                        const open = () => openAppEnvironment(appFileId, appName, targetId, fName);
+
                         let item = document.createElement('div');
                         item.className = 'file-item';
-                        item.innerHTML = `
-                            <div class="file-item-name" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${targetId}', '${fName.replace(/'/g, "\\'")}')">${fName}</div>
-                            <div class="file-item-date" onclick="openAppEnvironment('${appFileId}', '${appName.replace(/'/g, "\\'")}', '${targetId}', '${fName.replace(/'/g, "\\'")}')">${dateStr}</div>
-                            <div class="file-item-menu" onclick="toggleFileMenu('${targetId}')">
-                                ⠇
-                                <div class="file-item-dropdown" id="dropdown-${targetId}">
-                                    <button onclick="window.open('https://drive.google.com/drive/folders/${folderId}', '_blank')">↗️ Ouvrir le dossier</button>
-                                    <button onclick="renameFile('${targetId}', '${fName.replace(/'/g, "\\'")}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">✏️ Renommer</button>
-                                    <button class="danger" onclick="deleteFile('${targetId}', '${folderId}', '${appFileId}', '${appName.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
-                                </div>
-                            </div>
-                        `;
+
+                        const nameEl = document.createElement('div');
+                        nameEl.className = 'file-item-name';
+                        nameEl.textContent = fName;
+                        nameEl.addEventListener('click', open);
+
+                        const dateEl = document.createElement('div');
+                        dateEl.className = 'file-item-date';
+                        dateEl.textContent = dateStr;
+                        dateEl.addEventListener('click', open);
+
+                        const menuEl = document.createElement('div');
+                        menuEl.className = 'file-item-menu';
+                        menuEl.textContent = '⠇';
+                        const dropdown = document.createElement('div');
+                        dropdown.className = 'file-item-dropdown';
+                        dropdown.append(
+                            makeButton('', '↗️ Ouvrir le dossier', () => window.open(`https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`, '_blank')),
+                            makeButton('', '✏️ Renommer', () => renameFile(targetId, fName, folderId, appFileId, appName)),
+                            makeButton('danger', '🗑️ Supprimer', () => deleteFile(targetId, folderId, appFileId, appName))
+                        );
+                        menuEl.appendChild(dropdown);
+                        menuEl.addEventListener('click', () => toggleFileMenu(dropdown));
+
+                        item.append(nameEl, dateEl, menuEl);
                         listContainer.appendChild(item);
                     });
                 } else {
@@ -989,11 +1048,11 @@
             }
         }
 
-        function toggleFileMenu(fileId) {
+        function toggleFileMenu(dropdown) {
             document.querySelectorAll('.file-item-dropdown').forEach(d => {
-                if(d.id !== `dropdown-${fileId}`) d.classList.remove('active');
+                if (d !== dropdown) d.classList.remove('active');
             });
-            document.getElementById(`dropdown-${fileId}`).classList.toggle('active');
+            dropdown.classList.toggle('active');
         }
 
         async function renameFile(fileId, oldName, folderId, appFileId, appName) {
