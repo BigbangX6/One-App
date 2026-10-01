@@ -20,7 +20,7 @@ appareils, lecture seule.
 Choix assumés :
 
 - **Un seul fichier `index.html`** (HTML + CSS + JS) : versions simples à suivre, et une
-  seule ressource à mettre en cache pour la future PWA hors-ligne.
+  seule ressource à mettre en cache pour la PWA hors-ligne.
 - **Pas de serveur, pas d'outil de build** : hébergé tel quel sur GitHub Pages.
 - **Les apps sont publiques par lien** (lecture seule) : nécessaire pour que le destinataire
   d'un document partagé puisse charger l'app. Les données privées sont dans les `.onefile`.
@@ -31,7 +31,8 @@ Choix assumés :
 |---|---|
 | `index.html` | Toute l'application One App |
 | `config.js` | Client ID Google OAuth et clé API (publics) |
-| `manifest.json`, `sw.js`, `icon-512.png` | PWA. **Pas encore branchés** dans `index.html` |
+| `manifest.json`, `icon-512.png` | PWA : installation sur l'écran d'accueil |
+| `sw.js` | Service worker : garde One App sur l'appareil pour l'ouvrir sans réseau |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
 
@@ -82,6 +83,8 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 | `share-modal-overlay` | Fenêtre de partage |
 | `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
 | `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
+| `network-banner` | Pastille « Hors-ligne » en bas de l'écran (ne bloque pas les clics) |
+| `install-overlay` | Fenêtre d'installation PWA, adaptée à l'appareil (CSS limité à `#install-overlay`) |
 
 ## 5. Le JavaScript, section par section
 
@@ -89,6 +92,7 @@ Dans l'ordre du fichier :
 
 | Section (`// --- … ---`) | Contenu | Fonctions clés |
 |---|---|---|
+| FENÊTRE D'INSTALLATION (PWA) | Parcours par appareil : bouton natif (Android, ordinateur) ou étapes illustrées (iPhone, iPad) | `openInstallSheet` (seul point d'entrée) |
 | CONSTANTES SVG / CONFIGURATION | Icônes de synchro, URLs Drive, scope OAuth | |
 | CERVEAU LOCAL | État global du fichier ouvert | `isDirty`, `localContent`, `currentFileVersion` |
 | **ACCÈS DRIVE CENTRALISÉ** | Point d'entrée unique vers Google | `driveFetch`, `driveJson`, `renewToken`, `driveCreateFile`, `createOneFile`, `escapeDriveQuery` |
@@ -103,12 +107,14 @@ Dans l'ordre du fichier :
 | **LE BOUCLIER DE SAUVEGARDE** | File de synchronisation et conflits | `markDirty`, `syncToDrive`, `performSync`, `resolveConflict`, `flushSync` |
 | LE RADAR SILENCIEUX (POLLING) | Vérifie le Cloud toutes les 15 s | `checkCloudVersion`, `startPolling` |
 | (liens partagés) | `?file=ID` | `checkSharedLink`, `createShortcutIfNeeded` |
-| LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `closeApp` |
+| **MODE HORS-LIGNE** | Accueil, listes et documents servis depuis l'appareil | `isOffline`, `enterOfflineMode`, `leaveOfflineMode`, `openFromDevice`, `requireOnline` |
+| LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `mountApp`, `closeApp` |
 | (partage) | Droits Drive, lien, QR code | `openShareModal`, `validatePermissionChange` |
 | LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `confirmAppHtml`, `installAppFromHtml` |
 | LOGIQUE DE L'ÉDITEUR | Modifier le code d'une app | `openAppEditor`, `copyCodeForAI`, `saveEditorCode`, `saveAppToDrive` |
 | MACHINE À REMONTER LE TEMPS | Révisions Drive | `showDataHistory`, `renderRevisions`, `restoreDataVersion`, `copyDataVersion` |
 | RACCOURCIS CLAVIER | Ctrl+Z / Ctrl+Y dans One App | |
+| PWA : SERVICE WORKER | Enregistrement de `sw.js` | |
 
 ## 6. Les flux principaux
 
@@ -142,8 +148,8 @@ Base IndexedDB `OneAppLocal` :
 | Store | Contenu |
 |---|---|
 | `docs` | Dernier état connu de chaque document ouvert : `data`, `metadata`, `dirty` (modifications pas encore sur Drive), `base` (version Drive sur laquelle reposent les données), `lastOpened` |
-| `apps` | Code HTML des apps ouvertes (pour le futur mode hors-ligne) |
-| `meta` | `account` : e-mail du compte Google propriétaire de ce stockage |
+| `apps` | Code HTML des apps ouvertes (utilisé hors-ligne) |
+| `meta` | `account` : e-mail du compte Google propriétaire de ce stockage ; `appList` : dernière liste des apps (accueil hors-ligne) |
 
 - **Reprise** : au démarrage, au retour du réseau, après la fermeture d'un document et
   toutes les minutes, `syncPendingDocs` envoie les documents `dirty`. Si le document a
@@ -154,6 +160,20 @@ Base IndexedDB `OneAppLocal` :
   connecte sur l'appareil (`ensureAccount`).
 - **Espace** : pas de limite fixe. Si le navigateur manque de place, les copies déjà
   synchronisées les plus anciennes sont retirées (`freeSpace`), jamais un document `dirty`.
+
+### Hors-ligne (PWA)
+- **`sw.js`** garde la page sur l'appareil : réseau d'abord (toujours la dernière
+  version), cache si pas de réseau ou s'il ne répond pas en 4 s. Les autres fichiers de
+  One App : cache immédiat, mise à jour en arrière-plan. Google n'y passe jamais.
+- **Sans réseau** (`isOffline()` : `navigator.onLine` faux, ou réseau constaté injoignable),
+  `enterOfflineMode` construit l'accueil depuis l'appareil : liste `appList`, apps
+  jamais ouvertes ici grisées, documents de `docs`. Le jeton n'est pas nécessaire.
+- **`openAppEnvironment`** ouvre la copie locale (`openFromDevice`) hors-ligne, ou si le
+  réseau tombe pendant le chargement. Les modifications suivent le flux « local d'abord ».
+- **Actions qui demandent Internet** (créer, installer, modifier une app, partager,
+  renommer, supprimer, historique) : bloquées par `requireOnline`, avec un message.
+- **Retour du réseau** : `leaveOfflineMode` recharge les scripts Google si besoin,
+  recharge l'accueil depuis Drive ; les envois en attente partent.
 
 ### Jeton Google expiré
 `driveFetch` reçoit 401 (ou voit le jeton périmé) → `renewToken` tente un renouvellement
@@ -216,8 +236,7 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
 4. **Ne jamais insérer un nom, une icône ou une donnée Drive avec `innerHTML`** ou dans un
    `onclick="..."` généré. Utiliser `textContent`, `addEventListener`, `makeButton`.
    (Un fichier partagé porte un nom choisi par quelqu'un d'autre.)
-5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.**
-5 bis. **Ne pas élargir le scope au-delà de `drive.file`** (un scope restreint impose un
+5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.** Et **ne pas élargir le scope au-delà de `drive.file`** (un scope restreint impose un
    audit de sécurité Google). Lire un fichier qui peut appartenir à un autre :
    `readDriveFile` ; ouvrir un document partagé : `getFileMetaWithAccess`.
 6. **Le contrat app ↔ One App ne change qu'en restant compatible** : les apps déjà
@@ -225,11 +244,17 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
 7. **Garder le fichier unique**, sans dépendance ni étape de build.
 8. **Lancer les tests (`tests/`) avant de publier sur `main`**, et ajouter un test pour
    chaque bug corrigé.
+9. **Toute nouvelle action qui a besoin du réseau commence par `requireOnline(...)`**, et
+   tout nouveau fichier indispensable à One App est ajouté à `CORE_FILES` dans `sw.js`.
 
 ## 9. Limites connues / pistes
 
-- PWA et mode hors-ligne : `sw.js` et `manifest.json` existent mais ne sont pas branchés.
-  Le stockage local (étape 1) est en place ; reste l'ouverture sans réseau (étape 2).
+- Hors-ligne, seuls les documents déjà ouverts sur l'appareil sont disponibles ; on ne
+  peut pas créer de document.
+- Une app qui charge une bibliothèque externe (`<script src="https://...">`) ne
+  fonctionne pas hors-ligne.
+- iPhone : la connexion Google depuis One App installée sur l'écran d'accueil reste à
+  vérifier sur un vrai appareil.
 - Un document en attente dont on a perdu l'accès en écriture est retenté indéfiniment.
 - Deux apps avec le même `<title>` partagent le même dossier (leurs documents se mélangent).
 - Renommer une app ne renomme ni son dossier ni `app_name` dans ses documents.

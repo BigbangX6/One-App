@@ -1,7 +1,11 @@
 {
+  "id": "./",
   "name": "One App",
   "short_name": "One App",
+  "description": "Votre Personal Cloud décentralisé : vos applications et vos données dans votre Google Drive.",
+  "lang": "fr",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f5f5f7",
   "theme_color": "#8b5cf6",
@@ -10,7 +14,13 @@
       "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

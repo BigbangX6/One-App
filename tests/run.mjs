@@ -29,7 +29,10 @@ const server = http.createServer((req, res) => {
   }
   const p = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(req.url.split('?')[0]));
   if (!fs.existsSync(p)) { res.writeHead(404); return res.end(); }
-  res.writeHead(200); res.end(fs.readFileSync(p));
+  // Types MIME comme sur GitHub Pages (requis pour enregistrer le service worker)
+  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.pdf': 'application/pdf' };
+  res.writeHead(200, { 'Content-Type': MIME[path.extname(p)] || 'application/octet-stream' });
+  res.end(fs.readFileSync(p));
 }).listen(PORT);
 
 // ---------- Faux Google Drive ----------
@@ -124,15 +127,19 @@ async function handleDrive(route) {
 }
 
 // ---------- Harnais ----------
+let page_context = null; // contexte du test en cours (pour couper le réseau)
 const browser = await chromium.launch();
 let failures = 0;
-async function test(name, fn) {
+async function test(name, fn, contextOptions = {}) {
   if (only && !name.includes(only)) return;
   reset();
-  const context = await browser.newContext();
+  const context = await browser.newContext(contextOptions);
+  page_context = context;
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(e.message));
+  // DEBUG=1 node tests/run.mjs "..." : affiche la console du navigateur
+  if (process.env.DEBUG) page.on('console', m => console.log('   [console]', m.text()));
   page.on('dialog', d => { page._dialogs = (page._dialogs || []).concat(d.message()); d.accept(); });
   await context.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, body: '' }));
   await context.route('https://www.googleapis.com/**', handleDrive);
@@ -144,7 +151,8 @@ async function test(name, fn) {
     if (location.search.includes('notoken')) { localStorage.clear(); }
     else {
       localStorage.setItem('oneapp_gdrive_token', 'tok1');
-      localStorage.setItem('oneapp_gdrive_expire', String(Date.now() + 3600e3));
+      // sessionStorage.__expired : simule un jeton expiré (survit au rechargement)
+      localStorage.setItem('oneapp_gdrive_expire', sessionStorage.getItem('__expired') ? '0' : String(Date.now() + 3600e3));
     }
     // Faux Google Identity Services, piloté par window.__gisMode
     window.__gisMode = 'ok'; window.__gisCalls = 0;
@@ -661,6 +669,86 @@ await test("drive.file : app partagée illisible et absente de l'appareil → me
   await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
   await waitFor(async () => (page._dialogs || []).some(d => d.includes('accès public')));
 });
+
+// --- PWA et hors-ligne ---
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+
+// Ouvre puis ferme doc1 en ligne (app et document gardés sur l'appareil), attend le service worker
+async function prepareOffline(page) {
+  await openDoc(page);
+  await page.evaluate(() => closeApp());
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 });
+}
+
+await test("Hors-ligne : One App s'ouvre sans réseau, document modifié puis envoyé au retour", async (page) => {
+  await prepareOffline(page);
+  await page_context.setOffline(true);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('.app-card'));
+  if (!(await page.textContent('#user-email')).includes('hors-ligne')) throw new Error('mode hors-ligne non indiqué');
+  eq(await page.isVisible('#network-banner'), true, 'bandeau hors-ligne');
+  await page.locator('.app-card').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
+  await page.locator('.file-item-name').first().click();
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.shown), ['initial'], 'document affiché depuis l\'appareil');
+  await save(frame, ['modifié hors-ligne']);
+  await wait(4000);
+  eq(saved(), ['initial'], 'rien envoyé hors-ligne');
+  eq((await idb(page, 'docs')).find(d => d.fileId === 'doc1').dirty, true, 'gardé sur l\'appareil');
+  await page_context.setOffline(false);
+  await waitFor(async () => JSON.stringify(saved()) === '["modifié hors-ligne"]', 10000);
+  eq(await page.isVisible('#network-banner'), false, 'bandeau masqué');
+});
+
+await test("Hors-ligne : démarrage avec jeton expiré → accueil depuis l'appareil", async (page) => {
+  await prepareOffline(page);
+  await page.evaluate(() => sessionStorage.setItem('__expired', '1'));
+  await page_context.setOffline(true);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('.app-card'));
+  eq(await page.isVisible('#unauthenticated-view'), false, 'écran de connexion masqué');
+});
+
+await test("Hors-ligne : document jamais ouvert ici → message clair ; actions réseau bloquées", async (page) => {
+  add({ id: 'doc2', name: 'Autre.onefile', mimeType: 'application/json', parents: ['fold1'],
+        content: JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: [] }) });
+  await prepareOffline(page);
+  await page_context.setOffline(true);
+  await page.evaluate(() => openAppEnvironment('app1', "L'agenda", 'doc2', 'Autre'));
+  if (!(page._dialogs || []).some(d => d.includes("pas encore été ouvert sur cet appareil"))) throw new Error('pas de message');
+  await page.evaluate(() => createNewFile('app1', "L'agenda", 'fold1'));
+  if (!(page._dialogs || []).some(d => d.includes('nécessite une connexion Internet'))) throw new Error('création non bloquée');
+});
+
+await test("Installation : ordinateur → bouton Installer, puis étapes si rien ne se passe", async (page) => {
+  await page.evaluate(() => openInstallSheet());
+  eq(await page.isVisible('#install-overlay .big-btn'), true, 'bouton Installer');
+  await page.click('#install-overlay .big-btn');
+  eq(await page.isVisible('#install-fallback'), true, 'étapes de secours');
+  await page.keyboard.press('Escape');
+  eq(await page.isVisible('#install-overlay'), false, 'fermée avec Échap');
+});
+
+await test("Installation : iPhone → étapes Safari, variante iOS 26", async (page) => {
+  await page.evaluate(() => openInstallSheet());
+  if (!(await page.textContent('#install-body')).includes('Partager')) throw new Error('étapes iPhone absentes');
+  eq(await page.isVisible('#install-pointer-bottom .pointer'), true, 'flèche vers le bouton Partager');
+  await page.click('#install-overlay [data-alt="ios26"]');
+  if (!(await page.textContent('#install-body')).includes('•••')) throw new Error('variante iOS 26 absente');
+  await page.click('#install-overlay [data-action="close"]');
+  eq(await page.isVisible('#install-overlay'), false, 'fermée');
+}, { userAgent: IPHONE_UA, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+await test("Installation : Android → bouton Installer ; lien depuis l'écran de connexion", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?notoken=1`);
+  await page.click('#unauthenticated-view .install-link');
+  eq(await page.isVisible('#install-overlay .big-btn'), true, 'bouton Installer');
+  if (!(await page.textContent('#install-overlay .help-txt')).includes('touchez')) throw new Error('texte mobile attendu');
+}, { userAgent: ANDROID_UA, viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true });
 
 await browser.close();
 server.close();

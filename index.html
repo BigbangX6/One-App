@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>One App - Personal Cloud</title>
+
+    <!-- PWA : installation sur l'écran d'accueil et ouverture sans réseau (sw.js) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <link rel="icon" href="icon-512.png">
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="One App">
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -218,6 +227,214 @@
             50% { transform: scale(1.02); }
             100% { transform: scale(1); }
         }
+
+        /* --- FENÊTRE D'INSTALLATION (PWA) ---
+           Bas d'écran sur téléphone, centrée ailleurs. Les étapes sont illustrées par de
+           petits écrans dessinés en HTML/SVG ; la cible à toucher pulse.
+           Tout est limité à #install-overlay / #install-toast (préfixes install- et oai-). */
+        #install-overlay, #install-toast {
+            --bg: #f5f5f7; --surface: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --line: #d2d2d7;
+            --accent: #8b5cf6; --accent-hover: #7c3aed; --accent-strong: #6d28d9; --accent-soft: #ede9fe;
+            --accent-ring: rgba(139, 92, 246, 0.45); --on-accent: #ffffff;
+            --mock-bg: #f2f2f7; --mock-surface: #ffffff; --mock-fg: #3a3a3c; --mock-dim: #aeaeb2;
+            --ios-blue: #007aff; --ok: #16a34a; --scrim: rgba(17, 12, 34, 0.48); --shadow: 0 20px 60px rgba(30, 20, 60, 0.22);
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --radius-l: 20px; --radius-m: 12px; --radius-s: 8px;
+            font-family: var(--font); color: var(--fg); -webkit-font-smoothing: antialiased;
+        }
+        @media (prefers-color-scheme: dark) {
+            #install-overlay, #install-toast {
+                --bg: #000000; --surface: #1c1c1e; --fg: #f5f5f7; --muted: #a1a1a6; --line: #38383a;
+                --accent: #8b5cf6; --accent-hover: #7c3aed; --accent-strong: #c4b5fd; --accent-soft: #2e2445; --accent-ring: rgba(167, 139, 250, 0.5);
+                --on-accent: #ffffff; --mock-bg: #2c2c2e; --mock-surface: #3a3a3c; --mock-fg: #e5e5ea; --mock-dim: #6e6e73;
+                --ios-blue: #0a84ff; --ok: #4ade80; --scrim: rgba(0, 0, 0, 0.62); --shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            }
+        }
+        #install-overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 3500; }
+        #install-overlay[hidden], #install-overlay [hidden], #install-toast[hidden] { display: none !important; }
+        #install-overlay button { font: inherit; color: inherit; }
+        #install-overlay button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        #install-overlay .i { width: 1em; height: 1em; flex: none; display: inline-block; vertical-align: middle; }
+
+        #install-overlay .sheet {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: min(460px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; overscroll-behavior: contain;
+            background: var(--surface); border-radius: var(--radius-l); box-shadow: var(--shadow);
+            padding: 22px 20px 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;
+            animation: oai-pop 0.28s cubic-bezier(.2, .9, .3, 1.1);
+        }
+        #install-overlay .grabber { display: none; width: 40px; height: 5px; border-radius: 3px; background: var(--line); align-self: center; margin: -10px 0 -6px; }
+        @media (max-width: 560px) {
+            #install-overlay .sheet {
+                left: 0; right: 0; top: auto; bottom: 0; transform: none; width: 100%; max-height: calc(100% - 20px);
+                border-radius: 24px 24px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+                animation: oai-rise 0.32s cubic-bezier(.2, .9, .3, 1);
+            }
+            #install-overlay .grabber { display: block; }
+        }
+        @keyframes oai-pop { from { opacity: 0; transform: translate(-50%, -46%) scale(.97); } }
+        @keyframes oai-rise { from { transform: translateY(40%); opacity: 0; } }
+
+        #install-overlay .sheet:focus { outline: none; }
+        #install-overlay .sheet-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; }
+        #install-overlay .appicon {
+            width: 56px; height: 56px; border-radius: 13px; background: var(--accent); color: var(--on-accent);
+            display: grid; place-items: center; box-shadow: 0 6px 16px var(--accent-ring);
+        }
+        #install-overlay .appicon .i { width: 62%; height: 62%; }
+        #install-overlay .sheet-head h2 { margin: 2px 0 4px; font-size: 21px; line-height: 1.2; font-weight: 700; text-wrap: balance; }
+        #install-overlay .lede { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+        #install-overlay .close-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--mock-bg); color: var(--muted);
+            display: grid; place-items: center; cursor: pointer; margin: -4px -4px 0 0;
+        }
+        #install-overlay .close-btn .i { width: 16px; height: 16px; }
+
+        #install-overlay .perks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        #install-overlay .perks li {
+            display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+            background: var(--accent-soft); color: var(--accent-strong); font-size: 13px; font-weight: 600;
+        }
+        #install-overlay .perks .i { width: 16px; height: 16px; }
+
+        #install-overlay .howto h3 { margin: 0; font-size: 17px; font-weight: 700; }
+        #install-overlay .howto .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+        #install-overlay .notice { margin: 0; padding: 12px 14px; border-radius: var(--radius-m); background: var(--mock-bg); font-size: 14px; line-height: 1.45; }
+
+        #install-overlay .steps { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        #install-overlay .step {
+            display: grid; grid-template-columns: 140px 1fr; gap: 14px; align-items: center;
+            padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-m);
+        }
+        #install-overlay .step-txt { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        #install-overlay .step-t { margin: 0; font-size: 16px; line-height: 1.3; display: flex; gap: 8px; align-items: baseline; }
+        #install-overlay .step-t b { font-weight: 700; }
+        #install-overlay .num {
+            flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+            font-size: 13px; font-weight: 700; display: inline-grid; place-items: center; transform: translateY(-1px);
+        }
+        #install-overlay .step.final .num { background: var(--ok); }
+        #install-overlay .step-d { margin: 0 0 0 32px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+        #install-overlay .step-d b { color: var(--fg); }
+        #install-overlay .inline-btn {
+            margin: 4px 0 0 32px; align-self: flex-start; border: none; background: var(--accent); color: var(--on-accent);
+            border-radius: var(--radius-s); padding: 8px 14px; font-weight: 600; font-size: 14px; cursor: pointer;
+            display: inline-flex; gap: 6px; align-items: center;
+        }
+        #install-overlay .inline-btn .i { width: 16px; height: 16px; }
+        @media (max-width: 360px) {
+            #install-overlay .step { grid-template-columns: 1fr; }
+            #install-overlay .step .mock { width: 100%; }
+        }
+
+        /* Petits écrans dessinés */
+        #install-overlay .mock {
+            width: 140px; height: 92px; box-sizing: border-box; border-radius: 10px; background: var(--mock-bg);
+            color: var(--mock-fg); padding: 8px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+            font-size: 10.5px; line-height: 1.2; overflow: hidden; position: relative;
+        }
+        #install-overlay .mock.top { justify-content: flex-start; }
+        #install-overlay .mock.center { justify-content: center; }
+        #install-overlay .m-row { display: flex; align-items: center; justify-content: space-around; gap: 4px; }
+        #install-overlay .m-row > i { display: grid; place-items: center; padding: 3px; border-radius: 6px; font-style: normal; }
+        #install-overlay .m-row .i { width: 16px; height: 16px; }
+        #install-overlay .m-pill {
+            background: var(--mock-surface); border-radius: 999px; padding: 5px 8px; text-align: center; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; color: var(--mock-fg); min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px;
+        }
+        #install-overlay .grow { flex: 1; }
+        #install-overlay .m-list { background: var(--mock-surface); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+        #install-overlay .m-item { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 7px; white-space: nowrap; }
+        #install-overlay .m-item + .m-item { border-top: 1px solid var(--mock-bg); }
+        #install-overlay .m-item .i { width: 13px; height: 13px; }
+        #install-overlay .m-item.dim { color: var(--mock-dim); }
+        #install-overlay .m-nav { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 10px; padding: 2px 2px 0; }
+        #install-overlay .m-blue { color: var(--ios-blue); padding: 2px 4px; border-radius: 5px; }
+        #install-overlay .m-app { display: flex; align-items: center; gap: 8px; background: var(--mock-surface); border-radius: 8px; padding: 6px; font-weight: 600; }
+        #install-overlay .appicon.sm { width: 26px; height: 26px; border-radius: 7px; box-shadow: none; }
+        #install-overlay .m-toggle { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: var(--mock-surface); border-radius: 8px; padding: 6px 7px; }
+        #install-overlay .switch { width: 24px; height: 14px; border-radius: 999px; background: var(--ok); position: relative; flex: none; }
+        #install-overlay .switch::after { content: ""; position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--mock-surface); }
+        #install-overlay .m-home { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px 6px; justify-items: center; }
+        #install-overlay .m-home .tile { width: 24px; height: 24px; border-radius: 6px; background: var(--mock-dim); opacity: .45; }
+        #install-overlay .m-home .me { grid-column: span 2; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 9.5px; font-weight: 600; padding: 3px 6px; border-radius: 8px; }
+        #install-overlay .m-dialog { background: var(--mock-surface); border-radius: 9px; padding: 7px; display: flex; flex-direction: column; gap: 6px; }
+        #install-overlay .m-dialog-t { font-weight: 700; }
+        #install-overlay .m-dialog .m-btns { display: flex; justify-content: flex-end; gap: 6px; }
+        #install-overlay .m-dialog .m-btns span { padding: 3px 7px; border-radius: 999px; }
+        #install-overlay .m-dialog .m-btns .go { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+        #install-overlay .m-dialog .m-btns .go.hit { background: var(--accent); color: var(--on-accent) !important; }
+        #install-overlay .m-scroll { display: flex; justify-content: center; color: var(--mock-dim); }
+        #install-overlay .m-scroll .i { width: 12px; height: 12px; }
+        #install-overlay .safari-tile { display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; padding: 3px 6px; border-radius: 8px; }
+        #install-overlay .safari-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--mock-surface); color: var(--ios-blue); display: grid; place-items: center; }
+        #install-overlay .safari-icon .i { width: 24px; height: 24px; }
+
+        /* La cible à toucher : contour violet qui pulse */
+        #install-overlay .hit {
+            color: var(--accent-strong) !important; background: var(--accent-soft);
+            box-shadow: 0 0 0 2px var(--accent); border-radius: 6px; animation: oai-pulse 1.6s ease-out infinite; font-weight: 700;
+        }
+        @keyframes oai-pulse {
+            0% { box-shadow: 0 0 0 2px var(--accent), 0 0 0 2px var(--accent-ring); }
+            70% { box-shadow: 0 0 0 2px var(--accent), 0 0 0 9px transparent; }
+            100% { box-shadow: 0 0 0 2px var(--accent), 0 0 0 9px transparent; }
+        }
+
+        /* Bouton d'installation directe (Android, ordinateur) */
+        #install-overlay .native { display: flex; flex-direction: column; gap: 12px; }
+        #install-overlay .native-visual { display: flex; justify-content: center; }
+        #install-overlay .native-visual .mock { width: 220px; height: auto; padding: 12px; font-size: 12px; }
+        #install-overlay .big-btn {
+            width: 100%; border: none; background: var(--accent); color: var(--on-accent); border-radius: var(--radius-m);
+            padding: 15px 20px; font-size: 17px; font-weight: 700; cursor: pointer; display: flex; gap: 10px; justify-content: center; align-items: center;
+        }
+        #install-overlay .big-btn:hover, #install-overlay .inline-btn:hover { background: var(--accent-hover); }
+        #install-overlay .big-btn .i { width: 20px; height: 20px; }
+        #install-overlay .help-txt { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
+
+        #install-overlay .secondary-row { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        #install-overlay .text-btn { border: none; background: none; color: var(--accent-strong); font-weight: 600; font-size: 14px; padding: 8px 12px; cursor: pointer; border-radius: var(--radius-s); }
+        #install-overlay .text-btn.quiet { color: var(--muted); font-weight: 500; }
+
+        /* Flèche vers le vrai bouton du navigateur : toujours visible en bas de la fenêtre */
+        #install-pointer-bottom:empty { display: none; }
+        #install-pointer-bottom { position: sticky; bottom: -18px; margin: -10px -20px -18px; padding: 10px 20px 14px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -10px 14px -6px var(--surface); }
+        @media (max-width: 560px) { #install-pointer-bottom { bottom: calc(-14px - env(safe-area-inset-bottom, 0px)); margin-bottom: calc(-14px - env(safe-area-inset-bottom, 0px)); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); } }
+        #install-overlay .pointer { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--accent-strong); font-weight: 700; font-size: 14px; text-align: center; }
+        #install-overlay .pointer.right { align-items: flex-end; text-align: right; }
+        #install-overlay .pointer .i { width: 28px; height: 28px; animation: oai-bob 1.1s ease-in-out infinite; }
+        #install-overlay .pointer.right .i { margin-right: 6px; }
+        @keyframes oai-bob { 50% { transform: translateY(6px); } }
+        #install-overlay .pointer-top {
+            position: absolute; top: 10px; right: 16px; z-index: 11; display: flex; flex-direction: column; align-items: flex-end;
+            background: var(--surface); color: var(--accent-strong); font-weight: 700; font-size: 14px; padding: 8px 12px; border-radius: var(--radius-m); box-shadow: var(--shadow);
+        }
+        #install-overlay.has-top .sheet { top: calc(50% + 34px); max-height: calc(100% - 100px); }
+        #install-overlay .pointer-top .i { width: 24px; height: 24px; animation: oai-bobup 1.1s ease-in-out infinite; }
+        @keyframes oai-bobup { 50% { transform: translateY(-5px); } }
+
+        #install-overlay .done-state { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; }
+        #install-overlay .done-state .badge { width: 52px; height: 52px; border-radius: 50%; background: var(--ok); color: var(--on-accent); display: grid; place-items: center; }
+        #install-overlay .done-state .badge .i { width: 28px; height: 28px; }
+        #install-overlay .done-state p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.45; max-width: 32ch; }
+
+        #install-toast {
+            position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 3600; background: var(--fg); color: var(--bg);
+            padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #install-overlay .hit, #install-overlay .pointer .i, #install-overlay .pointer-top .i, #install-overlay .sheet { animation: none !important; }
+        }
+
+        /* Bandeau hors-ligne : discret, ne bloque pas les clics */
+        #network-banner {
+            display: none; position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3400;
+            background: var(--text-primary); color: var(--bg-color); padding: 8px 14px; border-radius: 999px;
+            font-size: 12px; font-weight: 600; box-shadow: var(--shadow); pointer-events: none;
+            max-width: calc(100% - 32px); text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -227,11 +444,14 @@
         <button class="primary-btn" onclick="reconnectFromBanner()" style="padding:6px 14px;">Se reconnecter</button>
     </div>
 
+    <div id="network-banner" role="status">Hors-ligne — vos modifications sont gardées sur cet appareil et partiront au retour du réseau.</div>
+
     <div id="unauthenticated-view" class="app-container">
         <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
         <h1>One App</h1>
         <p class="subtitle">Votre Personal Cloud décentralisé</p>
         <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
+        <button class="custom-btn install-link" onclick="openInstallSheet()" style="margin-top: 12px; font-size: 13px; color: var(--text-secondary); border-color: transparent;">📱 Installer l'application</button>
     </div>
 
     <div id="shared-invite-view" class="app-container">
@@ -239,7 +459,7 @@
         <h1 id="invite-title">Fichier Partagé</h1>
         <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
         <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
-        <button class="custom-btn" onclick="alert('Bientôt disponible sur les stores !')" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Télécharger.</button>
+        <button class="custom-btn" onclick="openInstallSheet()" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Installer.</button>
     </div>
 
     <div id="authenticated-view" class="app-container">
@@ -249,6 +469,7 @@
                 <h2 id="user-greeting">Mon Compte</h2>
                 <p id="user-email">Chargement...</p>
                 <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
+                <a href="#" class="install-link" onclick="openInstallSheet(); return false;" style="font-size:11px; color: var(--accent-color); text-decoration: none; margin-left: 10px;">📱 Installer l'application</a>
             </div>
         </div>
 
@@ -311,7 +532,7 @@
                     <div class="header-dropdown" id="execution-header-menu">
                         <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
                         <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                        <button onclick="alert('Ouvrira le PlayStore / AppStore.')">📱 Télécharger l'App (Mobile)</button>
+                        <button class="install-link" onclick="openInstallSheet()">📱 Télécharger l'App</button>
                         <button onclick="showDataHistory()">🕒 Historique des versions</button>
                         <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
                         <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
@@ -441,7 +662,345 @@
         </div>
     </div>
 
+
+    <!-- Fenêtre d'installation (PWA) : contenu adapté à l'appareil (voir openInstallSheet) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-cloud" viewBox="0 0 24 24"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+            <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M8 7.5l4-4 4 4"/><path d="M8.5 10.5H7a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-1.5"/></g></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></g></symbol>
+            <symbol id="i-kebab" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></g></symbol>
+            <symbol id="i-plus-sq" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></g></symbol>
+            <symbol id="i-home" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></symbol>
+            <symbol id="i-wifi-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 8.8A15 15 0 0 1 7 6.1M11 5a15 15 0 0 1 10.5 3.8M5.5 12.3a10 10 0 0 1 3.8-2.1M15.5 10.6a10 10 0 0 1 3 1.7M9 15.6a4.5 4.5 0 0 1 6 0"/><path d="M12 19.5h.01" stroke-width="2.6"/><path d="M3.5 3.5l17 17"/></g></symbol>
+            <symbol id="i-check-c" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.4l2.5 2.5 5-5.3"/></g></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+            <symbol id="i-back" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></symbol>
+            <symbol id="i-fwd" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></symbol>
+            <symbol id="i-book" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19"/></symbol>
+            <symbol id="i-tabs" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="7.5" width="12" height="12.5" rx="2"/><path d="M8 4.5h10a2 2 0 0 1 2 2v10"/></g></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.3L12 16l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></g></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></g></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+            <symbol id="i-install" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 7.5v6M9 11l3 3 3-3"/></g></symbol>
+            <symbol id="i-phone-dl" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M12 7v7M9.5 11.5 12 14l2.5-2.5"/></g></symbol>
+            <symbol id="i-compass" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5z" fill="currentColor" fill-opacity=".25"/></g></symbol>
+            <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 4v15M6 13l6 6 6-6"/></symbol>
+            <symbol id="i-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 20V5M6 11l6-6 6 6"/></symbol>
+            <symbol id="i-chev-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></symbol>
+        </defs>
+    </svg>
+
+    <div id="install-overlay" hidden>
+        <div class="pointer-top" id="install-pointer-top" hidden><svg class="i"><use href="#i-up"/></svg><span>Le bouton est ici</span></div>
+        <section class="sheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="install-title">
+            <div class="grabber"></div>
+            <header class="sheet-head">
+                <div class="appicon" aria-hidden="true"><svg class="i"><use href="#i-cloud"/></svg></div>
+                <div>
+                    <h2 id="install-title">Installer One App</h2>
+                    <p class="lede" id="install-lede">Ajoutez One App à votre écran d'accueil pour l'ouvrir d'un seul geste, comme une application.</p>
+                </div>
+                <button class="close-btn" id="install-close" type="button" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button>
+            </header>
+            <ul class="perks" id="install-perks">
+                <li><svg class="i"><use href="#i-home"/></svg>Sur l'écran d'accueil</li>
+                <li><svg class="i"><use href="#i-wifi-off"/></svg>Marche sans Internet</li>
+                <li><svg class="i"><use href="#i-check-c"/></svg>Gratuit</li>
+            </ul>
+            <div id="install-body"></div>
+            <div class="secondary-row" id="install-secondary"></div>
+            <div id="install-pointer-bottom"></div>
+        </section>
+    </div>
+    <div id="install-toast" hidden></div>
+
     <script>
+        // --- FENÊTRE D'INSTALLATION (PWA) ---
+        // Contenu adapté à l'appareil : bouton d'installation directe (Android,
+        // ordinateur) ou étapes illustrées (iPhone, iPad). Seul point d'entrée :
+        // openInstallSheet(). Le HTML injecté ici est fixe (aucune donnée externe).
+        (function () {
+            const I = (id) => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+            const URL_TXT = 'github.io';
+            const ICON_SM = `<span class="appicon sm">${I('cloud')}</span>`;
+
+            // Petits écrans dessinés, un par geste
+            const MOCKS = {
+                shareBottom: `<div class="mock">
+                    <div class="m-pill">${URL_TXT}</div>
+                    <div class="m-row"><i>${I('back')}</i><i>${I('fwd')}</i><i class="hit">${I('share')}</i><i>${I('book')}</i><i>${I('tabs')}</i></div></div>`,
+                moreBottom: `<div class="mock">
+                    <div class="m-row"><i>${I('back')}</i><div class="m-pill grow">${URL_TXT}</div><i class="hit">${I('more')}</i></div></div>`,
+                shareTop: `<div class="mock top">
+                    <div class="m-row"><div class="m-pill grow">${URL_TXT}</div><i class="hit">${I('share')}</i><i>${I('plus')}</i></div></div>`,
+                menuShare: `<div class="mock"><div class="m-list">
+                    <div class="m-item hit">Partager ${I('share')}</div>
+                    <div class="m-item">Ajouter un signet ${I('book')}</div>
+                    <div class="m-item dim">Rechercher ${I('search')}</div></div></div>`,
+                sheetHome: `<div class="mock"><div class="m-list">
+                    <div class="m-item dim">Ajouter aux favoris ${I('star')}</div>
+                    <div class="m-item hit">Sur l'écran d'accueil ${I('plus-sq')}</div></div>
+                    <div class="m-scroll">${I('chev-down')}</div></div>`,
+                add: `<div class="mock top">
+                    <div class="m-nav"><span class="m-blue">Annuler</span><span class="m-blue hit">Ajouter</span></div>
+                    <div class="m-app">${ICON_SM}One App</div></div>`,
+                add26: `<div class="mock top">
+                    <div class="m-nav"><span class="m-blue">Annuler</span><span class="m-blue hit">Ajouter</span></div>
+                    <div class="m-app">${ICON_SM}One App</div>
+                    <div class="m-toggle">App web <span class="switch"></span></div></div>`,
+                done: `<div class="mock center"><div class="m-home">
+                    <span class="tile"></span><span class="tile"></span><span class="tile"></span><span class="tile"></span>
+                    <span class="tile"></span><span class="me hit">${ICON_SM}One App</span><span class="tile"></span></div></div>`,
+                copy: `<div class="mock center"><div class="m-pill">${URL_TXT}</div>
+                    <div class="m-row"><i class="hit">${I('copy')}&nbsp;Copier</i></div></div>`,
+                safari: `<div class="mock center"><div class="m-home">
+                    <span class="tile"></span><span class="safari-tile hit"><span class="safari-icon">${I('compass')}</span>Safari</span><span class="tile"></span></div></div>`,
+                paste: `<div class="mock top"><div class="m-pill">&nbsp;</div>
+                    <div class="m-row"><i class="hit">Coller et aller</i></div></div>`,
+                kebab: `<div class="mock top">
+                    <div class="m-row"><i>${I('home')}</i><div class="m-pill grow">${URL_TXT}</div><i>${I('tabs')}</i><i class="hit">${I('kebab')}</i></div></div>`,
+                menuInstall: `<div class="mock top"><div class="m-list">
+                    <div class="m-item dim">Nouvel onglet ${I('plus')}</div>
+                    <div class="m-item dim">Historique ${I('book')}</div>
+                    <div class="m-item hit">Ajouter à l'écran d'accueil ${I('phone-dl')}</div></div></div>`,
+                confirm: `<div class="mock center"><div class="m-dialog">
+                    <span class="m-dialog-t">Installer l'application ?</span>
+                    <div class="m-app" style="padding:0">${ICON_SM}One App</div>
+                    <div class="m-btns"><span>Annuler</span><span class="go hit">Installer</span></div></div></div>`,
+                addrInstall: `<div class="mock top">
+                    <div class="m-row"><div class="m-pill grow" style="justify-content:space-between">${URL_TXT}<span class="hit" style="display:grid;padding:2px">${I('install')}</span></div></div></div>`
+            };
+
+            const DONE_STEP = { m: 'done', final: true, t: "C'est fait !", d: "Ouvrez One App depuis sa nouvelle icône sur l'écran d'accueil, même sans Internet." };
+            const HOME_STEP = { m: 'sheetHome', t: "Choisissez <b>Sur l'écran d'accueil</b>", d: 'Faites glisser la liste vers le haut si vous ne le voyez pas.' };
+
+            // Les parcours, un par type d'appareil
+            const FLOWS = {
+                ios26: {
+                    kind: 'steps', device: 'iPhone', pointer: 'right',
+                    pointerText: 'Commencez ici : •••', alt: 'ios', altLabel: "Je ne vois pas •••, mais un carré avec une flèche",
+                    steps: [
+                        { m: 'moreBottom', t: 'Touchez <b>•••</b>', d: "Tout en bas à droite de l'écran, à côté de l'adresse du site." },
+                        { m: 'menuShare', t: 'Touchez <b>Partager</b>', d: 'Dans le menu qui vient de s\'ouvrir.' },
+                        HOME_STEP,
+                        { m: 'add26', t: 'Touchez <b>Ajouter</b>', d: "En haut à droite. Laissez l'option <b>Ouvrir en tant qu'app web</b> activée." },
+                        DONE_STEP
+                    ]
+                },
+                ios: {
+                    kind: 'steps', device: 'iPhone', pointer: 'center',
+                    pointerText: 'Le bouton Partager est ici, tout en bas', alt: 'ios26', altLabel: 'Je ne vois pas ce bouton, mais •••',
+                    steps: [
+                        { m: 'shareBottom', t: 'Touchez le bouton <b>Partager</b>', d: "En bas de l'écran, au milieu : un carré avec une flèche vers le haut." },
+                        HOME_STEP,
+                        { m: 'add', t: 'Touchez <b>Ajouter</b>', d: 'En haut à droite.' },
+                        DONE_STEP
+                    ]
+                },
+                ipad: {
+                    kind: 'steps', device: 'iPad', pointer: 'top',
+                    steps: [
+                        { m: 'shareTop', t: 'Touchez le bouton <b>Partager</b>', d: "En haut à droite de l'écran, à côté de l'adresse du site." },
+                        HOME_STEP,
+                        { m: 'add', t: 'Touchez <b>Ajouter</b>', d: 'En haut à droite.' },
+                        DONE_STEP
+                    ]
+                },
+                'ios-other': {
+                    kind: 'steps', device: 'iPhone',
+                    notice: "Cette page est ouverte dans une autre application que <b>Safari</b>. Sur iPhone, l'installation se fait uniquement depuis Safari.",
+                    title: "D'abord, ouvrez cette page dans Safari", sub: 'Ensuite, ce guide vous montrera la suite.',
+                    steps: [
+                        { m: 'copy', t: 'Copiez le lien de la page', d: 'Touchez le bouton ci-dessous.', action: 'copy' },
+                        { m: 'safari', t: 'Ouvrez l\'application <b>Safari</b>', d: 'Son icône est une boussole bleue.' },
+                        { m: 'paste', t: 'Collez le lien', d: "Touchez la barre d'adresse en haut, puis <b>Coller et aller</b>." }
+                    ]
+                },
+                android: {
+                    kind: 'native', device: 'Android',
+                    fallback: [
+                        { m: 'kebab', t: 'Touchez <b>⋮</b>', d: 'Les trois points, en haut à droite de Chrome.' },
+                        { m: 'menuInstall', t: "Choisissez <b>Ajouter à l'écran d'accueil</b>", d: "Ou <b>Installer l'application</b>, selon votre téléphone." },
+                        { m: 'confirm', t: 'Confirmez avec <b>Installer</b>', d: '' },
+                        DONE_STEP
+                    ]
+                },
+                desktop: {
+                    kind: 'native', device: 'ordinateur',
+                    fallback: [
+                        { m: 'addrInstall', t: "Cliquez sur l'icône d'installation", d: "À droite de la barre d'adresse (Chrome, Edge)." },
+                        { m: 'confirm', t: 'Cliquez sur <b>Installer</b>', d: '' }
+                    ],
+                    note: 'Sur Safari (Mac) : menu <b>Fichier</b>, puis <b>Ajouter au Dock</b>.'
+                },
+                installed: { kind: 'installed', device: '' }
+            };
+
+            function isStandalone() {
+                return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            }
+
+            // Détection de l'appareil
+            function detect() {
+                const ua = navigator.userAgent;
+                if (isStandalone()) return 'installed';
+                const isIPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+                const isIOS = /iPhone|iPod/.test(ua) || isIPad;
+                if (isIOS) {
+                    const otherApp = /CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Line\/|Snapchat|Gmail/.test(ua) || !/Safari\//.test(ua);
+                    if (otherApp) return 'ios-other';
+                    if (isIPad) return 'ipad';
+                    const v = parseInt((ua.match(/Version\/(\d+)/) || [])[1], 10);
+                    return v >= 26 ? 'ios26' : 'ios';
+                }
+                if (/Android/.test(ua)) return 'android';
+                return 'desktop';
+            }
+
+            // Invite d'installation native (Chrome, Edge, Android) : gardée pour notre bouton
+            let deferredPrompt = null;
+            window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+            window.addEventListener('appinstalled', () => {
+                deferredPrompt = null;
+                if (!$('install-overlay').hidden) render('installed');
+            });
+
+            const $ = (id) => document.getElementById(id);
+            let current = null;
+            let returnFocus = null;
+
+            function stepsHtml(steps) {
+                let n = 0;
+                return `<ol class="steps">${steps.map((s) => {
+                    if (!s.final) n++;
+                    const badge = s.final ? I('check') : n;
+                    const btn = s.action === 'copy' ? `<button type="button" class="inline-btn" data-action="copy">${I('copy')}Copier le lien</button>` : '';
+                    return `<li class="step${s.final ? ' final' : ''}">${MOCKS[s.m]}
+                        <div class="step-txt"><p class="step-t"><span class="num">${badge}</span><span>${s.t}</span></p>
+                        ${s.d ? `<p class="step-d">${s.d}</p>` : ''}${btn}</div></li>`;
+                }).join('')}</ol>`;
+            }
+
+            function render(key) {
+                current = key;
+                const f = FLOWS[key];
+                const body = $('install-body');
+                const sec = $('install-secondary');
+                const pb = $('install-pointer-bottom');
+                $('install-perks').hidden = f.kind === 'installed';
+                $('install-lede').hidden = f.kind === 'installed';
+                $('install-pointer-top').hidden = f.pointer !== 'top';
+                $('install-overlay').classList.toggle('has-top', f.pointer === 'top');
+                pb.innerHTML = '';
+                sec.innerHTML = `<button type="button" class="text-btn quiet" data-action="close">Plus tard</button>`;
+
+                if (f.kind === 'steps') {
+                    const count = f.steps.filter((s) => !s.final).length;
+                    body.innerHTML = `<div class="howto">
+                        ${f.notice ? `<p class="notice">${f.notice}</p><div style="height:14px"></div>` : ''}
+                        <h3>${f.title || `Comment faire sur ${f.device}`}</h3>
+                        <p class="sub">${f.sub || `${count} gestes dans Safari, moins d'une minute.`}</p>
+                        ${stepsHtml(f.steps)}</div>`;
+                    if (f.alt) sec.insertAdjacentHTML('afterbegin', `<button type="button" class="text-btn" data-alt="${f.alt}">${f.altLabel}</button>`);
+                    if (f.pointer === 'center' || f.pointer === 'right') {
+                        pb.innerHTML = `<div class="pointer ${f.pointer === 'right' ? 'right' : ''}"><span>${f.pointerText}</span>${I('down')}</div>`;
+                    }
+                } else if (f.kind === 'native') {
+                    body.innerHTML = `<div class="native">
+                        <div class="native-visual">${MOCKS.confirm}</div>
+                        <button type="button" class="big-btn" data-action="install">${I(key === 'desktop' ? 'install' : 'phone-dl')}Installer One App</button>
+                        <p class="help-txt">Une petite fenêtre va s'ouvrir : ${key === 'desktop' ? 'cliquez' : 'touchez'} <b>Installer</b>.</p>
+                        <div class="fallback" id="install-fallback" hidden>
+                            <p class="notice" id="install-fallback-msg">Si rien ne s'ouvre, installez One App à la main :</p>
+                            ${stepsHtml(f.fallback)}
+                            ${f.note ? `<p class="help-txt" style="margin-top:10px">${f.note}</p>` : ''}
+                        </div></div>`;
+                    sec.insertAdjacentHTML('afterbegin', `<button type="button" class="text-btn" data-action="fallback">Rien ne se passe ?</button>`);
+                } else {
+                    body.innerHTML = `<div class="done-state"><span class="badge">${I('check')}</span>
+                        <h3 style="margin:0;font-size:18px">One App est déjà installée</h3>
+                        <p>Vous l'utilisez en ce moment depuis votre écran d'accueil. Elle fonctionne aussi sans Internet.</p></div>`;
+                    sec.innerHTML = `<button type="button" class="big-btn" data-action="close">Compris</button>`;
+                }
+            }
+
+            function open() {
+                returnFocus = document.activeElement;
+                document.querySelectorAll('.header-dropdown').forEach(d => d.classList.remove('active'));
+                $('install-overlay').hidden = false;
+                render(detect());
+                const sheet = $('install-overlay').querySelector('.sheet');
+                sheet.scrollTop = 0;
+                sheet.focus({ preventScroll: true });
+            }
+
+            function close() {
+                $('install-overlay').hidden = true;
+                if (returnFocus && returnFocus.focus) returnFocus.focus();
+            }
+
+            let toastTimer;
+            function toast(msg) {
+                const t = $('install-toast'); t.textContent = msg; t.hidden = false;
+                clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
+            }
+
+            async function copyLink() {
+                const link = location.origin + location.pathname;
+                try { await navigator.clipboard.writeText(link); toast('Lien copié'); }
+                catch (e) {
+                    const ta = document.createElement('textarea'); ta.value = link; document.body.appendChild(ta); ta.select();
+                    let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
+                    ta.remove(); toast(ok ? 'Lien copié' : "Copie impossible : copiez l'adresse à la main");
+                }
+            }
+
+            function showFallback(message) {
+                const fb = $('install-fallback');
+                fb.hidden = false;
+                if (message) $('install-fallback-msg').textContent = message;
+                fb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            async function install() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    if (outcome === 'accepted') render('installed');
+                    return;
+                }
+                showFallback("L'installation automatique n'est pas disponible ici. Suivez plutôt ces étapes :");
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const overlay = $('install-overlay');
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) return close();
+                    const el = e.target.closest('[data-action], [data-alt]');
+                    if (!el) return;
+                    if (el.dataset.alt) { render(el.dataset.alt); overlay.querySelector('.sheet').scrollTop = 0; return; }
+                    const a = el.dataset.action;
+                    if (a === 'close') close();
+                    else if (a === 'copy') copyLink();
+                    else if (a === 'install') install();
+                    else if (a === 'fallback') showFallback();
+                });
+                $('install-close').addEventListener('click', close);
+                document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) close(); });
+                window.addEventListener('resize', () => { if (!overlay.hidden && current) render(current); });
+
+                // Une fois installée, les liens « Installer » de l'accueil sont inutiles
+                if (isStandalone()) document.querySelectorAll('.install-link').forEach(el => el.style.display = 'none');
+            });
+
+            window.openInstallSheet = open;
+        })();
+
+
         // --- CONSTANTES SVG ---
         const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
         const SVG_LOADING = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/><path d="M440-360v-168l-56 56-56-56 152-152 152 152-56 56-56-56v168h-80Z"/></svg>';
@@ -564,15 +1123,15 @@
         function renewToken() {
             if (tokenRenewalPromise) return tokenRenewalPromise;
             tokenRenewalPromise = new Promise((resolve) => { tokenRenewalResolve = resolve; });
-            if (typeof google === 'undefined') {
-                showSessionBanner();
-            } else {
+            // Script Google absent (One App démarré sans réseau) : on le charge d'abord
+            loadGoogleScripts().then(() => {
+                if (typeof google === 'undefined' || !google.accounts) return showSessionBanner();
                 try {
                     getTokenClient().requestAccessToken({ prompt: '' });
                 } catch (e) {
                     showSessionBanner();
                 }
-            }
+            });
             return tokenRenewalPromise;
         }
 
@@ -586,14 +1145,19 @@
 
         function reconnectFromBanner() {
             // Appelé depuis un clic : le navigateur autorise la popup Google
-            if (typeof google === 'undefined') {
-                alert("Le script Google ne s'est pas chargé. Vérifiez votre connexion puis réessayez.");
+            if (typeof google === 'undefined' || !google.accounts) {
+                loadGoogleScripts().then(() => {
+                    if (typeof google === 'undefined' || !google.accounts) alert("Le script Google ne s'est pas chargé. Vérifiez votre connexion puis réessayez.");
+                    else getTokenClient().requestAccessToken({ prompt: '' });
+                });
                 return;
             }
             getTokenClient().requestAccessToken({ prompt: '' });
         }
 
         async function driveFetch(url, options = {}, allowRetry = true) {
+            // Hors-ligne : échec immédiat (pas de tentative de reconnexion Google)
+            if (!navigator.onLine) throw new DriveError("Hors-ligne", 0);
             if (isTokenExpired()) await renewToken();
 
             const headers = Object.assign({}, options.headers || {}, { 'Authorization': `Bearer ${globalAccessToken}` });
@@ -896,6 +1460,7 @@
                 data: localContent,
                 dirty: isDirty,
                 base: currentFileVersion,
+                canEdit: currentDocInfo.canEdit !== false,
                 lastOpened: Date.now()
             };
             lastPersist = localStore.put('docs', record).then(() => (lastPersistOk = true), (e) => {
@@ -971,8 +1536,9 @@
                 navigator.storage.persist().catch(() => {});
             }
             syncPendingDocs();
-            setInterval(syncPendingDocs, 60000);
+            if (!pendingSyncInterval) pendingSyncInterval = setInterval(syncPendingDocs, 60000);
         }
+        let pendingSyncInterval = null;
 
         async function fetchUserProfile() {
             try {
@@ -982,7 +1548,10 @@
                     currentUserEmail = info.user.emailAddress;
                     document.getElementById('user-email').innerText = currentUserEmail;
                 }
-            } catch(e) { console.error("Impossible de récupérer le profil"); }
+            } catch(e) {
+                console.error("Impossible de récupérer le profil");
+                if (localStoreReady) document.getElementById('user-email').innerText = currentUserEmail;
+            }
         }
 
         // 1. Initialisation Google OAuth (Sécurisée et persistante)
@@ -998,6 +1567,9 @@
                     document.getElementById('authenticated-view').style.display = 'block';
                     document.getElementById('user-email').innerText = "Chargement du profil...";
                     initializeAppSystem();
+                } else if (!navigator.onLine) {
+                    // Hors-ligne : pas besoin de Google pour travailler sur l'appareil
+                    enterOfflineMode();
                 } else {
                     console.log("Jeton expiré. Changement de l'interface.");
                     document.querySelector('#unauthenticated-view .subtitle').innerText = "Votre session de sécurité (1h) a expiré.";
@@ -1031,10 +1603,12 @@
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
         async function initializeAppSystem() {
+            if (!navigator.onLine) return enterOfflineMode();
             await fetchUserProfile();
             try {
                 rootFolderId = await getOrCreateFolder("One App", "root");
             } catch (e) {
+                if (isNetworkError(e)) return enterOfflineMode();
                 console.error("Initialisation impossible :", e);
                 document.getElementById('loading-apps').style.display = 'none';
                 alert("Impossible d'accéder à votre Google Drive (" + e.message + "). Rechargez la page pour réessayer.");
@@ -1124,20 +1698,38 @@
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
             let data;
-            try {
-                data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`);
-            } catch (e) {
-                console.error("Erreur chargement des applications :", e);
-                document.getElementById('loading-apps').style.display = 'none';
-                document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: #ef4444; text-align:center; padding: 20px;">Impossible de charger vos applications. Vérifiez votre connexion puis rechargez la page.</p>';
-                return;
+            let fromDevice = isOffline();
+            if (!fromDevice) {
+                try {
+                    data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`);
+                } catch (e) {
+                    console.error("Erreur chargement des applications :", e);
+                    if (!isNetworkError(e)) {
+                        document.getElementById('loading-apps').style.display = 'none';
+                        document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: #ef4444; text-align:center; padding: 20px;">Impossible de charger vos applications. Vérifiez votre connexion puis rechargez la page.</p>';
+                        return;
+                    }
+                    fromDevice = true;
+                }
+            }
+
+            // Hors-ligne : dernière liste connue, gardée sur l'appareil
+            let availableApps = null;
+            if (fromDevice) {
+                let snapshot = null, cachedApps = [];
+                try {
+                    snapshot = await localStore.get('meta', 'appList');
+                    cachedApps = await localStore.getAll('apps');
+                } catch (e) {}
+                data = { files: snapshot ? snapshot.files : [] };
+                availableApps = new Set(cachedApps.map(a => a.appFileId));
             }
             
             // Une app partagée apparaît chez moi sous forme de raccourci Drive, dont la
             // description (l'icône) est vide : on lit celle de l'app d'origine, ce qui
             // suit aussi les changements d'icône faits ensuite par son auteur
             const SHORTCUT_MIME = 'application/vnd.google-apps.shortcut';
-            await Promise.all((data.files || [])
+            if (!fromDevice) await Promise.all((data.files || [])
                 .filter(f => f.mimeType === SHORTCUT_MIME && f.shortcutDetails)
                 .map(async (f) => {
                     try {
@@ -1147,6 +1739,12 @@
                         console.warn("Icône de l'app partagée inaccessible :", e.message);
                     }
                 }));
+
+            // Instantané de la liste pour le mode hors-ligne
+            if (!fromDevice && localStoreReady) {
+                localStore.put('meta', { key: 'appList', files: data.files || [] })
+                    .catch((e) => console.warn("Liste des apps non gardée sur l'appareil :", e && e.message));
+            }
 
             document.getElementById('loading-apps').style.display = 'none';
 
@@ -1168,11 +1766,18 @@
                     label.textContent = displayName;
                     card.appendChild(label);
                     
+                    // Hors-ligne, une app jamais ouverte sur cet appareil n'est pas disponible
+                    if (availableApps && !availableApps.has(targetId)) {
+                        card.style.opacity = '0.45';
+                        card.title = "Pas encore disponible hors-ligne sur cet appareil";
+                    }
                     card.onclick = () => toggleAppMenu(card, targetId, displayName, parentFolderId);
                     document.getElementById('app-grid').appendChild(card);
                 });
             } else {
-                document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
+                document.getElementById('app-grid').innerHTML = fromDevice
+                    ? '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Hors-ligne : aucune application enregistrée sur cet appareil.</p>'
+                    : '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
             }
         }
 
@@ -1290,6 +1895,12 @@
         }
 
         async function renameActiveFile() {
+            if (currentActiveOneFileId && isOffline()) {
+                const input = document.getElementById('running-file-title');
+                if (input.value.trim() === currentDocInfo.fileName) return;
+                input.value = currentDocInfo.fileName;
+                return requireOnline("Renommer un document");
+            }
             if (!currentActiveOneFileId || isAppReadOnly) return;
             const input = document.getElementById('running-file-title');
             const newName = input.value.trim();
@@ -1304,6 +1915,7 @@
                     body: JSON.stringify({ name: `${newName}.onefile` })
                 });
                 console.log("MOTEUR : Nom du fichier mis à jour avec succès.");
+                currentDocInfo.fileName = newName;
             } catch (e) {
                 console.error("Erreur renommage en direct :", e);
                 alert("Le fichier n'a pas pu être renommé (" + e.message + ").");
@@ -1311,6 +1923,7 @@
         }
         
         async function duplicateActiveFile() {
+            if (!requireOnline("Créer une copie")) return;
             if (!navigator.onLine) return alert("Vous êtes hors ligne. Vérifiez votre connexion.");
             if (!currentActiveOneFileId || !localContent) return;
 
@@ -1349,8 +1962,51 @@
             }
         }
 
+        // Ligne d'un document dans le sous-menu. Construction par le DOM : le nom d'un
+        // fichier partagé est choisi par quelqu'un d'autre et ne doit jamais être interprété comme du HTML
+        function makeFileItem(targetId, fName, dateStr, folderId, appFileId, appName) {
+            const open = () => openAppEnvironment(appFileId, appName, targetId, fName);
+
+            const item = document.createElement('div');
+            item.className = 'file-item';
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'file-item-name';
+            nameEl.textContent = fName;
+            nameEl.addEventListener('click', open);
+
+            const dateEl = document.createElement('div');
+            dateEl.className = 'file-item-date';
+            dateEl.textContent = dateStr;
+            dateEl.addEventListener('click', open);
+
+            const menuEl = document.createElement('div');
+            menuEl.className = 'file-item-menu';
+            menuEl.textContent = '⠇';
+            const dropdown = document.createElement('div');
+            dropdown.className = 'file-item-dropdown';
+            dropdown.append(
+                makeButton('', '↗️ Ouvrir le dossier', () => { if (requireOnline("Ouvrir le dossier Drive")) window.open(`https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`, '_blank'); }),
+                makeButton('', '✏️ Renommer', () => renameFile(targetId, fName, folderId, appFileId, appName)),
+                makeButton('danger', '🗑️ Supprimer', () => deleteFile(targetId, folderId, appFileId, appName))
+            );
+            menuEl.appendChild(dropdown);
+            menuEl.addEventListener('click', () => toggleFileMenu(dropdown));
+
+            item.append(nameEl, dateEl, menuEl);
+            return item;
+        }
+
         async function loadAppFiles(folderId, appFileId, appName) {
             const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
+            const showDeviceFiles = async () => {
+                const listContainer = document.getElementById('submenu-file-list');
+                const loader = document.getElementById('submenu-loader');
+                if (!listContainer || !activeSubmenu || activeSubmenu.dataset.folderId !== String(folderId)) return;
+                loader.style.display = 'none';
+                await renderDeviceFiles(listContainer, folderId, appFileId, appName);
+            };
+            if (isOffline()) return showDeviceFiles();
             try {
                 let data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`);
                 
@@ -1368,37 +2024,7 @@
                         let fName = f.name.replace('.onefile', '');
                         let targetId = (f.mimeType === 'application/vnd.google-apps.shortcut' && f.shortcutDetails) ? f.shortcutDetails.targetId : f.id;
                         
-                        // Construction par le DOM : le nom d'un fichier partagé est choisi par
-                        // quelqu'un d'autre et ne doit jamais être interprété comme du HTML
-                        const open = () => openAppEnvironment(appFileId, appName, targetId, fName);
-
-                        let item = document.createElement('div');
-                        item.className = 'file-item';
-
-                        const nameEl = document.createElement('div');
-                        nameEl.className = 'file-item-name';
-                        nameEl.textContent = fName;
-                        nameEl.addEventListener('click', open);
-
-                        const dateEl = document.createElement('div');
-                        dateEl.className = 'file-item-date';
-                        dateEl.textContent = dateStr;
-                        dateEl.addEventListener('click', open);
-
-                        const menuEl = document.createElement('div');
-                        menuEl.className = 'file-item-menu';
-                        menuEl.textContent = '⠇';
-                        const dropdown = document.createElement('div');
-                        dropdown.className = 'file-item-dropdown';
-                        dropdown.append(
-                            makeButton('', '↗️ Ouvrir le dossier', () => window.open(`https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`, '_blank')),
-                            makeButton('', '✏️ Renommer', () => renameFile(targetId, fName, folderId, appFileId, appName)),
-                            makeButton('danger', '🗑️ Supprimer', () => deleteFile(targetId, folderId, appFileId, appName))
-                        );
-                        menuEl.appendChild(dropdown);
-                        menuEl.addEventListener('click', () => toggleFileMenu(dropdown));
-
-                        item.append(nameEl, dateEl, menuEl);
+                        let item = makeFileItem(targetId, fName, dateStr, folderId, appFileId, appName);
                         listContainer.appendChild(item);
                     });
                 } else {
@@ -1406,6 +2032,7 @@
                 }
             } catch (e) {
                 console.error(e);
+                if (isNetworkError(e)) return showDeviceFiles();
                 const loader = document.getElementById('submenu-loader');
                 if (loader) loader.style.display = 'none';
                 const listContainer = document.getElementById('submenu-file-list');
@@ -1421,6 +2048,7 @@
         }
 
         async function renameFile(fileId, oldName, folderId, appFileId, appName) {
+            if (!requireOnline("Renommer un document")) return;
             let newName = prompt("Nouveau nom :", oldName);
             if (!newName || newName.trim() === "" || newName === oldName) return;
             
@@ -1440,6 +2068,7 @@
         }
 
         async function deleteFile(fileId, folderId, appFileId, appName) {
+            if (!requireOnline("Supprimer un document")) return;
             if (!confirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?")) return;
             
             document.getElementById('submenu-loader').style.display = 'block';
@@ -1551,6 +2180,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         async function createNewFile(appFileId, appName, folderId) {
+            if (!requireOnline("Créer un document")) return;
             let fileName = prompt("Nom du nouveau fichier :");
             if (!fileName || fileName.trim() === "") return;
 
@@ -1749,7 +2379,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 pending: { svg: SVG_LOADING, opacity: '0.5', title: "Modifications en attente d'enregistrement..." },
                 syncing: { svg: SVG_LOADING, opacity: '0.5', title: "Enregistrement sur Google Drive..." },
                 done:    { svg: SVG_DONE,    opacity: '1',   title: "Enregistré sur Google Drive." },
-                error:   { svg: SVG_SYNC,    opacity: '1',   title: "Échec de l'enregistrement, nouvel essai automatique. " + (detail || '') }
+                error:   { svg: SVG_SYNC,    opacity: '1',   title: "Échec de l'enregistrement, nouvel essai automatique. " + (detail || '') },
+                offline: { svg: SVG_SYNC,    opacity: '0.35', title: "Hors-ligne : enregistré sur cet appareil, envoi au retour du réseau." }
             };
             const s = states[state] || states.idle;
             syncBtn.innerHTML = s.svg;
@@ -1872,7 +2503,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 console.error("Erreur de synchronisation Cloud :", e);
                 lastSyncError = e;
                 retryDelay = Math.min(Math.max(retryDelay * 2, 5000), 60000);
-                setSyncStatus('error', e.message);
+                setSyncStatus(isNetworkError(e) ? 'offline' : 'error', e.message);
             }
         }
 
@@ -1906,7 +2537,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             // Drive injoignable, mais les modifications sont gardées sur l'appareil :
             // elles partiront automatiquement plus tard, on peut continuer
             if (await persistOpenDoc()) {
-                alert("Google Drive n'est pas joignable pour le moment. Vos modifications sont conservées sur cet appareil et seront envoyées automatiquement dès que possible.");
+                if (!isOffline()) alert("Google Drive n'est pas joignable pour le moment. Vos modifications sont conservées sur cet appareil et seront envoyées automatiquement dès que possible.");
                 return true;
             }
 
@@ -1918,7 +2549,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
         // --- LE RADAR SILENCIEUX (POLLING) ---
         async function checkCloudVersion(manual = false) {
-            if (!currentActiveOneFileId || isSyncing || isViewingHistory) return;
+            if (!currentActiveOneFileId || isSyncing || isViewingHistory || isOffline()) return;
             // Hors clic manuel, on n'ouvre pas de fenêtre de reconnexion juste pour vérifier
             if (!manual && isTokenExpired() && !isDirty) return;
 
@@ -1969,9 +2600,16 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             }
         });
 
-        window.addEventListener('online', () => {
+        window.addEventListener('online', async () => {
+            await leaveOfflineMode();
+            updateNetworkBanner();
             if (isDirty) syncToDrive();
             syncPendingDocs();
+        });
+
+        window.addEventListener('offline', () => {
+            updateNetworkBanner();
+            if (currentActiveOneFileId && !isSyncing) setSyncStatus(isDirty ? 'pending' : 'offline');
         });
 
         let lastPersistOk = true;
@@ -2054,10 +2692,201 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             }
         }
 
+        // --- MODE HORS-LIGNE ---
+        // Sans réseau, One App fonctionne avec ce qui est sur l'appareil : liste des
+        // apps (dernier instantané), apps et documents déjà ouverts. Les modifications
+        // sont gardées localement et envoyées au retour du réseau (voir STOCKAGE LOCAL).
+        // Créer, installer, partager, renommer ou consulter l'historique demandent Internet.
+        let offlineMode = false; // réseau injoignable constaté (même si navigator.onLine est vrai)
+
+        function isOffline() {
+            return offlineMode || !navigator.onLine;
+        }
+
+        function isNetworkError(e) {
+            return e instanceof DriveError && e.status === 0;
+        }
+
+        function requireOnline(action) {
+            if (!isOffline()) return true;
+            alert(`${action} nécessite une connexion Internet.`);
+            return false;
+        }
+
+        function updateNetworkBanner() {
+            document.getElementById('network-banner').style.display = isOffline() ? 'block' : 'none';
+        }
+
+        // Démarrage ou perte du réseau : accueil construit depuis l'appareil
+        async function enterOfflineMode() {
+            offlineMode = true;
+            updateNetworkBanner();
+            let account = null;
+            try { account = await localStore.get('meta', 'account'); } catch (e) {}
+
+            if (!account) {
+                // Jamais utilisé sur cet appareil : rien à afficher sans Internet
+                document.getElementById('authenticated-view').style.display = 'none';
+                document.getElementById('unauthenticated-view').style.display = 'block';
+                document.querySelector('#unauthenticated-view .subtitle').innerText =
+                    "Pas de connexion Internet. Connectez-vous une première fois avec Internet pour utiliser One App hors-ligne.";
+                return;
+            }
+
+            currentUserEmail = account.value;
+            localStoreReady = true;
+            document.getElementById('unauthenticated-view').style.display = 'none';
+            document.getElementById('shared-invite-view').style.display = 'none';
+            document.getElementById('authenticated-view').style.display = 'block';
+            document.getElementById('user-email').innerText = `${currentUserEmail} · hors-ligne`;
+            await listInstalledApps();
+        }
+
+        // Retour du réseau : on recharge l'accueil depuis Drive (et les envois partent)
+        async function leaveOfflineMode() {
+            if (!offlineMode) return;
+            offlineMode = false;
+            updateNetworkBanner();
+            await loadGoogleScripts();
+            if (!currentActiveOneFileId && document.getElementById('authenticated-view').style.display === 'block') {
+                await initializeAppSystem();
+            }
+        }
+
+        // Scripts Google (connexion, Picker) : absents si One App a démarré sans réseau
+        function loadScript(src) {
+            return new Promise((resolve) => {
+                const el = document.createElement('script');
+                el.src = src; el.async = true;
+                el.onload = () => resolve(true);
+                el.onerror = () => resolve(false);
+                document.head.appendChild(el);
+            });
+        }
+
+        async function loadGoogleScripts() {
+            const jobs = [];
+            if (typeof google === 'undefined' || !google.accounts) jobs.push(loadScript('https://accounts.google.com/gsi/client'));
+            if (typeof gapi === 'undefined') jobs.push(loadScript('https://apis.google.com/js/api.js'));
+            await Promise.all(jobs);
+        }
+
+        // Ouvre un document depuis la copie de l'appareil. Renvoie false s'il n'y en a pas.
+        async function openFromDevice(appFileId, appName, oneFileId, oneFileName) {
+            let app = null, doc = null;
+            try {
+                [app, doc] = await Promise.all([localStore.get('apps', appFileId), localStore.get('docs', oneFileId)]);
+            } catch (e) {}
+            if (!app || !app.html || !doc || !doc.metadata) {
+                alert("Ce document n'a pas encore été ouvert sur cet appareil : il sera disponible hors-ligne après une première ouverture avec Internet.");
+                return false;
+            }
+
+            clearTimeout(debounceTimer);
+            currentActiveOneFileId = oneFileId;
+            currentDocInfo = {
+                appFileId: appFileId,
+                appName: appName || doc.appName,
+                fileName: doc.fileName || oneFileName,
+                canEdit: doc.canEdit !== false
+            };
+            lastSyncError = null;
+            retryDelay = 0;
+            currentFileVersion = doc.base;            // base des données locales (conflits)
+            currentOneFileMetadata = doc.metadata;
+            window.currentLoadedAppData = doc.data;
+            localContent = doc.data;
+            isDirty = !!doc.dirty;
+            if (isDirty) localRevision++;
+
+            mountApp(app.html, currentDocInfo.appName, currentDocInfo.fileName, currentDocInfo.canEdit);
+            setSyncStatus(isDirty ? 'pending' : 'offline');
+            persistOpenDoc();
+            startPolling();
+            if (isDirty && !isOffline()) scheduleSync(1000);
+            return true;
+        }
+
+        // Liste des documents d'une app gardés sur l'appareil
+        async function renderDeviceFiles(listContainer, folderId, appFileId, appName) {
+            let docs = [];
+            try { docs = (await localStore.getAll('docs')).filter(d => d.appFileId === appFileId); } catch (e) {}
+            docs.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
+            listContainer.innerHTML = '';
+            if (docs.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); font-size:13px; padding:10px;">Hors-ligne : aucun document de cette app n\'est enregistré sur cet appareil.</div>';
+                return;
+            }
+            docs.forEach(d => {
+                const date = new Date(d.lastOpened || Date.now());
+                const dateStr = (d.dirty ? '⏳ non envoyé · ' : '') + date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                listContainer.appendChild(makeFileItem(d.fileId, d.fileName, dateStr, folderId, appFileId, appName));
+            });
+        }
+
         // --- LE CHARGEUR D'APPLICATION ---
+        // Affiche l'app et ses données (déjà chargées dans localContent) dans l'iframe
+        function mountApp(appHtml, appName, fileName, canEdit) {
+            appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
+            appDataCurrentIndex = 0;
+            
+            isAppReadOnly = !canEdit;
+
+            const btn = document.getElementById('toggle-readonly-btn');
+            const copyBtn = document.getElementById('btn-create-copy');
+            const banner = document.getElementById('readonly-banner');
+
+            if (isAppReadOnly) {
+                btn.innerHTML = '🔒 Lecture Seule';
+                btn.style.background = "var(--bg-color)";
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.5';
+                if (copyBtn) {
+                    copyBtn.style.animation = 'pulse 2s infinite';
+                    copyBtn.innerHTML = '✨ Créer une copie pour éditer';
+                    copyBtn.style.color = 'var(--accent-color)';
+                    copyBtn.style.fontWeight = 'bold';
+                }
+                if (banner) banner.style.display = 'block';
+            } else {
+                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
+                btn.style.background = "transparent";
+                btn.style.pointerEvents = 'auto';
+                btn.style.opacity = '1';
+                if (copyBtn) {
+                    copyBtn.style.animation = '';
+                    copyBtn.innerHTML = '📄 Créer une copie';
+                    copyBtn.style.color = '';
+                    copyBtn.style.fontWeight = '';
+                }
+                if (banner) banner.style.display = 'none';
+            }
+
+            let fullHTML = injectBridge(appHtml);
+
+            const iframe = document.createElement('iframe');
+            // allow-forms : sans lui, l'événement submit des formulaires n'est jamais
+            // déclenché (les apps générées par IA en utilisent très souvent)
+            iframe.sandbox = "allow-scripts allow-modals allow-forms";
+            iframe.srcdoc = fullHTML;
+            iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
+
+            const container = document.getElementById('iframe-container');
+            container.innerHTML = ''; container.appendChild(iframe);
+            
+            document.getElementById('running-app-name').innerText = appName;
+            document.getElementById('running-file-title').value = fileName;
+            
+            document.getElementById('authenticated-view').style.display = 'none';
+            document.getElementById('execution-view').style.display = 'flex';
+            
+            currentRunningApp = appHtml;
+        }
+
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
             // Un fichier est déjà ouvert : on enregistre ce qui est en attente avant de changer
             if (currentActiveOneFileId && !(await flushSync())) return;
+            if (isOffline()) return openFromDevice(appFileId, appName, oneFileId, oneFileName);
 
             document.getElementById('loading-apps').innerText = "Vérification de l'accès au fichier...";
             document.getElementById('loading-apps').style.display = 'block';
@@ -2118,62 +2947,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 }
                 localContent = window.currentLoadedAppData;
 
-                appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
-                appDataCurrentIndex = 0;
-                
-                // Détection de la Lecture Seule via Capabilities API
-                let canEdit = fileMeta.capabilities ? fileMeta.capabilities.canEdit : true;
-                isAppReadOnly = !canEdit;
-
-                const btn = document.getElementById('toggle-readonly-btn');
-                const copyBtn = document.getElementById('btn-create-copy');
-                const banner = document.getElementById('readonly-banner');
-
-                if (isAppReadOnly) {
-                    btn.innerHTML = '🔒 Lecture Seule';
-                    btn.style.background = "var(--bg-color)";
-                    btn.style.pointerEvents = 'none';
-                    btn.style.opacity = '0.5';
-                    if (copyBtn) {
-                        copyBtn.style.animation = 'pulse 2s infinite';
-                        copyBtn.innerHTML = '✨ Créer une copie pour éditer';
-                        copyBtn.style.color = 'var(--accent-color)';
-                        copyBtn.style.fontWeight = 'bold';
-                    }
-                    if (banner) banner.style.display = 'block';
-                } else {
-                    btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                    btn.style.background = "transparent";
-                    btn.style.pointerEvents = 'auto';
-                    btn.style.opacity = '1';
-                    if (copyBtn) {
-                        copyBtn.style.animation = '';
-                        copyBtn.innerHTML = '📄 Créer une copie';
-                        copyBtn.style.color = '';
-                        copyBtn.style.fontWeight = '';
-                    }
-                    if (banner) banner.style.display = 'none';
-                }
-
-                let fullHTML = injectBridge(appHtml);
-
-                const iframe = document.createElement('iframe');
-                // allow-forms : sans lui, l'événement submit des formulaires n'est jamais
-                // déclenché (les apps générées par IA en utilisent très souvent)
-                iframe.sandbox = "allow-scripts allow-modals allow-forms";
-                iframe.srcdoc = fullHTML;
-                iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
-
-                const container = document.getElementById('iframe-container');
-                container.innerHTML = ''; container.appendChild(iframe);
-                
-                document.getElementById('running-app-name').innerText = appName;
-                document.getElementById('running-file-title').value = oneFileName;
-                
-                document.getElementById('authenticated-view').style.display = 'none';
-                document.getElementById('execution-view').style.display = 'flex';
-                
-                currentRunningApp = appHtml;
+                currentDocInfo.canEdit = fileMeta.capabilities ? fileMeta.capabilities.canEdit !== false : true;
+                mountApp(appHtml, appName, oneFileName, currentDocInfo.canEdit);
 
                 // Copie locale du document et de l'app (base du futur mode hors-ligne)
                 persistOpenDoc();
@@ -2185,6 +2960,13 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
             } catch (error) {
                 console.error(error);
+                // Réseau injoignable : on ouvre la copie de l'appareil si elle existe
+                if (isNetworkError(error)) {
+                    offlineMode = true;
+                    updateNetworkBanner();
+                    await openFromDevice(appFileId, appName, oneFileId, oneFileName);
+                    return;
+                }
                 alert("Erreur critique lors du téléchargement des fichiers.\n\n(" + error.message + ")");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
@@ -2223,6 +3005,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         async function openShareModal() {
+            if (!requireOnline("Le partage")) return;
             if(!currentActiveOneFileId) return;
             document.getElementById('share-modal-overlay').style.display = 'flex';
             document.getElementById('execution-header-menu').classList.remove('active');
@@ -2342,6 +3125,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
         // --- LOGIQUE D'INSTALLATION (HTML) ---
         function toggleInstallSection() {
+            if (!requireOnline("Créer une app")) return;
             const section = document.getElementById('install-section');
             section.style.display = section.style.display === 'block' ? 'none' : 'block';
         }
@@ -2540,6 +3324,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         async function openAppEditor(fileId, appName) {
+            if (!requireOnline("Modifier une app")) return;
             console.log(`Ouverture de l'éditeur pour : ${appName}`);
             editingAppFileId = fileId;
             editorHistory = [];
@@ -2684,6 +3469,7 @@ MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
         }
 
         async function showDataHistory() {
+            if (!requireOnline("L'historique des versions")) return;
             isViewingHistory = true;
             historyMode = 'data';
             document.getElementById('execution-header-menu').classList.remove('active');
@@ -2863,6 +3649,14 @@ MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
                 else if (document.getElementById('execution-view').style.display === 'flex') { e.preventDefault(); appRedo(); }
             }
         });
+
+        // --- PWA : SERVICE WORKER ---
+        // Garde One App sur l'appareil pour l'ouvrir sans réseau (voir sw.js)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((e) => console.warn("Service worker non enregistré :", e && e.message));
+            });
+        }
     </script>
 </body>
 </html>
