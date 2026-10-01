@@ -430,11 +430,12 @@
 
         /* Bandeau hors-ligne : discret, ne bloque pas les clics */
         #network-banner {
-            display: none; position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3400;
+            position: fixed; opacity: 0; visibility: hidden; transition: opacity 0.4s, visibility 0.4s; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3400;
             background: var(--text-primary); color: var(--bg-color); padding: 8px 14px; border-radius: 999px;
             font-size: 12px; font-weight: 600; box-shadow: var(--shadow); pointer-events: none;
             max-width: calc(100% - 32px); text-align: center;
         }
+        #network-banner.visible { opacity: 1; visibility: visible; }
     </style>
 </head>
 <body>
@@ -1004,6 +1005,7 @@
         // --- CONSTANTES SVG ---
         const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
         const SVG_LOADING = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/><path d="M440-360v-168l-56 56-56-56 152-152 152 152-56 56-56-56v168h-80Z"/></svg>';
+        const SVG_OFFLINE = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" width="24px" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wifi-off"/></svg>';
         const SVG_DONE = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m414-280 226-226-58-58-169 169-84-84-57 57 142 142ZM260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm0-80h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41Zm220-240Z"/></svg>';
 
         // --- CONFIGURATION ---
@@ -2374,13 +2376,15 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         function setSyncStatus(state, detail) {
             const syncBtn = document.getElementById('sync-status-btn');
             if (!syncBtn) return;
+            // Hors-ligne, l'icône hors-ligne remplace tous les autres états
+            if (isOffline()) state = 'offline';
             const states = {
                 idle:    { svg: SVG_SYNC,    opacity: '1',   title: "Tout est enregistré. Cliquer pour vérifier le Cloud." },
                 pending: { svg: SVG_LOADING, opacity: '0.5', title: "Modifications en attente d'enregistrement..." },
                 syncing: { svg: SVG_LOADING, opacity: '0.5', title: "Enregistrement sur Google Drive..." },
                 done:    { svg: SVG_DONE,    opacity: '1',   title: "Enregistré sur Google Drive." },
                 error:   { svg: SVG_SYNC,    opacity: '1',   title: "Échec de l'enregistrement, nouvel essai automatique. " + (detail || '') },
-                offline: { svg: SVG_SYNC,    opacity: '0.35', title: "Hors-ligne : enregistré sur cet appareil, envoi au retour du réseau." }
+                offline: { svg: SVG_OFFLINE, opacity: '0.75', title: "Hors-ligne : vos modifications sont gardées sur cet appareil. Cliquer pour en savoir plus." }
             };
             const s = states[state] || states.idle;
             syncBtn.innerHTML = s.svg;
@@ -2581,6 +2585,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         function forceRefresh() {
+            if (isOffline()) return showNetworkBanner(); // rappelle le message hors-ligne
             if (isDirty) syncToDrive();
             else checkCloudVersion(true);
         }
@@ -2713,8 +2718,28 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             return false;
         }
 
+        // Pastille « Hors-ligne » : affichée quelques secondes au passage hors-ligne,
+        // puis à nouveau à chaque clic sur l'icône hors-ligne du bandeau
+        const NETWORK_BANNER_MS = 6000;
+        let networkBannerTimer = null;
+        let bannerWasOffline = false;
+
+        function showNetworkBanner() {
+            const banner = document.getElementById('network-banner');
+            banner.classList.add('visible');
+            clearTimeout(networkBannerTimer);
+            networkBannerTimer = setTimeout(() => banner.classList.remove('visible'), NETWORK_BANNER_MS);
+        }
+
         function updateNetworkBanner() {
-            document.getElementById('network-banner').style.display = isOffline() ? 'block' : 'none';
+            const offline = isOffline();
+            if (offline && !bannerWasOffline) showNetworkBanner();
+            if (!offline) {
+                clearTimeout(networkBannerTimer);
+                document.getElementById('network-banner').classList.remove('visible');
+            }
+            bannerWasOffline = offline;
+            if (currentActiveOneFileId && !isSyncing) setSyncStatus(isDirty ? 'pending' : 'idle');
         }
 
         // Démarrage ou perte du réseau : accueil construit depuis l'appareil
@@ -2883,6 +2908,39 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             currentRunningApp = appHtml;
         }
 
+        // Code de l'app : on compare la version sur Drive (une petite requête de
+        // métadonnées) à la copie de l'appareil, et on ne télécharge le HTML que s'il a
+        // changé. appFileId est toujours l'id du vrai .oneapp (les raccourcis sont
+        // résolus avant : accueil, lien partagé), jamais celui d'un raccourci.
+        async function loadAppHtml(appFileId) {
+            let cached = null;
+            try { cached = await localStore.get('apps', appFileId); } catch (e) {}
+            const hasCopy = !!(cached && cached.html);
+
+            let version = null;
+            try {
+                const meta = await (await readDriveFile(appFileId, 'fields=md5Checksum,headRevisionId,modifiedTime')).json();
+                version = meta.md5Checksum ? 'md5:' + meta.md5Checksum
+                    : meta.headRevisionId ? 'rev:' + meta.headRevisionId
+                    : meta.modifiedTime ? 'time:' + meta.modifiedTime : null;
+            } catch (e) {
+                // App illisible sur Drive (ex. rendue privée) : copie de l'appareil si possible
+                if (!hasCopy || isNetworkError(e)) throw e;
+                console.warn("App illisible sur Drive, copie de l'appareil utilisée :", e.message);
+                return cached.html;
+            }
+
+            if (hasCopy && version && cached.version === version) {
+                console.log("MOTEUR : app à jour sur l'appareil, pas de téléchargement.");
+                return cached.html;
+            }
+
+            const html = await (await readDriveFile(appFileId, 'alt=media')).text();
+            localStore.put('apps', { appFileId: appFileId, html: html, version: version, cachedAt: Date.now() })
+                .catch((e) => console.warn("Mise en cache de l'app impossible :", e && e.message));
+            return html;
+        }
+
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
             // Un fichier est déjà ouvert : on enregistre ce qui est en attente avant de changer
             if (currentActiveOneFileId && !(await flushSync())) return;
@@ -2892,6 +2950,10 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
+                // Le code de l'app se charge en parallèle de la vérification du document
+                const appPromise = loadAppHtml(appFileId);
+                appPromise.catch(() => {}); // erreur traitée plus bas (await)
+
                 // Un envoi en arrière-plan de ce document est en cours : on attend sa fin
                 if (backgroundSyncs.has(oneFileId)) await backgroundSyncs.get(oneFileId).catch(() => {});
 
@@ -2902,25 +2964,24 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                // L'app d'un autre utilisateur est lue en public (clé API). Si elle est
-                // illisible, on prend la copie gardée sur l'appareil lors d'une ouverture précédente
-                let appHtml;
-                try {
-                    appHtml = await (await readDriveFile(appFileId, 'alt=media')).text();
-                } catch (e) {
-                    let cached = null;
-                    try { cached = await localStore.get('apps', appFileId); } catch (err) {}
-                    if (!cached || !cached.html) throw e;
-                    console.warn("App illisible sur Drive, copie de l'appareil utilisée :", e.message);
-                    appHtml = cached.html;
-                }
+                // L'app d'un autre utilisateur est lue en public (clé API)
+                let appHtml = await appPromise;
 
-                let oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
-
-                // Modifications restées sur l'appareil (plantage, coupure réseau...) ?
+                // Copie du document sur l'appareil : modifications en attente, ou version à jour ?
                 let localDoc = null;
                 try { localDoc = await localStore.get('docs', oneFileId); } catch (e) {}
                 const resumeLocal = !!(localDoc && localDoc.dirty && localStoreReady);
+                const localUpToDate = !!(localDoc && !localDoc.dirty && localStoreReady && localDoc.metadata &&
+                    localDoc.base && localDoc.base.rev && fileMeta.headRevisionId && localDoc.base.rev === fileMeta.headRevisionId);
+
+                // Document téléchargé seulement si la copie de l'appareil n'est pas à jour
+                let oneFileJson;
+                if (localUpToDate) {
+                    console.log("MOTEUR : document à jour sur l'appareil, pas de téléchargement.");
+                    oneFileJson = { oneapp_metadata: localDoc.metadata, app_data: localDoc.data };
+                } else {
+                    oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
+                }
 
                 clearTimeout(debounceTimer);
                 currentActiveOneFileId = oneFileId;
@@ -2950,10 +3011,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 currentDocInfo.canEdit = fileMeta.capabilities ? fileMeta.capabilities.canEdit !== false : true;
                 mountApp(appHtml, appName, oneFileName, currentDocInfo.canEdit);
 
-                // Copie locale du document et de l'app (base du futur mode hors-ligne)
+                // Copie locale du document (l'app est gardée par loadAppHtml)
                 persistOpenDoc();
-                localStore.put('apps', { appFileId: appFileId, html: appHtml, cachedAt: Date.now() })
-                    .catch((e) => console.warn("Mise en cache de l'app impossible :", e && e.message));
                 if (resumeLocal) scheduleSync(1000);
 
                 startPolling();

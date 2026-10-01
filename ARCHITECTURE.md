@@ -83,7 +83,7 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 | `share-modal-overlay` | Fenêtre de partage |
 | `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
 | `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
-| `network-banner` | Pastille « Hors-ligne » en bas de l'écran (ne bloque pas les clics) |
+| `network-banner` | Pastille « Hors-ligne » en bas de l'écran : 6 s au passage hors-ligne, puis à chaque clic sur l'icône hors-ligne du bandeau (`showNetworkBanner`) |
 | `install-overlay` | Fenêtre d'installation PWA, adaptée à l'appareil (CSS limité à `#install-overlay`) |
 
 ## 5. Le JavaScript, section par section
@@ -119,10 +119,17 @@ Dans l'ordre du fichier :
 ## 6. Les flux principaux
 
 ### Ouvrir un document
-`openAppEnvironment` → `flushSync` (enregistre le document précédent) → lit les
-métadonnées (`headRevisionId`, droits) → télécharge l'app et les données →
-`injectBridge` → crée l'iframe `sandbox="allow-scripts allow-modals allow-forms"` →
-`startPolling`.
+`openAppEnvironment` → `flushSync` (enregistre le document précédent) → en parallèle :
+`loadAppHtml` (code de l'app) et métadonnées du document (`headRevisionId`, droits) →
+`mountApp` : `injectBridge` puis iframe `sandbox="allow-scripts allow-modals allow-forms"`
+→ `startPolling`.
+
+**Rien n'est retéléchargé s'il n'a pas changé** :
+- l'app : `loadAppHtml` lit seulement sa version sur Drive (`md5Checksum`, sinon
+  `headRevisionId`) et réutilise la copie de l'appareil (store `apps`) si elle est identique.
+  La clé est toujours l'id du vrai `.oneapp`, jamais celui d'un raccourci ;
+- le document : si la copie de l'appareil n'a pas de modification en attente et que sa
+  `base.rev` égale le `headRevisionId` de Drive, elle est utilisée telle quelle.
 
 ### Sauvegarder (le cœur du système)
 1. L'app appelle `OneAppAPI.saveData(state)` → message `SAVE_DATA_REQUEST`.
@@ -148,7 +155,7 @@ Base IndexedDB `OneAppLocal` :
 | Store | Contenu |
 |---|---|
 | `docs` | Dernier état connu de chaque document ouvert : `data`, `metadata`, `dirty` (modifications pas encore sur Drive), `base` (version Drive sur laquelle reposent les données), `lastOpened` |
-| `apps` | Code HTML des apps ouvertes (utilisé hors-ligne) |
+| `apps` | Code HTML des apps ouvertes + `version` Drive (cache vérifié à chaque ouverture, utilisé hors-ligne) |
 | `meta` | `account` : e-mail du compte Google propriétaire de ce stockage ; `appList` : dernière liste des apps (accueil hors-ligne) |
 
 - **Reprise** : au démarrage, au retour du réseau, après la fermeture d'un document et

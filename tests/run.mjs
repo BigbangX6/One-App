@@ -701,6 +701,7 @@ await test("Hors-ligne : One App s'ouvre sans réseau, document modifié puis en
   eq((await idb(page, 'docs')).find(d => d.fileId === 'doc1').dirty, true, 'gardé sur l\'appareil');
   await page_context.setOffline(false);
   await waitFor(async () => JSON.stringify(saved()) === '["modifié hors-ligne"]', 10000);
+  await wait(600); // fondu de disparition
   eq(await page.isVisible('#network-banner'), false, 'bandeau masqué');
 });
 
@@ -749,6 +750,43 @@ await test("Installation : Android → bouton Installer ; lien depuis l'écran d
   eq(await page.isVisible('#install-overlay .big-btn'), true, 'bouton Installer');
   if (!(await page.textContent('#install-overlay .help-txt')).includes('touchez')) throw new Error('texte mobile attendu');
 }, { userAgent: ANDROID_UA, viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true });
+
+await test("Cache vérifié : app et document inchangés ne sont pas retéléchargés", async (page) => {
+  const downloads = (id) => log.filter(l => l.startsWith(`GET /drive/v3/files/${id}?alt=media`)).length;
+  await openDoc(page);
+  await page.evaluate(() => closeApp());
+  await openDoc(page);
+  eq(downloads('app1'), 1, 'téléchargements de l\'app (inchangée)');
+  eq(downloads('doc1'), 1, 'téléchargements du document (inchangé)');
+  await page.evaluate(() => closeApp());
+  // L'auteur modifie l'app, un autre appareil modifie le document
+  touchContent(files.app1, APP_HTML.replace('<title>', '<title>v2 '));
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['nouveau'] }));
+  const frame = await openDoc(page);
+  eq(downloads('app1'), 2, 'nouvelle version de l\'app téléchargée');
+  eq(downloads('doc1'), 2, 'nouvelle version du document téléchargée');
+  eq(await frame.evaluate(() => window.shown), ['nouveau'], 'document à jour affiché');
+  eq(await frame.evaluate(() => document.title), "v2 L'agenda", 'app à jour affichée');
+});
+
+await test("Hors-ligne : bandeau temporaire, icône hors-ligne qui le réaffiche au clic", async (page) => {
+  await prepareOffline(page);
+  await openDoc(page);
+  await page_context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await wait(300);
+  eq(await page.isVisible('#network-banner'), true, 'bandeau affiché');
+  if (!(await page.getAttribute('#sync-status-btn', 'title')).includes('Hors-ligne')) throw new Error('icône hors-ligne absente');
+  if (!(await page.innerHTML('#sync-status-btn')).includes('#i-wifi-off')) throw new Error('mauvaise icône');
+  await wait(6700);
+  eq(await page.isVisible('#network-banner'), false, 'bandeau masqué après quelques secondes');
+  await page.click('#sync-status-btn');
+  await wait(500);
+  eq(await page.isVisible('#network-banner'), true, 'bandeau réaffiché au clic');
+  await page_context.setOffline(false);
+  await wait(500);
+  if ((await page.innerHTML('#sync-status-btn')).includes('#i-wifi-off')) throw new Error('icône hors-ligne restée après retour du réseau');
+});
 
 await browser.close();
 server.close();
