@@ -1295,6 +1295,9 @@
 
         // Ouvre le Picker Google positionné sur ce seul fichier. Choisir le fichier
         // donne à One App l'accès à celui-ci (pour ce compte, sur tous les appareils).
+        // Renvoie true si l'utilisateur a choisi un fichier, false s'il a fermé le Picker.
+        // La réponse du Picker n'est qu'indicative : l'accès réel est vérifié ensuite
+        // auprès de Drive (waitForFileAccess).
         async function pickFile(fileId) {
             if (!API_KEY) throw new Error("Clé API absente : ajoutez GOOGLE_API_KEY dans config.js.");
             await loadPicker();
@@ -1311,16 +1314,27 @@
                     .addView(view)
                     .setCallback((data) => {
                         const action = data[google.picker.Response.ACTION];
-                        if (action === google.picker.Action.PICKED) {
-                            const docs = data[google.picker.Response.DOCUMENTS] || [];
-                            resolve(docs.some(d => d[google.picker.Document.ID] === fileId));
-                        } else if (action === google.picker.Action.CANCEL) {
-                            resolve(false);
-                        }
+                        if (action === google.picker.Action.PICKED) resolve(true);
+                        else if (action !== 'loaded') resolve(false); // annulation, erreur...
                     })
                     .build()
                     .setVisible(true);
             });
+        }
+
+        // Vérifie auprès de Drive que One App peut lire le fichier. Après le Picker,
+        // l'accès peut mettre quelques secondes à devenir effectif : on réessaie.
+        async function waitForFileAccess(fileId, attempts) {
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=id`);
+                    return true;
+                } catch (e) {
+                    if (!isNoAccessError(e)) return false;
+                }
+                if (i < attempts - 1) await new Promise(r => setTimeout(r, 700 * (i + 1)));
+            }
+            return false;
         }
 
         // Écran « Ajouter à One App » puis Picker. Renvoie true si l'accès est accordé.
@@ -1347,11 +1361,23 @@
                 cancelBtn.onclick = () => finish(false);
                 addBtn.onclick = async () => {
                     addBtn.disabled = true;
+                    const loader = document.getElementById('loading-apps');
+                    // La fenêtre Google prend le relais : notre écran ne doit pas rester par-dessus
+                    overlay.style.display = 'none';
                     try {
-                        const granted = await pickFile(fileId);
-                        if (granted) finish(true);
+                        const picked = await pickFile(fileId);
+                        loader.innerText = "Ajout du fichier à One App...";
+                        loader.style.display = 'block';
+                        // Accès vérifié auprès de Drive, quelle que soit la réponse du Picker
+                        const granted = await waitForFileAccess(fileId, picked ? 6 : 1);
+                        loader.style.display = 'none';
+                        if (granted) return finish(true);
+                        overlay.style.display = 'flex';
+                        if (picked) alert("Google n'a pas encore confirmé l'accès à ce fichier. Réessayez dans quelques secondes.");
                     } catch (e) {
                         console.error(e);
+                        loader.style.display = 'none';
+                        overlay.style.display = 'flex';
                         alert("Impossible d'ouvrir la fenêtre Google : " + e.message);
                     } finally {
                         addBtn.disabled = false;

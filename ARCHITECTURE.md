@@ -96,7 +96,7 @@ Dans l'ordre du fichier :
 | CONSTANTES SVG / CONFIGURATION | Icônes de synchro, URLs Drive, scope OAuth | |
 | CERVEAU LOCAL | État global du fichier ouvert | `isDirty`, `localContent`, `currentFileVersion` |
 | **ACCÈS DRIVE CENTRALISÉ** | Point d'entrée unique vers Google | `driveFetch`, `driveJson`, `renewToken`, `driveCreateFile`, `createOneFile`, `escapeDriveQuery` |
-| **ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file)** | Apps publiques lues par clé API, documents partagés autorisés via le Picker | `readDriveFile`, `publicDriveFetch`, `getFileMetaWithAccess`, `requestFileAccess`, `pickFile` |
+| **ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file)** | Apps publiques lues par clé API, documents partagés autorisés via le Picker | `readDriveFile`, `publicDriveFetch`, `getFileMetaWithAccess`, `requestFileAccess`, `pickFile`, `waitForFileAccess` (l'accès est vérifié auprès de Drive après le Picker, sans se fier à sa réponse) |
 | **STOCKAGE LOCAL (LOCAL D'ABORD)** | Copie des documents et des apps sur l'appareil (IndexedDB) | `localStore`, `persistOpenDoc`, `prepareLocalStore` |
 | REPRISE DES ENVOIS EN ATTENTE | Envoie les modifications restées sur l'appareil | `syncPendingDocs`, `syncPendingDoc` |
 | LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers, accueil | `initializeAppSystem`, `getOrCreateFolder`, `listInstalledApps`, `buildAppIcon`, `toggleAppMenu` |

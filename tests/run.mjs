@@ -173,11 +173,21 @@ async function test(name, fn, contextOptions = {}) {
       let cb; const b = this;
       ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView'].forEach(m => { b[m] = () => b; });
       b.setCallback = (f) => { cb = f; return b; };
-      b.build = () => ({ setVisible: () => setTimeout(async () => {
-        if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
-        await window.__grantAccess(window.__pickerFileIds);
-        cb({ action: 'picked', docs: [{ id: window.__pickerFileIds }] });
-      }, 50) });
+      // Comme le vrai Picker : action 'loaded' d'abord. Options pour reproduire les cas réels :
+      // __pickerDelay (temps passé dans le Picker), __grantDelay (accès effectif après un délai),
+      // __pickedId (identifiant renvoyé différent de celui demandé)
+      b.build = () => ({ setVisible: () => {
+        window.__pickerOpen = true;
+        cb({ action: 'loaded' });
+        setTimeout(async () => {
+          window.__pickerOpen = false;
+          if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
+          const ids = window.__pickerFileIds;
+          if (window.__grantDelay) setTimeout(() => window.__grantAccess(ids), window.__grantDelay);
+          else await window.__grantAccess(ids);
+          cb({ action: 'picked', docs: [{ id: window.__pickedId || ids }] });
+        }, window.__pickerDelay || 50);
+      } });
     };
     window.google.picker = P;
   });
@@ -786,6 +796,29 @@ await test("Hors-ligne : bandeau temporaire, icône hors-ligne qui le réaffiche
   await page_context.setOffline(false);
   await wait(500);
   if ((await page.innerHTML('#sync-status-btn')).includes('#i-wifi-off')) throw new Error('icône hors-ligne restée après retour du réseau');
+});
+
+await test("drive.file : écran d'ajout masqué pendant le Picker, accès effectif en différé → document ouvert", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.evaluate(() => { window.__pickerDelay = 800; window.__grantDelay = 1500; });
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => window.__pickerOpen === true);
+  eq(await page.isVisible('#access-modal-overlay'), false, 'écran d\'ajout masqué pendant le Picker');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'), null, { timeout: 15000 });
+  const shortcuts = Object.values(files).filter(f => f.mimeType === 'application/vnd.google-apps.shortcut').map(f => f.shortcutDetails.targetId).sort();
+  eq(shortcuts, ['otherapp', 'otherdoc'], 'raccourcis créés');
+});
+
+await test("drive.file : Picker qui renvoie un autre identifiant → l'accès réel est vérifié, document ouvert", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.evaluate(() => { window.__pickedId = 'autre-identifiant'; });
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'), null, { timeout: 15000 });
+  eq(await page.isVisible('#access-modal-overlay'), false, 'écran d\'ajout fermé');
 });
 
 await browser.close();
