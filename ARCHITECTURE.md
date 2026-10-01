@@ -33,6 +33,7 @@ Choix assumés :
 | `config.js` | Client ID Google OAuth (public) |
 | `manifest.json`, `sw.js`, `icon-512.png` | PWA. **Pas encore branchés** dans `index.html` |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
+| `maquettes/installation-pwa.html` | Maquette autonome de la fenêtre d'installation PWA (non branchée à `index.html`) |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
 
 ## 3. Organisation dans Google Drive
