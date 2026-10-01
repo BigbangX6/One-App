@@ -33,6 +33,7 @@ Choix assumés :
 | `config.js` | Client ID Google OAuth (public) |
 | `manifest.json`, `sw.js`, `icon-512.png` | PWA. **Pas encore branchés** dans `index.html` |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
+| `maquettes/accueil-creatif.html` | Pistes d'accueil moins classiques (bureau, bulles, commande, étagère, générateur aléatoire) |
 | `maquettes/accueil-approches.html` | Quatre pistes de page d'accueil à comparer (lanceur, façon Docs, apps-dossiers, rail d'apps) |
 | `maquettes/interface-one-app.html` | Maquette autonome de la future interface (style Google Workspace), données fictives |
 | `maquettes/installation-pwa.html` | Maquette autonome de la fenêtre d'installation PWA (non branchée à `index.html`) |
