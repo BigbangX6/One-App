@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Accueil One App, quatre pistes</title>
+<style>
+/* Quatre pistes pour la page d'accueil de One App. Fichier autonome, données fictives.
+   Mélange : la carte centrée et le violet de One App, la douceur de la fenêtre d'installation,
+   et les codes Google Workspace (barre de recherche en pilule, puces, avatar, listes sobres).
+   Mise en page : une barre de maquette en haut, puis l'accueil de la piste choisie en plein écran. */
+:root {
+    --font: "Google Sans Text", "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    --font-display: "Google Sans", "Google Sans Display", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-low: #f4f2f9;
+    --surface-high: #ece9f4;
+    --fg: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #e2e0e8;
+    --hover: rgba(29, 29, 31, 0.06);
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-strong: #6d28d9;
+    --accent-soft: #ede9fe;
+    --accent-ring: rgba(139, 92, 246, 0.35);
+    --on-accent: #ffffff;
+    --ok: #16a34a;
+    --scrim: rgba(17, 12, 34, 0.42);
+    --shadow: 0 4px 24px rgba(30, 20, 60, 0.08);
+    --shadow-up: 0 12px 40px rgba(30, 20, 60, 0.18);
+    --tile-s: 85%;
+    --tile-l: 93%;
+    --tile-fg-l: 32%;
+    --thumb-ink: #c9c6d3;
+    --inverse: #2b2930;
+    --on-inverse: #f4f2f8;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0b0b0d; --surface: #1c1c1e; --surface-low: #232227; --surface-high: #2c2b31; --fg: #f5f5f7; --muted: #a1a1a6;
+        --line: #36353b; --hover: rgba(245, 245, 247, 0.07); --accent: #8b5cf6; --accent-hover: #7c3aed; --accent-strong: #c4b5fd;
+        --accent-soft: #2e2445; --accent-ring: rgba(167, 139, 250, 0.4); --on-accent: #ffffff; --ok: #4ade80; --scrim: rgba(0, 0, 0, 0.6);
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4); --shadow-up: 0 12px 40px rgba(0, 0, 0, 0.6);
+        --tile-s: 30%; --tile-l: 24%; --tile-fg-l: 80%; --thumb-ink: #4a4852; --inverse: #f4f2f8; --on-inverse: #1d1d1f;
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #0b0b0d; --surface: #1c1c1e; --surface-low: #232227; --surface-high: #2c2b31; --fg: #f5f5f7; --muted: #a1a1a6;
+    --line: #36353b; --hover: rgba(245, 245, 247, 0.07); --accent: #8b5cf6; --accent-hover: #7c3aed; --accent-strong: #c4b5fd;
+    --accent-soft: #2e2445; --accent-ring: rgba(167, 139, 250, 0.4); --on-accent: #ffffff; --ok: #4ade80; --scrim: rgba(0, 0, 0, 0.6);
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.4); --shadow-up: 0 12px 40px rgba(0, 0, 0, 0.6);
+    --tile-s: 30%; --tile-l: 24%; --tile-fg-l: 80%; --thumb-ink: #4a4852; --inverse: #f4f2f8; --on-inverse: #1d1d1f;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.i { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; }
+.i.s18 { width: 18px; height: 18px; } .i.s20 { width: 20px; height: 20px; }
+
+/* --- Barre de maquette --- */
+.pv { flex: none; background: var(--surface); border-bottom: 1px dashed var(--line); padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+.pv-row { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.pv strong { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+.pv-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.pv-tabs button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.pv-tabs button[aria-selected="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.pv-desc { font-size: 13px; color: var(--muted); line-height: 1.45; max-width: 90ch; }
+.pv-desc b { color: var(--fg); font-weight: 600; }
+.pv select { margin-left: auto; font-size: 12px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+
+#stage { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
+
+/* --- Éléments partagés --- */
+.logo { width: 32px; height: 32px; color: var(--accent); }
+.wordmark { font-family: var(--font-display); font-size: 21px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: #7b5e3b; color: #fff; font-weight: 500; display: grid; place-items: center; flex: none; border: none; font-size: 15px; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: var(--muted); display: inline-grid; place-items: center; flex: none; }
+.icon-btn:hover { background: var(--hover); }
+.tile {
+    --h: 265; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; line-height: 1; flex: none;
+    background: hsl(var(--h) var(--tile-s) var(--tile-l));
+}
+.tile.sm { width: 28px; height: 28px; border-radius: 8px; font-size: 15px; }
+.tile.xs { width: 20px; height: 20px; border-radius: 6px; font-size: 11px; }
+.search { display: flex; align-items: center; gap: 8px; height: 44px; border-radius: 22px; background: var(--surface-high); padding: 0 16px 0 12px; flex: 1; min-width: 0; max-width: 560px; color: var(--muted); }
+.search input { border: none; background: transparent; outline: none; flex: 1; min-width: 0; font-size: 15px; color: var(--fg); }
+.search:focus-within { background: var(--surface); box-shadow: var(--shadow); }
+.btn { height: 40px; border-radius: 20px; border: none; padding: 0 20px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; flex: none; }
+.btn .i { width: 18px; height: 18px; margin-left: -4px; }
+.btn.fill { background: var(--accent); color: var(--on-accent); }
+.btn.fill:hover { background: var(--accent-hover); }
+.btn.soft { background: var(--accent-soft); color: var(--accent-strong); }
+.btn.soft:hover { box-shadow: 0 0 0 1px var(--accent-ring); }
+.btn.ghost { background: transparent; color: var(--accent-strong); padding: 0 12px; }
+.btn.ghost:hover { background: var(--hover); }
+.install-pill { height: 36px; border-radius: 18px; padding: 0 14px 0 10px; font-size: 13px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; padding: 0 12px; font-weight: 500; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.chip:hover { background: var(--hover); }
+.chip[aria-selected="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+.chip[aria-selected="true"]::before { content: ""; width: 14px; height: 14px; background: currentColor; -webkit-mask: var(--check) center / contain no-repeat; mask: var(--check) center / contain no-repeat; }
+:root { --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E"); }
+.drive-note { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.drive-note .i { width: 18px; height: 18px; color: var(--ok); }
+.shared-ic { color: var(--muted); display: inline-flex; vertical-align: -3px; }
+.shared-ic .i { width: 16px; height: 16px; }
+.rowlist { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 14px; padding: 10px 8px; border-radius: 12px; border: none; background: transparent; text-align: left; width: 100%; }
+.row:hover { background: var(--hover); }
+.row .txt { flex: 1; min-width: 0; }
+.row b { display: block; font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row span.meta { font-size: 13px; color: var(--muted); }
+.row .when { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* =========================================================
+   PISTE 1 : LE LANCEUR
+   ========================================================= */
+.p1 { min-height: 100%; display: flex; justify-content: center; padding: 32px 16px 48px; }
+.p1-card { width: 100%; max-width: 640px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); padding: 24px 28px 28px; display: flex; flex-direction: column; gap: 20px; align-self: flex-start; }
+.p1-top { display: flex; align-items: center; gap: 10px; }
+.p1-top .spacer { flex: 1; }
+.p1-hello h1 { margin: 0; font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: -0.01em; }
+.p1-hello p { margin: 4px 0 0; }
+.install-card { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 14px 14px 16px; border-radius: 18px; background: var(--accent-soft); }
+.install-card .appicon { width: 44px; height: 44px; border-radius: 11px; }
+.install-card b { display: block; font-size: 15px; color: var(--fg); }
+.install-card div > span { font-size: 13px; color: var(--muted); }
+.appicon { width: 56px; height: 56px; border-radius: 14px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 6px 16px var(--accent-ring); flex: none; }
+.appicon .i { width: 62%; height: 62%; }
+.seg { display: flex; padding: 4px; border-radius: 12px; background: var(--surface-low); gap: 4px; }
+.seg button { flex: 1; border: none; background: transparent; height: 36px; border-radius: 9px; font-weight: 600; color: var(--muted); display: inline-flex; justify-content: center; align-items: center; gap: 6px; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.seg .count { font-size: 12px; font-weight: 600; color: var(--muted); }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 20px 8px; padding: 4px 0; }
+.home-app { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 2px; border-radius: 16px; min-width: 0; }
+.home-app:hover { background: var(--hover); }
+.home-app .tile { width: 64px; height: 64px; border-radius: 18px; font-size: 32px; position: relative; }
+.home-app .lbl { font-size: 13px; font-weight: 500; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.home-app .dot { position: absolute; right: -4px; top: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; color: var(--muted); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.home-app .dot .i { width: 14px; height: 14px; }
+.home-app.add .tile { background: transparent; border: 2px dashed var(--line); color: var(--accent); }
+.p1-foot { border-top: 1px solid var(--line); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* =========================================================
+   PISTE 2 : FAÇON DOCS / SHEETS
+   ========================================================= */
+.wbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface); position: sticky; top: 0; z-index: 3; }
+.wbar .brand { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; }
+.wbar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.p2-band { background: var(--surface-low); padding: 18px 16px 24px; }
+.p2-band-in, .p2-main { max-width: 1040px; margin: 0 auto; }
+.p2-band h2, .p2-main h2 { margin: 0 0 14px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.p2-band h2 .muted { color: var(--muted); font-weight: 400; font-size: 13px; }
+.p2-apps { display: flex; gap: 16px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
+.p2-app { flex: none; width: 128px; border: none; background: transparent; padding: 0; text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.p2-app .cover { width: 128px; height: 96px; border-radius: 12px; border: 1px solid var(--line); background: hsl(var(--h) var(--tile-s) var(--tile-l)); display: grid; place-items: center; font-size: 40px; transition: border-color 0.15s, box-shadow 0.15s; }
+.p2-app:hover .cover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.p2-app.add .cover { background: var(--surface); color: var(--accent); }
+.p2-app.add .cover .i { width: 44px; height: 44px; }
+.p2-app b { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p2-main { padding: 20px 16px 48px; }
+.p2-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.p2-head h2 { margin: 0; flex: 1; }
+.p2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 16px; }
+.p2-doc { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 0; text-align: left; overflow: hidden; display: flex; flex-direction: column; }
+.p2-doc:hover { border-color: var(--accent); }
+.thumb { height: 150px; background: var(--surface-low); border-bottom: 1px solid var(--line); padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.thumb .t { height: 8px; width: 55%; border-radius: 4px; background: hsl(var(--h) 45% 55%); opacity: 0.85; margin-bottom: 6px; }
+.thumb .l { height: 5px; border-radius: 3px; background: var(--thumb-ink); }
+.thumb .cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 4px; }
+.thumb .cells span { height: 22px; border-radius: 5px; background: var(--thumb-ink); opacity: 0.6; }
+.thumb .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.thumb .cal span { height: 14px; border-radius: 3px; background: var(--thumb-ink); opacity: 0.5; }
+.thumb .cal span.on { background: hsl(var(--h) 60% 55%); opacity: 1; }
+.thumb .ck { display: flex; gap: 6px; align-items: center; }
+.thumb .ck i { width: 9px; height: 9px; border-radius: 3px; border: 1.5px solid var(--thumb-ink); }
+.thumb .ck i.on { background: hsl(var(--h) 55% 50%); border-color: transparent; }
+.thumb .ck .l { flex: 1; }
+.p2-doc .cap { padding: 12px 8px 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.p2-doc .cap b { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p2-doc .cap .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.p2-doc .cap .meta span:not(.tile):not(.icon-btn) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p2-doc .cap .icon-btn { width: 28px; height: 28px; }
+
+/* =========================================================
+   PISTE 3 : LES APPS-DOSSIERS
+   ========================================================= */
+.p3 { max-width: 1120px; margin: 0 auto; padding: 8px 16px 48px; }
+.p3-hero { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 20px 0 18px; }
+.p3-hero h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 30px; letter-spacing: -0.01em; flex: 1; min-width: 220px; }
+.p3-hero h1 small { display: block; font-size: 15px; color: var(--muted); margin-top: 6px; font-family: var(--font); }
+.p3-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.folder { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 8px; display: flex; flex-direction: column; transition: box-shadow 0.15s; }
+.folder:hover { box-shadow: var(--shadow); }
+.folder-head { display: flex; align-items: center; gap: 12px; padding: 8px 4px 10px 8px; }
+.folder-head .txt { flex: 1; min-width: 0; }
+.folder-head b { font-size: 16px; font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-head span { font-size: 12px; color: var(--muted); }
+.folder .rowlist { background: var(--surface-low); border-radius: 14px; padding: 4px; }
+.folder .row { padding: 8px 10px; gap: 10px; }
+.folder .row b { font-size: 14px; }
+.folder .row .ic { color: hsl(var(--h) 40% 50%); }
+.folder .row .ic .i { width: 18px; height: 18px; }
+.folder-foot { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px 0 4px; }
+.folder .empty-txt { padding: 18px 12px; text-align: center; color: var(--muted); font-size: 13px; }
+.folder.add { border-style: dashed; background: transparent; align-items: center; justify-content: center; min-height: 140px; color: var(--muted); gap: 8px; text-align: center; padding: 20px; }
+.folder.add .tile { background: var(--accent-soft); color: var(--accent-strong); }
+.folder.add b { color: var(--fg); font-weight: 500; font-size: 15px; }
+.install-float {
+    position: sticky; bottom: 16px; margin: 24px auto 0; width: min(560px, 100%); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+    padding: 10px 10px 10px 12px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-up); border: 1px solid var(--line); z-index: 2;
+}
+.install-float .appicon { width: 40px; height: 40px; border-radius: 10px; box-shadow: none; }
+.install-float b { font-size: 14px; display: block; }
+.install-float div > span { font-size: 12px; color: var(--muted); }
+
+/* =========================================================
+   PISTE 4 : LE RAIL D'APPS
+   ========================================================= */
+.p4 { display: grid; grid-template-columns: 84px 1fr; min-height: 100%; }
+.rail { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0; position: sticky; top: 0; height: 100%; max-height: 100%; overflow-y: auto; }
+.rail .logo { margin-bottom: 10px; width: 34px; height: 34px; }
+.rail-btn { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 76px; padding: 4px 0; font-size: 11px; font-weight: 500; color: var(--muted); }
+.rail-btn .pill { width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; transition: background 0.15s; }
+.rail-btn:hover .pill { background: var(--hover); }
+.rail-btn[aria-selected="true"] { color: var(--fg); }
+.rail-btn[aria-selected="true"] .pill { background: var(--accent-soft); color: var(--accent-strong); }
+.rail-btn .tile.xs { width: 24px; height: 24px; font-size: 14px; border-radius: 7px; }
+.rail-btn .lbl { max-width: 72px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-sep { width: 32px; height: 1px; background: var(--line); margin: 6px 0; }
+.rail .bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 12px; }
+.rail-install { border: none; background: var(--accent); color: var(--on-accent); border-radius: 16px; width: 64px; padding: 10px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; box-shadow: 0 4px 12px var(--accent-ring); }
+.rail-install:hover { background: var(--accent-hover); }
+.p4-main { min-width: 0; padding: 0 0 48px; }
+.p4-top { display: flex; align-items: center; gap: 12px; padding: 12px 24px; position: sticky; top: 0; background: var(--bg); z-index: 2; }
+.p4-top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.p4-body { max-width: 880px; padding: 8px 24px 0; }
+.p4-body h1 { margin: 8px 0 16px; font-family: var(--font-display); font-weight: 400; font-size: 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.p4-body h1 .grow { flex: 1; min-width: 0; }
+.resume { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding: 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 24px; }
+.resume .tile { width: 56px; height: 56px; border-radius: 16px; font-size: 28px; }
+.resume small { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.resume b { display: block; font-size: 18px; font-weight: 500; margin: 2px 0; }
+.resume div > span { color: var(--muted); font-size: 13px; }
+.p4-section { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px 8px; }
+.p4 .rowlist { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 6px; }
+
+/* --- Fenêtre d'installation (reprise de la maquette PWA) --- */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade 0.15s; }
+.sheet { width: min(440px, 100%); background: var(--surface); border-radius: 24px; padding: 22px 20px 16px; display: flex; flex-direction: column; gap: 18px; box-shadow: var(--shadow-up); animation: pop 0.25s cubic-bezier(.2, .9, .3, 1.1); }
+.sheet-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; }
+.sheet h2 { margin: 2px 0 4px; font-size: 21px; font-weight: 700; }
+.sheet p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+.perks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.perks li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 13px; font-weight: 600; }
+.perks .i { width: 16px; height: 16px; }
+.big-btn { width: 100%; height: 52px; border: none; border-radius: 14px; background: var(--accent); color: var(--on-accent); font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.big-btn:hover { background: var(--accent-hover); }
+.sheet .later { align-self: center; border: none; background: none; color: var(--muted); padding: 6px 12px; }
+@keyframes pop { from { opacity: 0; transform: scale(0.96) translateY(8px); } }
+@keyframes fade { from { opacity: 0; } }
+@media (max-width: 560px) {
+    .scrim { align-items: flex-end; padding: 0; }
+    .sheet { border-radius: 24px 24px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--inverse); color: var(--on-inverse); padding: 12px 18px; border-radius: 12px; font-size: 14px; z-index: 60; box-shadow: var(--shadow-up); max-width: calc(100vw - 32px); animation: fade 0.15s; }
+
+/* --- Petits écrans --- */
+@media (max-width: 720px) {
+    .p1 { padding: 0; }
+    .p1-card { border-radius: 0; border: none; box-shadow: none; min-height: 100%; padding: 16px 16px 32px; }
+    .install-card { grid-template-columns: auto 1fr; }
+    .install-card .btn { grid-column: 1 / -1; justify-content: center; }
+    .wbar { flex-wrap: wrap; }
+    .wbar .search { order: 3; flex-basis: 100%; max-width: none; }
+    .wbar .wordmark { font-size: 19px; }
+    .install-pill .txt { display: none; }
+    .install-pill { padding: 0; width: 36px; justify-content: center; }
+    .install-pill .i { margin: 0; }
+    .p2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .thumb { height: 110px; padding: 12px; }
+    .p3-grid { grid-template-columns: 1fr; }
+    .p3-hero h1 { font-size: 26px; }
+    .p4 { grid-template-columns: 1fr; padding-bottom: 76px; }
+    .rail {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto; height: auto; flex-direction: row; justify-content: flex-start; overflow-x: auto; overflow-y: hidden;
+        border-right: none; border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 5; gap: 0;
+    }
+    .rail .logo, .rail-sep { display: none; }
+    .rail .bottom { margin: 0 0 0 auto; padding: 0 0 0 8px; flex-direction: row; position: sticky; right: 0; background: var(--surface); }
+    .rail-btn { width: 64px; flex: none; }
+    .p4-top, .p4-body { padding-left: 16px; padding-right: 16px; }
+    .resume { grid-template-columns: auto 1fr; }
+    .resume .btn { grid-column: 1 / -1; justify-content: center; }
+    .row .when.hide-sm { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+    <symbol id="i-cloud-done" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95A5.47 5.47 0 0 1 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11A2.98 2.98 0 0 1 22 15c0 1.65-1.35 3-3 3zm-9-3.82-2.09-2.09L6.5 13.5 10 17l6.01-6.01-1.41-1.41z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><path d="M9 13.75c-2.34 0-7 1.17-7 3.5V19h14v-1.75c0-2.33-4.66-3.5-7-3.5zM4.34 17c.84-.58 2.87-1.25 4.66-1.25s3.82.67 4.66 1.25H4.34zM9 12c1.93 0 3.5-1.57 3.5-3.5S10.93 5 9 5 5.5 6.57 5.5 8.5 7.07 12 9 12zm0-5c.83 0 1.5.67 1.5 1.5S9.83 10 9 10s-1.5-.67-1.5-1.5S8.17 7 9 7zm7.04 6.81c1.16.84 1.96 1.96 1.96 3.44V19h4v-1.75c0-2.02-3.5-3.17-5.96-3.44zM15 12c1.93 0 3.5-1.57 3.5-3.5S16.93 5 15 5c-.54 0-1.04.13-1.5.35.63.89 1 1.98 1 3.15s-.37 2.26-1 3.15c.46.22.96.35 1.5.35z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3 2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></symbol>
+    <symbol id="i-install" viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M8 16h8v2H8zm0-4h8v2H8zm6-10H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M21 11 23 9a15.9 15.9 0 0 0-12.43-4.47l2.58 2.58c2.89.27 5.7 1.55 7.85 3.89zm-2 2a9.86 9.86 0 0 0-4.11-2.62l3.2 3.2zM9 17l3 3 3-3a4.24 4.24 0 0 0-6 0zM3.41 1.64 2 3.05 5.05 6.1C3.59 6.83 2.22 7.79 1 9l2 2c1.24-1.24 2.65-2.21 4.17-2.9l2.24 2.24A9.86 9.86 0 0 0 5 13l2 2a7.03 7.03 0 0 1 4.89-2.06L19.95 21l1.41-1.41L3.41 1.64z"/></symbol>
+    <symbol id="i-check-c" viewBox="0 0 24 24"><path d="M16.59 7.58 10 14.17l-3.59-3.58L5 12l5 5 8-8zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-drive" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m12 4-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
+</defs></svg>
+
+<div class="pv">
+    <div class="pv-row">
+        <strong>MAQUETTE · ACCUEIL</strong>
+        <div class="pv-tabs" role="tablist" id="pv-tabs"></div>
+        <select id="pv-theme" aria-label="Thème"><option value="auto">Thème auto</option><option value="light">Clair</option><option value="dark">Sombre</option></select>
+    </div>
+    <div class="pv-desc" id="pv-desc"></div>
+</div>
+<div id="stage"></div>
+
+<script>
+(function () {
+    const APPS = [
+        { id: 'budget', name: 'Budget', icon: '💰', h: 145, kind: 'table' },
+        { id: 'agenda', name: 'Agenda partagé', icon: '📅', h: 215, kind: 'cal', shared: 'Camille' },
+        { id: 'recettes', name: 'Recettes', icon: '🍳', h: 30, kind: 'text' },
+        { id: 'courses', name: 'Liste de courses', icon: '🛒', h: 180, kind: 'check' },
+        { id: 'notes', name: 'Notes de réunion', icon: '📝', h: 48, kind: 'text' },
+        { id: 'sport', name: 'Suivi sport', icon: '🏃', h: 0, kind: 'table' }
+    ];
+    const DOCS = [
+        { id: 'b26', app: 'budget', name: 'Budget 2026', mod: '10:42' },
+        { id: 'plan', app: 'agenda', name: 'Planning octobre', mod: '09:15', shared: true },
+        { id: 'gratin', app: 'recettes', name: 'Gratin dauphinois', mod: 'Hier' },
+        { id: 'sem', app: 'courses', name: 'Courses de la semaine', mod: 'Hier' },
+        { id: 'b25', app: 'budget', name: 'Budget 2025', mod: '28 sept.' },
+        { id: 'cr', app: 'notes', name: 'Réunion équipe du 24/09', mod: '24 sept.' },
+        { id: 'tarte', app: 'recettes', name: 'Tarte aux pommes', mod: '12 sept.' },
+        { id: 'bvac', app: 'budget', name: 'Vacances en Bretagne', mod: '3 août' }
+    ];
+    const app = (id) => APPS.find((a) => a.id === id);
+    const docsOf = (id) => DOCS.filter((d) => d.app === id);
+    const I = (id, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+    const tile = (a, c = '') => `<span class="tile ${c}" style="--h:${a.h}">${a.icon}</span>`;
+    const sharedIc = (who) => `<span class="shared-ic" title="Partagé par ${who}">${I('people')}</span>`;
+    const avatar = `<button class="avatar" data-toast="Menu du compte : alex.martin@gmail.com, se déconnecter" aria-label="Compte">A</button>`;
+    const brand = `<span class="brand"><svg class="i logo"><use href="#i-cloud"/></svg><span class="wordmark">One App</span></span>`;
+    const search = (ph) => `<label class="search">${I('search', 's20')}<input type="search" placeholder="${ph}" aria-label="Rechercher"></label>`;
+    const installPill = `<button class="btn fill install-pill" data-install>${I('install')}<span class="txt">Installer l'app</span></button>`;
+    const driveNote = `<span class="drive-note">${I('cloud-done')}Tout est enregistré dans votre Drive</span>`;
+
+    const PISTES = [
+        { id: 'p1', name: '1 · Le lanceur', desc: "<b>Au plus près de la version actuelle.</b> La carte centrée de One App, avec les apps en grosses icônes comme sur l'écran d'accueil d'un téléphone. On comprend tout de suite qu'on <b>lance des apps</b>. L'invitation à installer est une carte violette en haut, dans le style de la fenêtre d'installation." },
+        { id: 'p2', name: '2 · Façon Docs', desc: "<b>La plus proche de Google Docs et Sheets.</b> Leur page d'accueil a une bande « Créer un document » puis les fichiers récents en vignettes. Ici, la bande contient les apps et les vignettes sont vos documents. On comprend : <b>One App, c'est Docs, mais pour mes propres apps</b>." },
+        { id: 'p3', name: '3 · Apps-dossiers', desc: "<b>Le juste milieu entre Drive et une app.</b> Chaque app est une carte qui montre ses derniers documents, comme un dossier Drive qui saurait s'ouvrir. Un seul coup d'œil répond à « quelle app » et « quel fichier ». L'invitation à installer flotte en bas de l'écran." },
+        { id: 'p4', name: "4 · Rail d'apps", desc: "<b>Le côté « logiciel ».</b> Les apps sont rangées dans un rail à gauche (en bas sur téléphone), comme les apps dans Gmail ou les serveurs dans Discord. L'accueil met en avant le document à reprendre. Le bouton d'installation reste fixé en bas du rail." }
+    ];
+    const S = { p: 'p3', t1: 'apps', t2: 'all', t3: 'all', t4: 'home' };
+
+    // ----- Piste 1 -----
+    function p1() {
+        const tabs = [['apps', 'Apps', APPS.length], ['recent', 'Récents', DOCS.length], ['shared', 'Partagés', 2]];
+        let body;
+        if (S.t1 === 'apps') {
+            body = `<div class="home-grid">${APPS.map((a) => `<button class="home-app" data-toast="Ouvre ${a.name} : ses documents s'affichent">
+                <span class="tile" style="--h:${a.h}">${a.icon}${a.shared ? `<span class="dot">${I('people')}</span>` : ''}</span><span class="lbl">${a.name}</span></button>`).join('')}
+                <button class="home-app add" data-toast="Ouvre « Créer une app »"><span class="tile">${I('add')}</span><span class="lbl">Créer</span></button></div>`;
+        } else {
+            const list = S.t1 === 'recent' ? DOCS : DOCS.filter((d) => d.shared || app(d.app).shared);
+            body = `<div class="rowlist">${list.map((d) => { const a = app(d.app); return `<button class="row" data-toast="Ouvre ${d.name}">${tile(a, 'sm')}<span class="txt"><b>${d.name} ${d.shared ? sharedIc('Camille') : ''}</b><span class="meta">${a.name}</span></span><span class="when">${d.mod}</span></button>`; }).join('')}
+                ${S.t1 === 'shared' ? `<button class="row" data-toast="Ouvre l'app Agenda partagé">${tile(app('agenda'), 'sm')}<span class="txt"><b>Agenda partagé</b><span class="meta">App de Camille</span></span><span class="when">App</span></button>` : ''}</div>`;
+        }
+        return `<div class="p1"><div class="p1-card">
+            <div class="p1-top"><svg class="i logo"><use href="#i-cloud"/></svg><span class="wordmark">One App</span><span class="spacer"></span>
+                <button class="icon-btn" data-toast="Recherche dans les apps et les documents" aria-label="Rechercher">${I('search')}</button>${avatar}</div>
+            <div class="p1-hello"><h1>Bonjour Alex</h1><p>${driveNote}</p></div>
+            <div class="install-card"><span class="appicon">${I('cloud')}</span><div><b>Installez One App</b><span>Ouvrez vos apps d'un geste, même sans Internet.</span></div>
+                <button class="btn fill" data-install>Installer</button></div>
+            <div class="seg" role="tablist">${tabs.map(([id, l, n]) => `<button role="tab" aria-selected="${S.t1 === id}" data-t1="${id}">${l} <span class="count">${n}</span></button>`).join('')}</div>
+            ${body}
+        </div></div>`;
+    }
+
+    // ----- Piste 2 -----
+    function thumb(a, seed) {
+        const L = (w) => `<span class="l" style="width:${w}%"></span>`;
+        let inner = `<span class="t"></span>`;
+        if (a.kind === 'table') inner += `<div class="cells"><span></span><span></span><span></span></div>` + [92, 80, 86, 70, 88, 76].map(L).join('');
+        else if (a.kind === 'cal') inner += `<div class="cal">${Array.from({ length: 28 }, (_, k) => `<span class="${[3, 9, 12, 17, 24].includes(k) ? 'on' : ''}"></span>`).join('')}</div>`;
+        else if (a.kind === 'check') inner += [1, 1, 0, 1, 0, 0].map((on, k) => `<div class="ck"><i class="${on ? 'on' : ''}"></i>${L(60 + ((k * 13 + seed) % 35))}</div>`).join('');
+        else inner += [100, 94, 98, 60, 0, 96, 90, 72].map((w) => w ? L(w) : '<span style="height:6px"></span>').join('');
+        return `<div class="thumb" style="--h:${a.h}">${inner}</div>`;
+    }
+    function p2() {
+        const tabs = [['all', 'Tous'], ['mine', 'Les miens'], ['shared', 'Partagés avec moi']];
+        const list = DOCS.filter((d) => S.t2 === 'all' || (S.t2 === 'shared' ? d.shared : !d.shared));
+        return `<header class="wbar">${brand}${search('Rechercher')}<span class="right">${installPill}${avatar}</span></header>
+            <section class="p2-band"><div class="p2-band-in">
+                <h2>Ouvrir une app <span class="muted">· ${APPS.length} apps dans votre Drive</span></h2>
+                <div class="p2-apps">
+                    <button class="p2-app add" data-toast="Ouvre « Créer une app »"><span class="cover">${I('add')}</span><b>Créer une app</b></button>
+                    ${APPS.map((a) => `<button class="p2-app" style="--h:${a.h}" data-toast="Nouveau document avec ${a.name}"><span class="cover">${a.icon}</span><b>${a.name}${a.shared ? ' ' + sharedIc(a.shared) : ''}</b></button>`).join('')}
+                </div></div></section>
+            <main class="p2-main">
+                <div class="p2-head"><h2>Documents récents</h2><div class="chips" role="tablist">${tabs.map(([id, l]) => `<button class="chip" role="tab" aria-selected="${S.t2 === id}" data-t2="${id}">${l}</button>`).join('')}</div></div>
+                <div class="p2-grid">${list.map((d, k) => { const a = app(d.app); return `<button class="p2-doc" data-toast="Ouvre ${d.name}">${thumb(a, k * 7)}
+                    <span class="cap"><b>${d.name}</b><span class="meta">${tile(a, 'xs')}<span>${d.shared ? 'Camille · ' : ''}${d.mod}</span><span class="icon-btn" aria-hidden="true">${I('more', 's18')}</span></span></span></button>`; }).join('')}</div>
+            </main>`;
+    }
+
+    // ----- Piste 3 -----
+    function p3() {
+        const tabs = [['all', 'Toutes'], ['mine', 'Mes apps'], ['shared', 'Partagées avec moi']];
+        const apps = APPS.filter((a) => S.t3 === 'all' || (S.t3 === 'shared' ? a.shared : !a.shared));
+        const card = (a) => {
+            const ds = docsOf(a.id);
+            const rows = ds.slice(0, 3).map((d) => `<button class="row" data-toast="Ouvre ${d.name}"><span class="ic">${I('doc')}</span><span class="txt"><b>${d.name}</b></span><span class="when">${d.mod}</span></button>`).join('');
+            return `<article class="folder" style="--h:${a.h}">
+                <div class="folder-head">${tile(a)}<div class="txt"><b>${a.name}</b><span>${a.shared ? `Partagée par ${a.shared}` : ds.length ? ds.length + ' document' + (ds.length > 1 ? 's' : '') : 'Nouvelle app'}</span></div>
+                    <button class="icon-btn" data-toast="Menu : modifier l'app, ouvrir dans Drive, supprimer" aria-label="Actions">${I('more', 's20')}</button></div>
+                <div class="rowlist">${rows || `<div class="empty-txt">Pas encore de document.</div>`}</div>
+                <div class="folder-foot"><button class="btn ghost" data-toast="Nouveau document avec ${a.name}">${I('add')}Nouveau</button>
+                    ${ds.length > 3 ? `<button class="btn ghost" style="color:var(--muted)" data-toast="Affiche les ${ds.length} documents">Tout voir</button>` : ''}</div>
+            </article>`;
+        };
+        return `<header class="wbar">${brand}${search('Rechercher une app ou un document')}<span class="right">${avatar}</span></header>
+            <div class="p3">
+                <div class="p3-hero"><h1>Bonjour Alex<small>${driveNote}</small></h1>
+                    <div class="chips" role="tablist">${tabs.map(([id, l]) => `<button class="chip" role="tab" aria-selected="${S.t3 === id}" data-t3="${id}">${l}</button>`).join('')}</div></div>
+                <div class="p3-grid">${apps.map(card).join('')}
+                    ${S.t3 !== 'shared' ? `<button class="folder add" data-toast="Ouvre « Créer une app »"><span class="tile">${I('add')}</span><b>Créer une app</b><span>Décrivez-la à une IA, One App l'enregistre dans votre Drive.</span></button>` : ''}</div>
+                <div class="install-float"><span class="appicon">${I('cloud')}</span><div><b>One App sur votre écran d'accueil</b><span>Un geste pour l'ouvrir, même sans Internet.</span></div><button class="btn fill" data-install>Installer</button></div>
+            </div>`;
+    }
+
+    // ----- Piste 4 -----
+    function p4() {
+        const btn = (id, label, ic) => `<button class="rail-btn" role="tab" aria-selected="${S.t4 === id}" data-t4="${id}"><span class="pill">${ic}</span><span class="lbl">${label}</span></button>`;
+        const rail = `<nav class="rail" role="tablist" aria-label="Apps"><svg class="i logo"><use href="#i-cloud"/></svg>
+            ${btn('home', 'Accueil', I('home'))}${btn('shared', 'Partagés', I('people'))}<span class="rail-sep"></span>
+            ${APPS.map((a) => btn(a.id, a.name, tile(a, 'xs'))).join('')}
+            <button class="rail-btn" data-toast="Ouvre « Créer une app »"><span class="pill">${I('add')}</span><span class="lbl">Créer</span></button>
+            <div class="bottom"><button class="rail-install" data-install>${I('install', 's20')}Installer</button></div></nav>`;
+        const docRow = (d, showApp = true) => { const a = app(d.app); return `<button class="row" data-toast="Ouvre ${d.name}">${tile(a, 'sm')}<span class="txt"><b>${d.name} ${d.shared ? sharedIc('Camille') : ''}</b>${showApp ? `<span class="meta">${a.name}</span>` : ''}</span><span class="when">${d.mod}</span></button>`; };
+        let body;
+        if (S.t4 === 'home' || S.t4 === 'shared') {
+            const last = DOCS[0], la = app(last.app);
+            const list = S.t4 === 'shared' ? DOCS.filter((d) => d.shared) : DOCS.slice(1);
+            body = `<h1><span class="grow">${S.t4 === 'shared' ? 'Partagés avec moi' : 'Bonjour Alex'}</span></h1>
+                ${S.t4 === 'home' ? `<div class="resume">${tile(la)}<div><small>Reprendre</small><b>${last.name}</b><span>${la.name} · modifié à ${last.mod}</span></div><button class="btn soft" data-toast="Ouvre ${last.name}">Ouvrir${I('arrow')}</button></div>` : ''}
+                <div class="p4-section">${S.t4 === 'shared' ? 'Documents' : 'Récents'}</div><div class="rowlist">${list.map((d) => docRow(d)).join('')}</div>`;
+        } else {
+            const a = app(S.t4), ds = docsOf(a.id);
+            body = `<h1>${tile(a)}<span class="grow">${a.name}</span><button class="icon-btn" data-toast="Modifier l'app, ouvrir dans Drive, supprimer" aria-label="Actions">${I('more')}</button><button class="btn fill" data-toast="Nouveau document avec ${a.name}">${I('add')}Nouveau</button></h1>
+                ${a.shared ? `<p class="drive-note" style="margin:-6px 0 16px 4px">${I('people')}App partagée par ${a.shared}</p>` : ''}
+                ${ds.length ? `<div class="rowlist">${ds.map((d) => docRow(d, false)).join('')}</div>` : `<div class="resume" style="grid-template-columns:auto 1fr">${tile(a)}<div><b>Pas encore de document</b><span>Touchez « Nouveau » pour commencer.</span></div></div>`}`;
+        }
+        return `<div class="p4">${rail}<div class="p4-main"><div class="p4-top">${search('Rechercher')}<span class="right">${avatar}</span></div><div class="p4-body">${body}</div></div></div>`;
+    }
+
+    const VIEWS = { p1, p2, p3, p4 };
+    const stage = document.getElementById('stage');
+    function render() {
+        document.getElementById('pv-tabs').innerHTML = PISTES.map((p) => `<button role="tab" aria-selected="${S.p === p.id}" data-p="${p.id}">${p.name}</button>`).join('');
+        document.getElementById('pv-desc').innerHTML = PISTES.find((p) => p.id === S.p).desc;
+        const top = stage.scrollTop;
+        stage.innerHTML = VIEWS[S.p]();
+        stage.scrollTop = top;
+    }
+
+    function installSheet() {
+        const el = document.createElement('div');
+        el.className = 'scrim';
+        el.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ins-t">
+            <div class="sheet-head"><span class="appicon">${I('cloud')}</span><div><h2 id="ins-t">Installer One App</h2><p>Ajoutez One App à votre écran d'accueil pour l'ouvrir d'un seul geste, comme une application.</p></div>
+            <button class="icon-btn" data-close aria-label="Fermer">${I('close')}</button></div>
+            <ul class="perks"><li>${I('home')}Sur l'écran d'accueil</li><li>${I('wifi-off')}Marche sans Internet</li><li>${I('check-c')}Gratuit</li></ul>
+            <button class="big-btn" data-close data-toast="Puis le guide pas à pas (voir la maquette d'installation)">${I('install')}Installer One App</button>
+            <button class="later" data-close>Plus tard</button></div>`;
+        el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-close]')) el.remove(); });
+        document.body.appendChild(el);
+        el.querySelector('.big-btn').focus();
+    }
+
+    let tt;
+    function toast(msg) {
+        document.querySelector('.toast')?.remove();
+        const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+        document.body.appendChild(t); clearTimeout(tt); tt = setTimeout(() => t.remove(), 2400);
+    }
+
+    document.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-p],[data-t1],[data-t2],[data-t3],[data-t4],[data-install],[data-toast]');
+        if (!t) return;
+        if (t.dataset.p) { S.p = t.dataset.p; stage.scrollTop = 0; return render(); }
+        for (const k of ['t1', 't2', 't3', 't4']) if (t.dataset[k]) { S[k] = t.dataset[k]; return render(); }
+        if (t.hasAttribute('data-install')) return installSheet();
+        if (t.dataset.toast) toast(t.dataset.toast);
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelector('.scrim')?.remove(); });
+    document.getElementById('pv-theme').addEventListener('change', (e) => {
+        if (e.target.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', e.target.value);
+    });
+    render();
+})();
+</script>
+</body>
+</html>
