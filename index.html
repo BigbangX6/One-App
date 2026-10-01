@@ -684,7 +684,12 @@
             } catch (e) {
                 throw new DriveError("Réseau indisponible", 0);
             }
-            if (!res.ok) throw new DriveError(`Drive a répondu ${res.status}`, res.status);
+            if (!res.ok) {
+                // Raison donnée par Google (ex. clé API non autorisée pour l'API Drive)
+                let detail = '';
+                try { detail = (await res.json()).error.message; } catch (e) {}
+                throw new DriveError(`Drive a répondu ${res.status} (accès public)${detail ? ' : ' + detail : ''}`, res.status);
+            }
             return res;
         }
 
@@ -2016,7 +2021,13 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     
                     // Récupération du vrai nom de l'app
                     // (ownedByMe évite un doublon de raccourci si l'app m'appartient déjà)
-                    let appMeta = await (await readDriveFile(sourceAppId, 'fields=name,ownedByMe')).json();
+                    // Nom de l'app : à défaut (app illisible), celui noté dans le document
+                    let appMeta = { name: appName + '.oneapp', ownedByMe: false };
+                    try {
+                        appMeta = await (await readDriveFile(sourceAppId, 'fields=name,ownedByMe')).json();
+                    } catch (e) {
+                        console.warn("Nom de l'app partagée illisible :", e.message);
+                    }
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     let ownsApp = appMeta.ownedByMe === true;
 
@@ -2038,7 +2049,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
             } catch(e) {
                 console.error(e);
-                alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.");
+                alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.\n\n(" + e.message + ")");
                 document.getElementById('loading-apps').style.display = 'none';
             }
         }
@@ -2062,9 +2073,18 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                // L'app d'un autre utilisateur est lue en public (clé API)
-                let appRes = await readDriveFile(appFileId, 'alt=media');
-                let appHtml = await appRes.text();
+                // L'app d'un autre utilisateur est lue en public (clé API). Si elle est
+                // illisible, on prend la copie gardée sur l'appareil lors d'une ouverture précédente
+                let appHtml;
+                try {
+                    appHtml = await (await readDriveFile(appFileId, 'alt=media')).text();
+                } catch (e) {
+                    let cached = null;
+                    try { cached = await localStore.get('apps', appFileId); } catch (err) {}
+                    if (!cached || !cached.html) throw e;
+                    console.warn("App illisible sur Drive, copie de l'appareil utilisée :", e.message);
+                    appHtml = cached.html;
+                }
 
                 let oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
 
@@ -2165,7 +2185,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur critique lors du téléchargement des fichiers.");
+                alert("Erreur critique lors du téléchargement des fichiers.\n\n(" + error.message + ")");
             } finally {
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";

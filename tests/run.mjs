@@ -642,6 +642,26 @@ await test("drive.file : icône d'une app partagée lue en public", async (page)
   eq(await card.locator('div').first().textContent(), '💰', 'icône affichée');
 });
 
+await test("drive.file : app partagée illisible (clé API refusée) → copie de l'appareil, raison affichée", async (page) => {
+  addSharedFromOther();
+  delete files.otherdoc.noAccess;           // document déjà autorisé
+  files.otherapp.public = false;            // la clé API ne peut pas lire l'app
+  await page.evaluate(async (html) => { await localStore.put('apps', { appFileId: 'otherapp', html, cachedAt: Date.now() }); }, APP_HTML);
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.shown), ['partagé'], "affiché dans l'app");
+});
+
+await test("drive.file : app partagée illisible et absente de l'appareil → message avec la raison", async (page) => {
+  addSharedFromOther();
+  delete files.otherdoc.noAccess;
+  files.otherapp.public = false;
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await waitFor(async () => (page._dialogs || []).some(d => d.includes('accès public')));
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
