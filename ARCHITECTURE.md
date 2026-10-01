@@ -91,6 +91,8 @@ Dans l'ordre du fichier :
 | CONSTANTES SVG / CONFIGURATION | Icônes de synchro, URLs Drive, scope OAuth | |
 | CERVEAU LOCAL | État global du fichier ouvert | `isDirty`, `localContent`, `currentFileVersion` |
 | **ACCÈS DRIVE CENTRALISÉ** | Point d'entrée unique vers Google | `driveFetch`, `driveJson`, `renewToken`, `driveCreateFile`, `createOneFile`, `escapeDriveQuery` |
+| **STOCKAGE LOCAL (LOCAL D'ABORD)** | Copie des documents et des apps sur l'appareil (IndexedDB) | `localStore`, `persistOpenDoc`, `prepareLocalStore` |
+| REPRISE DES ENVOIS EN ATTENTE | Envoie les modifications restées sur l'appareil | `syncPendingDocs`, `syncPendingDoc` |
 | LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers, accueil | `initializeAppSystem`, `getOrCreateFolder`, `listInstalledApps`, `buildAppIcon`, `toggleAppMenu` |
 | GESTION DU BANDEAU D'EXÉCUTION | Renommer, dupliquer, liste de fichiers | `renameActiveFile`, `duplicateActiveFile`, `loadAppFiles`, `renameFile`, `deleteFile` |
 | **CONTRAT ONE APP** | Règles de création données aux IA | `ONEAPP_RULES`, `copyAppGenerationPrompt`, `createNewFile` |
@@ -117,7 +119,8 @@ métadonnées (`headRevisionId`, droits) → télécharge l'app et les données 
 ### Sauvegarder (le cœur du système)
 1. L'app appelle `OneAppAPI.saveData(state)` → message `SAVE_DATA_REQUEST`.
 2. One App ajoute l'état à l'historique Annuler (`appDataHistory`), puis `markDirty`.
-3. `markDirty` incrémente `localRevision` et programme `syncToDrive` dans 3 s.
+3. `markDirty` incrémente `localRevision`, **écrit tout de suite l'état sur l'appareil**
+   (`persistOpenDoc`, document marqué `dirty`) et programme `syncToDrive` dans 3 s.
 4. `performSync` vérifie la version distante :
    - inchangée → PATCH du fichier ; `isDirty` ne repasse à `false` **que si** aucune
      modification n'est arrivée pendant l'envoi (`localRevision` identique) ;
@@ -127,8 +130,28 @@ métadonnées (`headRevisionId`, droits) → télécharge l'app et les données 
    (5 s, 10 s… 60 s max).
 
 `flushSync` force l'enregistrement immédiat : appelé avant de fermer ou de changer de
-fichier. Il y a aussi un enregistrement quand l'onglet passe en arrière-plan, au retour du
+fichier. Si Drive reste injoignable, les modifications sont déjà sur l'appareil : on
+prévient l'utilisateur et on continue ; elles partiront plus tard. Il y a aussi un enregistrement quand l'onglet passe en arrière-plan, au retour du
 réseau, et une alerte `beforeunload` s'il reste des modifications.
+
+### Local d'abord (stockage sur l'appareil)
+Base IndexedDB `OneAppLocal` :
+
+| Store | Contenu |
+|---|---|
+| `docs` | Dernier état connu de chaque document ouvert : `data`, `metadata`, `dirty` (modifications pas encore sur Drive), `base` (version Drive sur laquelle reposent les données), `lastOpened` |
+| `apps` | Code HTML des apps ouvertes (pour le futur mode hors-ligne) |
+| `meta` | `account` : e-mail du compte Google propriétaire de ce stockage |
+
+- **Reprise** : au démarrage, au retour du réseau, après la fermeture d'un document et
+  toutes les minutes, `syncPendingDocs` envoie les documents `dirty`. Si le document a
+  changé ailleurs depuis `base`, une copie de secours est créée au lieu d'écraser Drive.
+- **Réouverture** d'un document `dirty` : `openAppEnvironment` affiche les données locales
+  et les envoie (conflit détecté par rapport à `base`).
+- **Confidentialité** : tout est effacé à la déconnexion, et si un autre compte Google se
+  connecte sur l'appareil (`ensureAccount`).
+- **Espace** : pas de limite fixe. Si le navigateur manque de place, les copies déjà
+  synchronisées les plus anciennes sont retirées (`freeSpace`), jamais un document `dirty`.
 
 ### Jeton Google expiré
 `driveFetch` reçoit 401 (ou voit le jeton périmé) → `renewToken` tente un renouvellement
@@ -169,7 +192,9 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
    vers googleapis.com : on perdrait la vérification d'erreurs et le renouvellement du jeton.
 2. **Toute modification des données du document ouvert passe par `markDirty`.**
    Ne jamais mettre `isDirty = false` ailleurs qu'après une confirmation de Drive.
-3. **Avant de fermer ou de changer de document : `await flushSync()`.**
+3. **Avant de fermer ou de changer de document : `await flushSync()`.** Et un document
+   `dirty` n'est retiré de l'appareil qu'après confirmation de Drive (ou à la déconnexion,
+   après avertissement).
 4. **Ne jamais insérer un nom, une icône ou une donnée Drive avec `innerHTML`** ou dans un
    `onclick="..."` généré. Utiliser `textContent`, `addEventListener`, `makeButton`.
    (Un fichier partagé porte un nom choisi par quelqu'un d'autre.)
@@ -183,6 +208,8 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
 ## 9. Limites connues / pistes
 
 - PWA et mode hors-ligne : `sw.js` et `manifest.json` existent mais ne sont pas branchés.
+  Le stockage local (étape 1) est en place ; reste l'ouverture sans réseau (étape 2).
+- Un document en attente dont on a perdu l'accès en écriture est retenté indéfiniment.
 - Deux apps avec le même `<title>` partagent le même dossier (leurs documents se mélangent).
 - Renommer une app ne renomme ni son dossier ni `app_name` dans ses documents.
 - La liste des apps et des fichiers n'est pas paginée (100 éléments maximum).

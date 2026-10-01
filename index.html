@@ -456,7 +456,17 @@
         let isViewingHistory = false;
         let historyMode = null; // 'data' ou 'app'
 
-        function logout() {
+        async function logout() {
+            // Dernière chance d'envoyer ce qui attend sur l'appareil
+            if (currentActiveOneFileId) await flushSync();
+            await syncPendingDocs();
+            try {
+                const pending = (await localStore.getAll('docs')).filter(d => d.dirty);
+                if (pending.length > 0 && !confirm(`${pending.length} document(s) ont des modifications qui n'ont pas encore pu être envoyées sur Google Drive. Se déconnecter les effacera de cet appareil.\n\nSe déconnecter quand même ?`)) return;
+                await localStore.clearAll(); // confidentialité : rien ne reste sur l'appareil
+            } catch (e) {
+                console.warn("Effacement du stockage local impossible :", e && e.message);
+            }
             localStorage.removeItem('oneapp_gdrive_token');
             localStorage.removeItem('oneapp_gdrive_expire');
             window.location.reload();
@@ -516,7 +526,6 @@
                     document.getElementById('shared-invite-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
                     document.getElementById('user-email').innerText = "Chargement du profil...";
-                    fetchUserProfile();
                     initializeAppSystem();
                 },
                 error_callback: (err) => {
@@ -634,6 +643,186 @@
             }
         }
 
+        // --- STOCKAGE LOCAL (LOCAL D'ABORD) ---
+        // Chaque modification est écrite sur l'appareil (IndexedDB) avant d'être
+        // envoyée à Drive : un plantage, une fermeture ou une coupure réseau ne
+        // perdent plus rien. Une modification n'est retirée de l'appareil qu'après
+        // confirmation de Drive. Stores :
+        //   docs : { fileId, appFileId, appName, fileName, metadata, data, dirty, base, lastOpened }
+        //   apps : { appFileId, html, cachedAt }
+        //   meta : { key: 'account', value: email } (le stockage appartient à ce compte)
+        const localStore = (() => {
+            const DB_NAME = 'OneAppLocal';
+            const STORES = ['docs', 'apps', 'meta'];
+            let dbPromise = null;
+
+            function open() {
+                if (!dbPromise) {
+                    dbPromise = new Promise((resolve, reject) => {
+                        if (!('indexedDB' in window)) return reject(new Error("IndexedDB indisponible"));
+                        const req = indexedDB.open(DB_NAME, 1);
+                        req.onupgradeneeded = () => {
+                            const db = req.result;
+                            db.createObjectStore('docs', { keyPath: 'fileId' });
+                            db.createObjectStore('apps', { keyPath: 'appFileId' });
+                            db.createObjectStore('meta', { keyPath: 'key' });
+                        };
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => reject(req.error);
+                    });
+                    dbPromise.catch(() => { dbPromise = null; });
+                }
+                return dbPromise;
+            }
+
+            async function run(store, mode, action) {
+                const db = await open();
+                return new Promise((resolve, reject) => {
+                    const t = db.transaction(store, mode);
+                    const req = action(t.objectStore(store));
+                    t.oncomplete = () => resolve(req ? req.result : undefined);
+                    t.onerror = () => reject(t.error);
+                    t.onabort = () => reject(t.error);
+                });
+            }
+
+            // Espace plein : on retire les copies déjà synchronisées les plus anciennes
+            // (jamais une modification en attente), puis on réessaie une fois
+            async function freeSpace() {
+                const docs = (await run('docs', 'readonly', s => s.getAll()))
+                    .filter(d => !d.dirty && d.fileId !== currentActiveOneFileId)
+                    .sort((a, b) => (a.lastOpened || 0) - (b.lastOpened || 0));
+                for (const d of docs.slice(0, Math.max(1, Math.ceil(docs.length / 2)))) {
+                    await run('docs', 'readwrite', s => s.delete(d.fileId));
+                }
+                await run('apps', 'readwrite', s => s.clear());
+            }
+
+            async function put(store, value) {
+                try {
+                    await run(store, 'readwrite', s => s.put(value));
+                } catch (e) {
+                    if (!e || e.name !== 'QuotaExceededError') throw e;
+                    console.warn("Stockage local plein : libération des anciennes copies.");
+                    await freeSpace();
+                    await run(store, 'readwrite', s => s.put(value));
+                }
+            }
+
+            return {
+                get: (store, key) => run(store, 'readonly', s => s.get(key)),
+                getAll: (store) => run(store, 'readonly', s => s.getAll()),
+                put: put,
+                remove: (store, key) => run(store, 'readwrite', s => s.delete(key)),
+                async clearAll() {
+                    for (const store of STORES) await run(store, 'readwrite', s => s.clear());
+                },
+                // Un autre compte Google utilisait cet appareil : on efface ses données
+                async ensureAccount(email) {
+                    const current = await run('meta', 'readonly', s => s.get('account'));
+                    if (current && current.value !== email) {
+                        console.warn("Autre compte détecté : effacement du stockage local.");
+                        await this.clearAll();
+                    }
+                    await put('meta', { key: 'account', value: email });
+                }
+            };
+        })();
+
+        let localStoreReady = false;   // compte vérifié : la reprise des envois est sûre
+        let lastPersist = Promise.resolve(true);
+
+        // Écrit l'état du document ouvert sur l'appareil. Les écritures s'enchaînent
+        // dans l'ordre ; lastPersist indique si la dernière a réussi.
+        function persistOpenDoc() {
+            if (!currentActiveOneFileId || !currentOneFileMetadata) return lastPersist;
+            const record = {
+                fileId: currentActiveOneFileId,
+                appFileId: currentDocInfo.appFileId,
+                appName: currentDocInfo.appName,
+                fileName: document.getElementById('running-file-title').value || currentDocInfo.fileName,
+                metadata: currentOneFileMetadata,
+                data: localContent,
+                dirty: isDirty,
+                base: currentFileVersion,
+                lastOpened: Date.now()
+            };
+            lastPersist = localStore.put('docs', record).then(() => (lastPersistOk = true), (e) => {
+                console.warn("Écriture locale impossible :", e && e.message);
+                return (lastPersistOk = false);
+            });
+            return lastPersist;
+        }
+
+        // --- REPRISE DES ENVOIS EN ATTENTE ---
+        // Documents fermés dont les modifications n'ont pas encore atteint Drive
+        // (plantage, coupure réseau...) : envoyés au démarrage, au retour du
+        // réseau, après fermeture d'un document et toutes les minutes.
+        const backgroundSyncs = new Map(); // fileId -> promesse en cours
+        let pendingSyncRun = null;
+
+        function syncPendingDocs() {
+            if (!localStoreReady) return Promise.resolve();
+            if (pendingSyncRun) return pendingSyncRun;
+            pendingSyncRun = (async () => {
+                let records;
+                try { records = await localStore.getAll('docs'); } catch (e) { return; }
+                for (const record of records) {
+                    if (!record.dirty || record.fileId === currentActiveOneFileId) continue;
+                    const job = syncPendingDoc(record);
+                    backgroundSyncs.set(record.fileId, job);
+                    try { await job; }
+                    catch (e) { console.warn(`Envoi en attente de « ${record.fileName} » reporté :`, e.message); }
+                    finally { backgroundSyncs.delete(record.fileId); }
+                }
+            })().finally(() => { pendingSyncRun = null; });
+            return pendingSyncRun;
+        }
+
+        async function syncPendingDoc(record) {
+            const remote = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(record.fileId)}?fields=modifiedTime,headRevisionId`);
+
+            if (!isRemoteNewer(remote, record.base)) {
+                const metadata = Object.assign({}, record.metadata, { version_timestamp: new Date().toISOString() });
+                const patchData = await driveJson(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(record.fileId)}?uploadType=media&fields=id,modifiedTime,headRevisionId`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oneapp_metadata: metadata, app_data: record.data })
+                });
+                await localStore.put('docs', Object.assign({}, record, {
+                    metadata: metadata,
+                    dirty: false,
+                    base: { rev: patchData.headRevisionId || null, time: patchData.modifiedTime || null }
+                }));
+                console.log(`MOTEUR : modifications en attente de « ${record.fileName} » envoyées.`);
+                return;
+            }
+
+            // Le document a changé ailleurs entre-temps : on ne l'écrase pas
+            const parentFolderId = await getParentFolderId(record.fileId);
+            await createOneFile(`${record.fileName} - Copie de secours`, parentFolderId,
+                record.metadata.app_name, record.metadata.source_app_drive_id, record.data);
+            await localStore.remove('docs', record.fileId);
+            alert(`« ${record.fileName} » a été modifié depuis un autre appareil pendant que vos modifications attendaient sur celui-ci. Elles ont été enregistrées dans « ${record.fileName} - Copie de secours ».`);
+        }
+
+        // Après connexion : vérifie le compte, protège le stockage et reprend les envois
+        async function prepareLocalStore() {
+            if (!currentUserEmail || currentUserEmail === "Utilisateur") return; // compte inconnu : pas de reprise
+            try {
+                await localStore.ensureAccount(currentUserEmail);
+                localStoreReady = true;
+            } catch (e) {
+                console.warn("Stockage local indisponible :", e && e.message);
+                return;
+            }
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().catch(() => {});
+            }
+            syncPendingDocs();
+            setInterval(syncPendingDocs, 60000);
+        }
+
         async function fetchUserProfile() {
             try {
                 let res = await driveFetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json");
@@ -657,7 +846,6 @@
                     document.getElementById('unauthenticated-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
                     document.getElementById('user-email').innerText = "Chargement du profil...";
-                    fetchUserProfile();
                     initializeAppSystem();
                 } else {
                     console.log("Jeton expiré. Changement de l'interface.");
@@ -692,6 +880,7 @@
 
         // --- LOGIQUE DU MOTEUR (Système de Fichiers) ---
         async function initializeAppSystem() {
+            await fetchUserProfile();
             try {
                 rootFolderId = await getOrCreateFolder("One App", "root");
             } catch (e) {
@@ -703,6 +892,9 @@
             
             // Lancement silencieux de la création du Launcher PDF
             createLauncherDocIfNeeded(rootFolderId);
+
+            // Stockage local : vérification du compte et reprise des envois en attente
+            await prepareLocalStore();
 
             // Vérification des liens magiques au démarrage
             const urlParams = new URLSearchParams(window.location.search);
@@ -1294,6 +1486,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         let currentRunningApp = null;
         let currentActiveOneFileId = null;
         let currentOneFileMetadata = null;
+        let currentDocInfo = { appFileId: null, appName: null, fileName: null };
         
         let appDataHistory = [];
         let appDataCurrentIndex = -1;
@@ -1424,6 +1617,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             localContent = newData;
             isDirty = true;
             localRevision++;
+            persistOpenDoc(); // écrit tout de suite sur l'appareil
             setSyncStatus('pending');
             scheduleSync(3000);
         }
@@ -1437,12 +1631,13 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             };
         }
 
-        function isRemoteNewer(remote) {
-            if (!currentFileVersion) return false;
-            if (remote.headRevisionId && currentFileVersion.rev) {
-                return remote.headRevisionId !== currentFileVersion.rev;
+        // base : version sur laquelle reposent les données locales
+        function isRemoteNewer(remote, base = currentFileVersion) {
+            if (!base) return false;
+            if (remote.headRevisionId && base.rev) {
+                return remote.headRevisionId !== base.rev;
             }
-            return !!(remote.modifiedTime && currentFileVersion.time && new Date(remote.modifiedTime) > new Date(currentFileVersion.time));
+            return !!(remote.modifiedTime && base.time && new Date(remote.modifiedTime) > new Date(base.time));
         }
 
         // Remplace les données affichées par la version du Cloud
@@ -1459,6 +1654,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
             appDataHistory = [JSON.parse(JSON.stringify(freshData))];
             appDataCurrentIndex = 0;
+            persistOpenDoc();
         }
 
         function syncToDrive() {
@@ -1509,6 +1705,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     rememberRemoteVersion(patchData);
                     // Des modifications arrivées pendant l'envoi restent à enregistrer
                     if (localRevision === sentRevision) isDirty = false;
+                    persistOpenDoc();
                     console.log("MOTEUR : Fichier synchronisé avec succès !");
                 }
 
@@ -1554,6 +1751,13 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             }
             clearTimeout(debounceTimer);
             if (!isDirty) return true;
+
+            // Drive injoignable, mais les modifications sont gardées sur l'appareil :
+            // elles partiront automatiquement plus tard, on peut continuer
+            if (await persistOpenDoc()) {
+                alert("Google Drive n'est pas joignable pour le moment. Vos modifications sont conservées sur cet appareil et seront envoyées automatiquement dès que possible.");
+                return true;
+            }
 
             const reason = lastSyncError ? lastSyncError.message : "erreur inconnue";
             const proceed = confirm(`Certaines modifications n'ont pas pu être enregistrées sur Google Drive (${reason}).\n\nContinuer quand même et les perdre ?`);
@@ -1616,10 +1820,13 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
         window.addEventListener('online', () => {
             if (isDirty) syncToDrive();
+            syncPendingDocs();
         });
 
+        let lastPersistOk = true;
         window.addEventListener('beforeunload', (e) => {
-            if (isDirty || isSyncing) {
+            // Inutile d'alerter si les modifications sont déjà sur l'appareil
+            if (isDirty && !lastPersistOk) {
                 e.preventDefault();
                 e.returnValue = '';
             }
@@ -1694,6 +1901,9 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
+                // Un envoi en arrière-plan de ce document est en cours : on attend sa fin
+                if (backgroundSyncs.has(oneFileId)) await backgroundSyncs.get(oneFileId).catch(() => {});
+
                 let fileMeta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?fields=modifiedTime,headRevisionId,capabilities`);
                 if (capabilities) fileMeta.capabilities = capabilities;
 
@@ -1704,16 +1914,35 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
                 let oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
 
+                // Modifications restées sur l'appareil (plantage, coupure réseau...) ?
+                let localDoc = null;
+                try { localDoc = await localStore.get('docs', oneFileId); } catch (e) {}
+                const resumeLocal = !!(localDoc && localDoc.dirty && localStoreReady);
+
                 clearTimeout(debounceTimer);
-                rememberRemoteVersion(fileMeta);
                 currentActiveOneFileId = oneFileId;
-                currentOneFileMetadata = oneFileJson.oneapp_metadata;
-                window.currentLoadedAppData = oneFileJson.app_data || []; 
-                localContent = window.currentLoadedAppData;
-                isDirty = false;
+                currentDocInfo = { appFileId: appFileId, appName: appName, fileName: oneFileName };
                 lastSyncError = null;
                 retryDelay = 0;
-                setSyncStatus('idle');
+
+                if (resumeLocal) {
+                    // On reprend les données locales. Leur version de base sert à
+                    // détecter si le document a changé ailleurs entre-temps (conflit)
+                    console.log("MOTEUR : reprise de modifications restées sur cet appareil.");
+                    currentFileVersion = localDoc.base;
+                    currentOneFileMetadata = localDoc.metadata || oneFileJson.oneapp_metadata;
+                    window.currentLoadedAppData = localDoc.data;
+                    isDirty = true;
+                    localRevision++;
+                    setSyncStatus('pending');
+                } else {
+                    rememberRemoteVersion(fileMeta);
+                    currentOneFileMetadata = oneFileJson.oneapp_metadata;
+                    window.currentLoadedAppData = oneFileJson.app_data || [];
+                    isDirty = false;
+                    setSyncStatus('idle');
+                }
+                localContent = window.currentLoadedAppData;
 
                 appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
                 appDataCurrentIndex = 0;
@@ -1772,6 +2001,12 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 
                 currentRunningApp = appHtml;
 
+                // Copie locale du document et de l'app (base du futur mode hors-ligne)
+                persistOpenDoc();
+                localStore.put('apps', { appFileId: appFileId, html: appHtml, cachedAt: Date.now() })
+                    .catch((e) => console.warn("Mise en cache de l'app impossible :", e && e.message));
+                if (resumeLocal) scheduleSync(1000);
+
                 startPolling();
 
             } catch (error) {
@@ -1808,6 +2043,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             // La liste des apps est reconstruite (ce qui supprime le sous-menu) :
             // on rouvre ensuite le sous-menu de l'app qui était ouverte
             const reopen = activeSubmenu ? { ...activeSubmenu.dataset } : null;
+            syncPendingDocs(); // envoie ce qui serait resté sur l'appareil
             await listInstalledApps();
             if (reopen) toggleAppMenu(null, reopen.appId, reopen.appName, reopen.folderId);
         }

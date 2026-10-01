@@ -442,6 +442,98 @@ await test("Icône SVG avec currentColor : affichée dans la couleur d'accent", 
   if (src.includes('currentColor') || !src.includes('#8b5cf6')) throw new Error('couleur non appliquée : ' + src);
 });
 
+// --- Local d'abord (IndexedDB) ---
+const idb = (page, store) => page.evaluate(s => localStore.getAll(s), store);
+const waitFor = async (cond, ms = 6000) => {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (await cond()) return; await wait(100); }
+  throw new Error('condition non atteinte en ' + ms + ' ms');
+};
+
+await test("Local d'abord : Drive en panne à la fermeture → gardé sur l'appareil puis envoyé", async (page) => {
+  const frame = await openDoc(page);
+  ctl.failPatch = 100;
+  await save(frame, ['hors-ligne']);
+  await wait(200);
+  await page.evaluate(() => closeApp());
+  if (!(page._dialogs || []).some(d => d.includes('conservées sur cet appareil'))) throw new Error('pas de message de conservation locale');
+  eq(saved(), ['initial'], 'Drive pas encore modifié');
+  eq((await idb(page, 'docs')).find(d => d.fileId === 'doc1').dirty, true, 'en attente sur l\'appareil');
+  await page.evaluate(() => syncPendingDocs()); // attend l'envoi (en échec) lancé à la fermeture
+  ctl.failPatch = 0;
+  await page.evaluate(() => syncPendingDocs());
+  eq(saved(), ['hors-ligne'], 'envoyé à Drive');
+  eq((await idb(page, 'docs')).find(d => d.fileId === 'doc1').dirty, false, 'plus en attente');
+});
+
+await test("Local d'abord : onglet fermé/planté avant l'envoi → repris au redémarrage", async (page) => {
+  const frame = await openDoc(page);
+  await save(frame, ['avant-plantage']);
+  await wait(300);              // bien avant les 3 s de délai d'envoi
+  await page.reload();          // simule un plantage / une fermeture d'onglet
+  await waitFor(async () => JSON.stringify(saved()) === '["avant-plantage"]');
+});
+
+await test("Local d'abord : réouverture → modifications locales affichées puis envoyées", async (page) => {
+  let frame = await openDoc(page);
+  ctl.failPatch = 100;
+  await save(frame, ['local']);
+  await wait(200);
+  await page.evaluate(() => closeApp());
+  await page.evaluate(() => syncPendingDocs()); // attend l'envoi (en échec) lancé à la fermeture
+  ctl.failPatch = 0;
+  frame = await openDoc(page);
+  eq(await frame.evaluate(() => window.shown), ['local'], 'affiché dans l\'app');
+  await waitFor(async () => JSON.stringify(saved()) === '["local"]');
+});
+
+await test("Local d'abord : document modifié ailleurs entre-temps → copie de secours, rien d'écrasé", async (page) => {
+  const frame = await openDoc(page);
+  ctl.failPatch = 100;
+  await save(frame, ['mes-modifs']);
+  await wait(200);
+  await page.evaluate(() => closeApp());
+  await page.evaluate(() => syncPendingDocs()); // attend l'envoi (en échec) lancé à la fermeture
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['autre-appareil'] }));
+  ctl.failPatch = 0;
+  await page.evaluate(() => syncPendingDocs());
+  const backup = Object.values(files).find(f => f.name === 'Doc - Copie de secours.onefile');
+  if (!backup) throw new Error('pas de copie de secours');
+  eq(JSON.parse(backup.content).app_data, ['mes-modifs'], 'copie de secours');
+  eq(saved(), ['autre-appareil'], 'Drive non écrasé');
+  eq((await idb(page, 'docs')).length, 0, 'retiré de l\'appareil');
+});
+
+await test("Local d'abord : l'app est mise en cache à l'ouverture", async (page) => {
+  await openDoc(page);
+  await wait(200);
+  const apps = await idb(page, 'apps');
+  eq(apps.map(a => a.appFileId), ['app1'], 'apps en cache');
+});
+
+await test("Local d'abord : déconnexion → stockage local effacé", async (page) => {
+  await openDoc(page);
+  await page.evaluate(() => closeApp());
+  eq((await idb(page, 'docs')).length, 1, 'document en cache avant');
+  await Promise.all([page.waitForNavigation(), page.evaluate(() => logout())]);
+  await page.waitForFunction(() => document.querySelector('.app-card'));
+  eq((await idb(page, 'docs')).length, 0, 'documents après');
+  eq((await idb(page, 'apps')).length, 0, 'apps après');
+});
+
+await test("Local d'abord : autre compte sur l'appareil → ses données effacées, jamais envoyées", async (page) => {
+  await page.evaluate(async () => {
+    await localStore.put('meta', { key: 'account', value: 'autre@example.com' });
+    await localStore.put('docs', { fileId: 'doc1', fileName: 'Doc', dirty: true, data: ['autre-compte'],
+      metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, base: null });
+  });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('.app-card'));
+  await wait(500);
+  eq((await idb(page, 'docs')).length, 0, 'documents de l\'autre compte');
+  eq(saved(), ['initial'], 'Drive non modifié');
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
