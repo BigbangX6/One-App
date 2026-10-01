@@ -114,7 +114,8 @@ async function handleDrive(route) {
   if (!f || f.noAccess) return json({ error: { message: 'File not found: ' + id } }, 404);
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
-    return json({ id: f.id, name: f.name, parents: f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
+    // hideParents : comme Drive en drive.file quand One App n'a pas accès au dossier parent
+    return json({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
   }
   if (method === 'PATCH' && isUpload) {
     if (ctl.patchDelay) await new Promise(r => setTimeout(r, ctl.patchDelay));
@@ -819,6 +820,58 @@ await test("drive.file : Picker qui renvoie un autre identifiant → l'accès r�
   await page.click('#access-modal-add');
   await page.waitForFunction(() => document.querySelector('#iframe-container iframe'), null, { timeout: 15000 });
   eq(await page.isVisible('#access-modal-overlay'), false, 'écran d\'ajout fermé');
+});
+
+// --- Lien ?download et dossier des copies ---
+await test("Lien ?download (PDF) : la fenêtre d'installation s'ouvre", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?download`);
+  await page.waitForFunction(() => !document.getElementById('install-overlay').hidden);
+  eq(await page.evaluate(() => location.search), '', 'lien nettoyé');
+});
+
+await test("Lien ?download sans être connecté : la fenêtre d'installation s'ouvre", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?notoken=1&download`);
+  await page.waitForFunction(() => !document.getElementById('install-overlay').hidden);
+  eq(await page.evaluate(() => location.search), '?notoken=1', 'seul download est retiré');
+});
+
+const backupOf = (name) => Object.values(files).find(f => f.name === name);
+
+await test("Copie de secours : rangée dans le dossier de l'app même si Drive cache le dossier parent", async (page) => {
+  files.doc1.hideParents = true;
+  await page.locator('.app-card').first().click();          // ouverture depuis le sous-menu de l'app
+  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
+  await page.locator('.file-item-name').first().click();
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['ailleurs'] }));
+  await save(frame, ['ici']);
+  await waitFor(async () => !!backupOf('Doc - Copie de secours.onefile'), 10000);
+  eq(backupOf('Doc - Copie de secours.onefile').parents, ['fold1'], 'dossier de la copie de secours');
+});
+
+await test("Créer une copie / copie de secours en arrière-plan : dossier de l'app retrouvé par son nom", async (page) => {
+  files.doc1.hideParents = true;
+  // « Créer une copie » sans passer par le sous-menu (dossier inconnu)
+  await openDoc(page);
+  page.removeAllListeners('dialog');
+  page.on('dialog', d => d.accept('Ma copie'));
+  await page.evaluate(() => duplicateActiveFile());
+  await waitFor(async () => !!backupOf('Ma copie.onefile'));
+  eq(backupOf('Ma copie.onefile').parents, ['fold1'], 'dossier de la copie');
+  await page.evaluate(() => closeApp());
+  // Modification restée sur l'appareil + document modifié ailleurs → copie de secours en arrière-plan
+  const frame = await openDoc(page);
+  ctl.failPatch = 100;
+  await save(frame, ['en-attente']);
+  await wait(200);
+  await page.evaluate(() => closeApp());
+  await page.evaluate(() => syncPendingDocs());
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['ailleurs'] }));
+  ctl.failPatch = 0;
+  await page.evaluate(() => syncPendingDocs());
+  eq(backupOf('Doc - Copie de secours.onefile').parents, ['fold1'], 'dossier de la copie de secours');
 });
 
 await browser.close();

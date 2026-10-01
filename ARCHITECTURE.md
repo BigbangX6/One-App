@@ -33,7 +33,7 @@ Choix assumés :
 | `config.js` | Client ID Google OAuth et clé API (publics) |
 | `manifest.json`, `icon-512.png` | PWA : installation sur l'écran d'accueil |
 | `sw.js` | Service worker : garde One App sur l'appareil pour l'ouvrir sans réseau |
-| `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
+| `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : liens pour ouvrir One App depuis Drive, et `?download` qui ouvre la fenêtre d'installation |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
 
 ## 3. Organisation dans Google Drive
@@ -230,6 +230,13 @@ Messages `postMessage` entre l'app et One App :
 
 Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` et
 `window.OneAppInternal_OnModeChange`. Le pont les appelle toujours.
+
+### Dossier des copies
+Copie de secours, « Créer une copie », copie d'une ancienne version : rangées par
+`getDocFolderId` dans le dossier de l'app, choisi dans cet ordre : dossier du sous-menu
+d'où le document a été ouvert (`currentDocInfo.folderId`, gardé aussi sur l'appareil) →
+parent indiqué par Drive (souvent masqué en `drive.file`, toujours pour un document
+partagé) → dossier de l'app retrouvé par son nom → dossier « One App » en dernier recours.
 
 ## 8. Règles à ne pas casser
 

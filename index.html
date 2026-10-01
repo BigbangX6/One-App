@@ -1222,13 +1222,30 @@
             return driveCreateFile(metadata, JSON.stringify(oneFile), 'application/json');
         }
 
-        async function getParentFolderId(fileId) {
+        // Dossier où ranger une copie d'un document (copie de secours, « Créer une copie »...) :
+        // 1. le dossier de l'app d'où le document a été ouvert (connu de l'accueil) ;
+        // 2. le dossier parent indiqué par Drive. Avec drive.file, Drive ne le donne que si
+        //    One App a accès à ce dossier : jamais pour un document partagé par un autre ;
+        // 3. le dossier de l'app retrouvé par son nom dans « One App » ;
+        // 4. en dernier recours, le dossier « One App » lui-même.
+        async function getDocFolderId(fileId, appName, knownFolderId) {
+            if (knownFolderId) return knownFolderId;
             try {
-                const data = await driveJson(`${DRIVE_API_URL}/${fileId}?fields=parents`);
-                return data.parents ? data.parents[0] : rootFolderId;
-            } catch (e) {
-                return rootFolderId;
+                const data = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=parents`);
+                const parent = data.parents && data.parents[0];
+                if (parent && parent !== rootFolderId) return parent;
+            } catch (e) { /* parent invisible : on continue */ }
+            if (appName && rootFolderId) {
+                try { return await getOrCreateFolder(appName, rootFolderId); } catch (e) {}
             }
+            return rootFolderId;
+        }
+
+        // Dossier de l'app affiché dans l'accueil (sous-menu ouvert), s'il correspond à cette app
+        function knownAppFolderId(appFileId) {
+            if (!activeSubmenu || activeSubmenu.dataset.appId !== appFileId) return null;
+            const folderId = activeSubmenu.dataset.folderId;
+            return folderId && folderId !== 'null' && folderId !== 'undefined' ? folderId : null;
         }
 
         // --- ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file) ---
@@ -1489,6 +1506,7 @@
                 dirty: isDirty,
                 base: currentFileVersion,
                 canEdit: currentDocInfo.canEdit !== false,
+                folderId: currentDocInfo.folderId || null,
                 lastOpened: Date.now()
             };
             lastPersist = localStore.put('docs', record).then(() => (lastPersistOk = true), (e) => {
@@ -1543,7 +1561,7 @@
             }
 
             // Le document a changé ailleurs entre-temps : on ne l'écrase pas
-            const parentFolderId = await getParentFolderId(record.fileId);
+            const parentFolderId = await getDocFolderId(record.fileId, record.appName || (record.metadata && record.metadata.app_name), record.folderId);
             await createOneFile(`${record.fileName} - Copie de secours`, parentFolderId,
                 record.metadata.app_name, record.metadata.source_app_drive_id, record.data);
             await localStore.remove('docs', record.fileId);
@@ -1611,6 +1629,14 @@
                 document.getElementById('shared-invite-view').style.display = 'block';
             }
             
+            // Lien « ?download » (bouton du PDF #Ouvrir One App) : fenêtre d'installation
+            const pageUrl = new URL(window.location.href);
+            if (pageUrl.searchParams.has('download')) {
+                pageUrl.searchParams.delete('download');
+                window.history.replaceState(null, '', pageUrl.pathname + pageUrl.search);
+                openInstallSheet();
+            }
+
             // Initialisation SVG par défaut
             const syncBtn = document.getElementById('sync-status-btn');
             if(syncBtn) syncBtn.innerHTML = SVG_SYNC;
@@ -1971,7 +1997,7 @@
                     return;
                 }
 
-                let parentFolderId = await getParentFolderId(currentActiveOneFileId);
+                let parentFolderId = await getDocFolderId(currentActiveOneFileId, currentDocInfo.appName, currentDocInfo.folderId);
 
                 const appName = currentOneFileMetadata.app_name;
                 const appFileId = currentOneFileMetadata.source_app_drive_id;
@@ -2541,7 +2567,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
 
             const baseName = document.getElementById('running-file-title').value;
-            const parentFolderId = await getParentFolderId(fileId);
+            const parentFolderId = await getDocFolderId(fileId, currentDocInfo.appName, currentDocInfo.folderId);
             await createOneFile(`${baseName} - Copie de secours`, parentFolderId,
                 currentOneFileMetadata.app_name, currentOneFileMetadata.source_app_drive_id, myContent);
 
@@ -2839,7 +2865,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 appFileId: appFileId,
                 appName: appName || doc.appName,
                 fileName: doc.fileName || oneFileName,
-                canEdit: doc.canEdit !== false
+                canEdit: doc.canEdit !== false,
+                folderId: knownAppFolderId(appFileId) || doc.folderId || null
             };
             lastSyncError = null;
             retryDelay = 0;
@@ -3011,7 +3038,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
 
                 clearTimeout(debounceTimer);
                 currentActiveOneFileId = oneFileId;
-                currentDocInfo = { appFileId: appFileId, appName: appName, fileName: oneFileName };
+                currentDocInfo = { appFileId: appFileId, appName: appName, fileName: oneFileName,
+                                   folderId: knownAppFolderId(appFileId) || (localDoc && localDoc.folderId) || null };
                 lastSyncError = null;
                 retryDelay = 0;
 
@@ -3700,7 +3728,7 @@ MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
             document.getElementById('history-actions').style.display = 'none';
 
             try {
-                let parentFolderId = await getParentFolderId(currentActiveOneFileId);
+                let parentFolderId = await getDocFolderId(currentActiveOneFileId, currentDocInfo.appName, currentDocInfo.folderId);
 
                 const appName = currentOneFileMetadata.app_name;
                 const appFileId = currentOneFileMetadata.source_app_drive_id;
