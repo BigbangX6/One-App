@@ -30,7 +30,7 @@ Choix assumés :
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Toute l'application One App |
-| `config.js` | Client ID Google OAuth (public) |
+| `config.js` | Client ID Google OAuth et clé API (publics) |
 | `manifest.json`, `sw.js`, `icon-512.png` | PWA. **Pas encore branchés** dans `index.html` |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
@@ -80,6 +80,7 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 | `edit-app-view` | Éditeur du code d'une app |
 | `history-sidebar` | Panneau latéral de l'historique des versions |
 | `share-modal-overlay` | Fenêtre de partage |
+| `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
 | `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
 
 ## 5. Le JavaScript, section par section
@@ -91,6 +92,7 @@ Dans l'ordre du fichier :
 | CONSTANTES SVG / CONFIGURATION | Icônes de synchro, URLs Drive, scope OAuth | |
 | CERVEAU LOCAL | État global du fichier ouvert | `isDirty`, `localContent`, `currentFileVersion` |
 | **ACCÈS DRIVE CENTRALISÉ** | Point d'entrée unique vers Google | `driveFetch`, `driveJson`, `renewToken`, `driveCreateFile`, `createOneFile`, `escapeDriveQuery` |
+| **ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file)** | Apps publiques lues par clé API, documents partagés autorisés via le Picker | `readDriveFile`, `publicDriveFetch`, `getFileMetaWithAccess`, `requestFileAccess`, `pickFile` |
 | **STOCKAGE LOCAL (LOCAL D'ABORD)** | Copie des documents et des apps sur l'appareil (IndexedDB) | `localStore`, `persistOpenDoc`, `prepareLocalStore` |
 | REPRISE DES ENVOIS EN ATTENTE | Envoie les modifications restées sur l'appareil | `syncPendingDocs`, `syncPendingDoc` |
 | LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers, accueil | `initializeAppSystem`, `getOrCreateFolder`, `listInstalledApps`, `buildAppIcon`, `toggleAppMenu` |
@@ -158,8 +160,24 @@ Base IndexedDB `OneAppLocal` :
 silencieux. Si le navigateur bloque la popup, `session-banner` demande un clic. Pendant ce
 temps, les requêtes **attendent** : rien n'est perdu.
 
+### Scope `drive.file`
+One App ne demande que `drive.file` (scope « non sensible » : pas d'audit Google).
+Elle ne voit donc que les fichiers **qu'elle a créés** ou que l'utilisateur **lui a
+ouverts** via le Google Picker. Pour un fichier d'un autre utilisateur, Drive répond 404 :
+
+- **app (`.oneapp`)** : publique par lien, elle est lue sans jeton avec la clé API
+  (`readDriveFile` essaie le jeton, puis `publicDriveFetch`) ;
+- **document (`.onefile`)** : il doit pouvoir être modifié, l'utilisateur l'autorise
+  donc une fois (`getFileMetaWithAccess` → écran `access-modal-overlay` → `pickFile`,
+  Picker positionné sur ce seul fichier avec `setFileIds`). L'accès vaut pour le compte
+  Google, sur tous ses appareils.
+
+`include_granted_scopes: false` : le jeton ne reprend pas un ancien scope `drive` complet.
+L'e-mail du compte vient de `drive/v3/about` (disponible avec `drive.file`).
+
 ### Partage
 Le lien est `index.html?file=<id du .onefile>`. Chez le destinataire, `checkSharedLink`
+propose d'ajouter le document à One App s'il n'y a pas encore accès (voir ci-dessus),
 crée des raccourcis vers l'app et le document (sauf s'ils lui appartiennent), puis ouvre
 le document. Les droits (lecture / édition) sont ceux du fichier Drive.
 
@@ -199,6 +217,9 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
    `onclick="..."` généré. Utiliser `textContent`, `addEventListener`, `makeButton`.
    (Un fichier partagé porte un nom choisi par quelqu'un d'autre.)
 5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.**
+5 bis. **Ne pas élargir le scope au-delà de `drive.file`** (un scope restreint impose un
+   audit de sécurité Google). Lire un fichier qui peut appartenir à un autre :
+   `readDriveFile` ; ouvrir un document partagé : `getFileMetaWithAccess`.
 6. **Le contrat app ↔ One App ne change qu'en restant compatible** : les apps déjà
    installées doivent continuer à fonctionner. Mettre `ONEAPP_RULES` à jour en même temps.
 7. **Garder le fichier unique**, sans dépendance ni étape de build.
@@ -215,6 +236,9 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
 - La liste des apps et des fichiers n'est pas paginée (100 éléments maximum).
 - Le QR code est généré par un service externe (api.qrserver.com).
 - Les messages passent encore par `alert()` / `confirm()`.
+- Un `.onefile` partagé par Drive directement (sans le lien One App) n'apparaît pas tant
+  qu'il n'a pas été ouvert avec le lien : pas encore de bouton « Ajouter depuis Drive ».
+- Une app partagée rendue privée par son auteur ne peut plus être lue par la clé API.
 
 ## 10. Travailler avec une IA sur ce projet
 

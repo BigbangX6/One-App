@@ -22,6 +22,11 @@ const PORT = 8765;
 const fixture = (name) => fs.readFileSync(path.join(TESTS_DIR, 'fixtures', name), 'utf8');
 const only = process.argv[2]; // filtre optionnel : node tests/run.mjs "Compteur"
 const server = http.createServer((req, res) => {
+  // config.js de test : une clé API factice (lecture publique + Picker)
+  if (req.url.split('?')[0] === '/config.js') {
+    res.writeHead(200);
+    return res.end('const ONEAPP_CONFIG = { GOOGLE_CLIENT_ID: "123456-test.apps.googleusercontent.com", GOOGLE_API_KEY: "testkey" };');
+  }
   const p = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(req.url.split('?')[0]));
   if (!fs.existsSync(p)) { res.writeHead(404); return res.end(); }
   res.writeHead(200); res.end(fs.readFileSync(p));
@@ -59,11 +64,20 @@ async function handleDrive(route) {
   log.push(`${method} ${url.pathname}${url.search}`);
   const json = (obj, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(obj) });
 
+  // Accès public par clé API (sans jeton) : seulement les fichiers publics, en lecture
+  if (!auth && url.searchParams.get('key')) {
+    const pm = url.pathname.match(/\/drive\/v3\/files\/([^/]+)$/);
+    const pf = pm && files[pm[1]];
+    if (url.searchParams.get('key') !== 'testkey' || method !== 'GET' || !pf || !pf.public) return json({ error: { message: 'not found' } }, 404);
+    if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: pf.content });
+    return json({ id: pf.id, name: pf.name, description: pf.description, ownedByMe: false });
+  }
+
   if (ctl.force401 > 0 || auth !== `Bearer ${ctl.validToken}`) {
     if (ctl.force401 > 0) ctl.force401--;
     return json({ error: { message: 'Invalid Credentials' } }, 401);
   }
-  if (url.pathname.includes('userinfo')) return json({ email: 'test@example.com' });
+  if (url.pathname.includes('/about')) return json({ user: { emailAddress: 'test@example.com' } });
 
   const m = url.pathname.match(/\/(upload\/)?drive\/v3\/files(?:\/([^/]+))?(\/permissions|\/revisions)?/);
   const isUpload = !!m[1]; const id = m[2]; const sub = m[3];
@@ -73,7 +87,7 @@ async function handleDrive(route) {
 
   if (!id && method === 'GET') {
     const q = url.searchParams.get('q');
-    let list = Object.values(files).filter(f => !f.trashed);
+    let list = Object.values(files).filter(f => !f.trashed && !f.noAccess);
     const nm = q.match(/name = '((?:\\'|[^'])*)'/);
     if (nm) { const name = nm[1].replace(/\\'/g, "'"); list = list.filter(f => f.name === name); }
     if (q.includes("contains '.oneapp'")) list = list.filter(f => f.name.includes('.oneapp'));
@@ -93,7 +107,8 @@ async function handleDrive(route) {
     return json({ id: f.id, name: f.name });
   }
   const f = files[id];
-  if (!f) return json({ error: { message: 'not found' } }, 404);
+  // drive.file : un fichier ni créé ni ouvert par One App est introuvable
+  if (!f || f.noAccess) return json({ error: { message: 'File not found: ' + id } }, 404);
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
     return json({ id: f.id, name: f.name, parents: f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
@@ -121,6 +136,9 @@ async function test(name, fn) {
   page.on('dialog', d => { page._dialogs = (page._dialogs || []).concat(d.message()); d.accept(); });
   await context.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, body: '' }));
   await context.route('https://www.googleapis.com/**', handleDrive);
+  await context.route('https://apis.google.com/**', r => r.fulfill({ status: 200, body: '' }));
+  // Choisir un fichier dans le Picker donne l'accès à One App (drive.file)
+  await context.exposeFunction('__grantAccess', (id) => { if (files[id]) delete files[id].noAccess; });
   await context.addInitScript(() => {
     if (window !== window.top) return; // pas dans l'iframe de l'app (sandbox)
     if (location.search.includes('notoken')) { localStorage.clear(); }
@@ -137,6 +155,23 @@ async function test(name, fn) {
         else cfg.error_callback({ type: 'popup_failed_to_open' });
       }, 50);
     } }) } } };
+    // Faux Google Picker, piloté par window.__pickerMode ('pick' ou 'cancel')
+    window.__pickerMode = 'pick'; window.__pickerFileIds = null;
+    window.gapi = { load: (name, cfg) => setTimeout(cfg.callback, 10) };
+    const P = { Response: { ACTION: 'action', DOCUMENTS: 'docs' }, Action: { PICKED: 'picked', CANCEL: 'cancel' }, Document: { ID: 'id' },
+      ViewId: { DOCS: 'all' }, DocsViewMode: { LIST: 'list' } };
+    P.DocsView = function () { this.setFileIds = (ids) => { window.__pickerFileIds = ids; return this; }; this.setMode = () => this; };
+    P.PickerBuilder = function () {
+      let cb; const b = this;
+      ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView'].forEach(m => { b[m] = () => b; });
+      b.setCallback = (f) => { cb = f; return b; };
+      b.build = () => ({ setVisible: () => setTimeout(async () => {
+        if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
+        await window.__grantAccess(window.__pickerFileIds);
+        cb({ action: 'picked', docs: [{ id: window.__pickerFileIds }] });
+      }, 50) });
+    };
+    window.google.picker = P;
   });
   await page.goto(`http://localhost:${PORT}/index.html`);
   await page.waitForFunction(() => document.querySelector('.app-card'));
@@ -532,6 +567,79 @@ await test("Local d'abord : autre compte sur l'appareil → ses données effacé
   await wait(500);
   eq((await idb(page, 'docs')).length, 0, 'documents de l\'autre compte');
   eq(saved(), ['initial'], 'Drive non modifié');
+});
+
+// --- Scope drive.file : partage ---
+function addSharedFromOther() {
+  const app = add({ id: 'otherapp', name: 'Budget.oneapp', mimeType: 'text/html', parents: ['autre'], content: APP_HTML, description: '💰' });
+  const doc = add({ id: 'otherdoc', name: 'Budget 2026.onefile', mimeType: 'application/json', parents: ['autre'],
+    content: JSON.stringify({ oneapp_metadata: { app_name: 'Budget', source_app_drive_id: 'otherapp' }, app_data: ['partagé'] }) });
+  for (const f of [app, doc]) { f.ownedByMe = false; f.noAccess = true; f.public = true; }
+}
+
+await test("drive.file : seul le scope drive.file est demandé", async (page) => {
+  eq(await page.evaluate(() => SCOPES), 'https://www.googleapis.com/auth/drive.file', 'scope');
+});
+
+await test("drive.file : lien partagé → « Ajouter à One App » → Picker → document ouvert", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  eq(await page.textContent('#access-modal-title'), '« Budget 2026 »', 'nom du document');
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  eq(await page.evaluate(() => window.__pickerFileIds), 'otherdoc', 'Picker positionné sur le document');
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.shown), ['partagé'], "affiché dans l'app");
+  if (!log.some(l => l.includes('/files/otherapp?alt=media') && l.includes('key=testkey'))) throw new Error("app non lue par la clé API");
+  const shortcuts = Object.values(files).filter(f => f.mimeType === 'application/vnd.google-apps.shortcut').map(f => f.shortcutDetails.targetId).sort();
+  eq(shortcuts, ['otherapp', 'otherdoc'], 'raccourcis créés');
+  await save(frame, ['modifié']);
+  await page.evaluate(() => closeApp());
+  eq(JSON.parse(files.otherdoc.content).app_data, ['modifié'], 'modification enregistrée sur le document partagé');
+});
+
+await test("drive.file : refus dans l'écran d'ajout → retour à l'accueil, rien de créé", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.click('#access-modal-cancel');
+  await wait(300);
+  eq(await page.isVisible('#access-modal-overlay'), false, 'écran fermé');
+  eq(await page.isVisible('#execution-view'), false, 'pas de document ouvert');
+  eq(Object.values(files).filter(f => f.mimeType === 'application/vnd.google-apps.shortcut').length, 0, 'raccourcis');
+  eq(await page.evaluate(() => location.search), '', 'lien nettoyé');
+});
+
+await test("drive.file : Picker fermé sans choisir → l'écran d'ajout reste proposé", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.evaluate(() => { window.__pickerMode = 'cancel'; });
+  await page.click('#access-modal-add');
+  await wait(300);
+  eq(await page.isVisible('#access-modal-overlay'), true, 'écran toujours affiché');
+  await page.evaluate(() => { window.__pickerMode = 'pick'; });
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+});
+
+await test("drive.file : ancien raccourci vers un document non autorisé → proposé à l'ouverture", async (page) => {
+  addSharedFromOther();
+  await page.evaluate(() => { openAppEnvironment('otherapp', 'Budget', 'otherdoc', 'Budget 2026'); }); // attend l'écran d'ajout
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+});
+
+await test("drive.file : icône d'une app partagée lue en public", async (page) => {
+  addSharedFromOther();
+  add({ id: 'sc2', name: 'Budget.oneapp', mimeType: 'application/vnd.google-apps.shortcut', parents: ['fold1'], shortcutDetails: { targetId: 'otherapp' } });
+  await page.evaluate(() => listInstalledApps());
+  await page.waitForFunction(() => document.querySelectorAll('.app-card').length === 2);
+  const card = page.locator('.app-card', { hasText: 'Budget' }).first();
+  eq(await card.locator('div').first().textContent(), '💰', 'icône affichée');
 });
 
 await browser.close();

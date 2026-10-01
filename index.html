@@ -6,6 +6,7 @@
     <title>One App - Personal Cloud</title>
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="config.js"></script>
 
     <style>
@@ -427,6 +428,19 @@
         </div>
     </div>
 
+    <!-- Accès à un fichier partagé (scope drive.file : l'utilisateur l'autorise une fois via le Picker Google) -->
+    <div id="access-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
+        <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow); text-align:center;">
+            <div style="font-size:40px;">📄</div>
+            <h3 id="access-modal-title" style="margin:8px 0;">Fichier partagé</h3>
+            <p style="color: var(--text-secondary); font-size: 14px;">
+                a été partagé avec vous. Ajoutez-le à One App pour l'ouvrir : Google vous demandera de confirmer, une seule fois.
+            </p>
+            <button id="access-modal-add" class="primary-btn" style="width:100%; padding:12px; font-size:16px; margin-bottom:10px;">Ajouter à One App</button>
+            <button id="access-modal-cancel" class="custom-btn" style="width:100%;">Annuler</button>
+        </div>
+    </div>
+
     <script>
         // --- CONSTANTES SVG ---
         const SVG_SYNC = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>';
@@ -435,7 +449,13 @@
 
         // --- CONFIGURATION ---
         const CLIENT_ID = (typeof ONEAPP_CONFIG !== 'undefined') ? ONEAPP_CONFIG.GOOGLE_CLIENT_ID : null;
-        const SCOPES = 'https://www.googleapis.com/auth/drive';
+        // drive.file : One App n'accède qu'aux fichiers qu'elle a créés ou que
+        // l'utilisateur lui a ouverts (Picker). Scope « non sensible » pour Google.
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        // Clé API (publique) : lecture des apps publiques des autres et Picker
+        const API_KEY = (typeof ONEAPP_CONFIG !== 'undefined' && ONEAPP_CONFIG.GOOGLE_API_KEY) || null;
+        // Numéro du projet Google Cloud = début du Client ID (requis par le Picker)
+        const APP_ID = CLIENT_ID ? CLIENT_ID.split('-')[0] : null;
         const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
         const UPLOAD_API_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 
@@ -503,6 +523,8 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
+                // Pas d'anciens droits (scope drive complet) ajoutés au jeton
+                include_granted_scopes: false,
                 callback: (tokenResponse) => {
                     if (!tokenResponse || !tokenResponse.access_token) {
                         // Accès refusé : les requêtes en attente patientent, on affiche le bandeau
@@ -641,6 +663,130 @@
             } catch (e) {
                 return rootFolderId;
             }
+        }
+
+        // --- ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file) ---
+        // Avec drive.file, Drive répond 404 pour un fichier que One App n'a ni
+        // créé ni ouvert. Deux cas :
+        //  - une app (.oneapp) d'un autre utilisateur est publique par lien :
+        //    on la lit avec la clé API, sans le jeton (publicDriveFetch) ;
+        //  - un document (.onefile) partagé doit pouvoir être modifié :
+        //    l'utilisateur l'autorise une fois via le Picker (requestFileAccess).
+        function isNoAccessError(e) {
+            return e instanceof DriveError && (e.status === 403 || e.status === 404);
+        }
+
+        async function publicDriveFetch(fileId, params) {
+            if (!API_KEY) throw new DriveError("Clé API absente (config.js)", 403);
+            let res;
+            try {
+                res = await fetch(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?${params}&key=${encodeURIComponent(API_KEY)}`);
+            } catch (e) {
+                throw new DriveError("Réseau indisponible", 0);
+            }
+            if (!res.ok) throw new DriveError(`Drive a répondu ${res.status}`, res.status);
+            return res;
+        }
+
+        // Lit un fichier avec le jeton, ou en public s'il n'est pas accessible à One App
+        async function readDriveFile(fileId, params) {
+            try {
+                return await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?${params}`);
+            } catch (e) {
+                if (!isNoAccessError(e) || !API_KEY) throw e;
+                return publicDriveFetch(fileId, params);
+            }
+        }
+
+        // Métadonnées d'un document ; s'il n'est pas encore accessible, on propose
+        // de l'ajouter à One App. Renvoie null si l'utilisateur refuse.
+        async function getFileMetaWithAccess(fileId, fields) {
+            const url = `${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=${fields}`;
+            try {
+                return await driveJson(url);
+            } catch (e) {
+                if (!isNoAccessError(e)) throw e;
+            }
+            if (!(await requestFileAccess(fileId))) return null;
+            return driveJson(url);
+        }
+
+        let pickerLoadPromise = null;
+        function loadPicker() {
+            if (!pickerLoadPromise) {
+                pickerLoadPromise = new Promise((resolve, reject) => {
+                    if (typeof gapi === 'undefined') return reject(new Error("Le script Google Picker ne s'est pas chargé."));
+                    gapi.load('picker', { callback: resolve, onerror: () => reject(new Error("Chargement du Picker impossible.")) });
+                }).catch((e) => { pickerLoadPromise = null; throw e; });
+            }
+            return pickerLoadPromise;
+        }
+
+        // Ouvre le Picker Google positionné sur ce seul fichier. Choisir le fichier
+        // donne à One App l'accès à celui-ci (pour ce compte, sur tous les appareils).
+        async function pickFile(fileId) {
+            if (!API_KEY) throw new Error("Clé API absente : ajoutez GOOGLE_API_KEY dans config.js.");
+            await loadPicker();
+            if (isTokenExpired()) await renewToken();
+            return new Promise((resolve) => {
+                const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+                    .setFileIds(fileId)
+                    .setMode(google.picker.DocsViewMode.LIST);
+                new google.picker.PickerBuilder()
+                    .setAppId(APP_ID)
+                    .setOAuthToken(globalAccessToken)
+                    .setDeveloperKey(API_KEY)
+                    .setLocale('fr')
+                    .addView(view)
+                    .setCallback((data) => {
+                        const action = data[google.picker.Response.ACTION];
+                        if (action === google.picker.Action.PICKED) {
+                            const docs = data[google.picker.Response.DOCUMENTS] || [];
+                            resolve(docs.some(d => d[google.picker.Document.ID] === fileId));
+                        } else if (action === google.picker.Action.CANCEL) {
+                            resolve(false);
+                        }
+                    })
+                    .build()
+                    .setVisible(true);
+            });
+        }
+
+        // Écran « Ajouter à One App » puis Picker. Renvoie true si l'accès est accordé.
+        async function requestFileAccess(fileId) {
+            let name = "Un fichier";
+            try {
+                const meta = await (await publicDriveFetch(fileId, 'fields=name')).json();
+                if (meta.name) name = `« ${meta.name.replace(/\.onefile$/, '')} »`;
+            } catch (e) { /* fichier non public : nom inconnu */ }
+
+            const overlay = document.getElementById('access-modal-overlay');
+            const addBtn = document.getElementById('access-modal-add');
+            const cancelBtn = document.getElementById('access-modal-cancel');
+            document.getElementById('access-modal-title').textContent = name;
+            document.getElementById('loading-apps').style.display = 'none';
+            overlay.style.display = 'flex';
+
+            return new Promise((resolve) => {
+                const finish = (granted) => {
+                    overlay.style.display = 'none';
+                    addBtn.onclick = null; cancelBtn.onclick = null;
+                    resolve(granted);
+                };
+                cancelBtn.onclick = () => finish(false);
+                addBtn.onclick = async () => {
+                    addBtn.disabled = true;
+                    try {
+                        const granted = await pickFile(fileId);
+                        if (granted) finish(true);
+                    } catch (e) {
+                        console.error(e);
+                        alert("Impossible d'ouvrir la fenêtre Google : " + e.message);
+                    } finally {
+                        addBtn.disabled = false;
+                    }
+                };
+            });
         }
 
         // --- STOCKAGE LOCAL (LOCAL D'ABORD) ---
@@ -825,10 +971,10 @@
 
         async function fetchUserProfile() {
             try {
-                let res = await driveFetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json");
-                let info = await res.json();
-                if (info.email) {
-                    currentUserEmail = info.email;
+                // L'e-mail vient de Drive : disponible avec le seul scope drive.file
+                let info = await driveJson("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)");
+                if (info.user && info.user.emailAddress) {
+                    currentUserEmail = info.user.emailAddress;
                     document.getElementById('user-email').innerText = currentUserEmail;
                 }
             } catch(e) { console.error("Impossible de récupérer le profil"); }
@@ -990,7 +1136,7 @@
                 .filter(f => f.mimeType === SHORTCUT_MIME && f.shortcutDetails)
                 .map(async (f) => {
                     try {
-                        const target = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(f.shortcutDetails.targetId)}?fields=description`);
+                        const target = await (await readDriveFile(f.shortcutDetails.targetId, 'fields=description')).json();
                         if (target.description) f.description = target.description;
                     } catch (e) {
                         console.warn("Icône de l'app partagée inaccessible :", e.message);
@@ -1852,7 +1998,12 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
             try {
                 const safeFileId = encodeURIComponent(sharedFileId);
-                let fileMeta = await driveJson(`${DRIVE_API_URL}/${safeFileId}?fields=id,name,capabilities,parents,ownedByMe`);
+                let fileMeta = await getFileMetaWithAccess(sharedFileId, 'id,name,capabilities,parents,ownedByMe');
+                if (!fileMeta) {
+                    window.history.pushState(null, '', window.location.pathname);
+                    document.getElementById('loading-apps').style.display = 'none';
+                    return;
+                }
                 let oneFileJson = await driveJson(`${DRIVE_API_URL}/${safeFileId}?alt=media`);
                 
                 let sourceAppId = oneFileJson.oneapp_metadata.source_app_drive_id;
@@ -1865,7 +2016,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     
                     // Récupération du vrai nom de l'app
                     // (ownedByMe évite un doublon de raccourci si l'app m'appartient déjà)
-                    let appMeta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(sourceAppId)}?fields=name,ownedByMe`);
+                    let appMeta = await (await readDriveFile(sourceAppId, 'fields=name,ownedByMe')).json();
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     let ownsApp = appMeta.ownedByMe === true;
 
@@ -1904,12 +2055,15 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 // Un envoi en arrière-plan de ce document est en cours : on attend sa fin
                 if (backgroundSyncs.has(oneFileId)) await backgroundSyncs.get(oneFileId).catch(() => {});
 
-                let fileMeta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?fields=modifiedTime,headRevisionId,capabilities`);
+                // Document partagé pas encore ajouté à One App (ex. ancien raccourci) : on le propose
+                let fileMeta = await getFileMetaWithAccess(oneFileId, 'modifiedTime,headRevisionId,capabilities');
+                if (!fileMeta) return;
                 if (capabilities) fileMeta.capabilities = capabilities;
 
                 document.getElementById('loading-apps').innerText = "Construction de l'espace de travail...";
                 
-                let appRes = await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(appFileId)}?alt=media`);
+                // L'app d'un autre utilisateur est lue en public (clé API)
+                let appRes = await readDriveFile(appFileId, 'alt=media');
                 let appHtml = await appRes.text();
 
                 let oneFileJson = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(oneFileId)}?alt=media`);
@@ -2375,7 +2529,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             document.getElementById('loading-apps').style.display = 'block';
 
             try {
-                let response = await driveFetch(`${DRIVE_API_URL}/${fileId}?alt=media`);
+                let response = await readDriveFile(fileId, 'alt=media');
                 
                 let appData = await response.text();
                 
