@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>One App, nouvelle interface</title>
+<style>
+/* Maquette autonome de l'interface One App, style Google Workspace (Material 3).
+   Aucune ressource externe. Rien n'est relié à Google Drive : les données sont fictives.
+   Mise en page : barre du haut (logo, recherche, compte) + rail de navigation à gauche
+   + une grande surface blanche arrondie pour le contenu, comme Drive.
+   Les documents s'ouvrent en plein écran avec un bandeau façon Google Docs. */
+:root {
+    --font: "Google Sans Text", "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    --font-display: "Google Sans", "Google Sans Display", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --logo: #8b5cf6;
+
+    /* Neutres (teinte violette) */
+    --bg: #f9f7fd;
+    --surface: #ffffff;
+    --surface-low: #f3f0fa;
+    --surface-high: #ebe7f5;
+    --on-surface: #1f1f1f;
+    --on-surface-var: #444746;
+    --outline: #747775;
+    --divider: #e3e1e8;
+    --hover: rgba(31, 31, 31, 0.08);
+    --inverse: #303033;
+    --on-inverse: #f2f2f2;
+    --scrim: rgba(0, 0, 0, 0.32);
+    --danger: #b3261e;
+    --danger-soft: #fce8e6;
+    --ok: #146c2e;
+    --warn: #7a4f00;
+    --warn-soft: #fff1d6;
+    --code-bg: #1e1e24;
+    --code-fg: #d7d5e0;
+    --code-dim: #7c7a88;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15);
+    --shadow-3: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+
+    /* Couleur principale (violet One App, façon Material 3) */
+    --primary: #6b46c1;
+    --on-primary: #ffffff;
+    --primary-soft: #eaddff;
+    --on-primary-soft: #21005d;
+    --nav-active: #e5d9fb;
+    --on-nav-active: #21005d;
+
+    /* L'app de l'utilisateur, affichée dans le cadre */
+    --app-bg: #ffffff;
+    --app-card: #f6f6f8;
+    --app-fg: #222222;
+    --app-dim: #77777f;
+    --app-accent: #0f9d58;
+    --app-red: #d93025;
+}
+:root[data-tint="blue"] {
+    --bg: #f8fafd; --surface-low: #f0f4f9; --surface-high: #e9eef6; --divider: #e1e3e1;
+    --primary: #0b57d0; --on-primary: #ffffff; --primary-soft: #d3e3fd; --on-primary-soft: #041e49;
+    --nav-active: #c2e7ff; --on-nav-active: #001d35;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #1b1b1c; --surface: #131314; --surface-low: #1e1f20; --surface-high: #282a2c;
+        --on-surface: #e3e3e3; --on-surface-var: #c4c7c5; --outline: #8e918f; --divider: #3a3b3d;
+        --hover: rgba(227, 227, 227, 0.08); --inverse: #e3e3e3; --on-inverse: #1f1f1f; --scrim: rgba(0, 0, 0, 0.6);
+        --danger: #f2b8b5; --danger-soft: #3c1513; --ok: #6dd58c; --warn: #ffd88a; --warn-soft: #3a2d10;
+        --code-bg: #0e0e11; --code-fg: #d7d5e0; --code-dim: #6c6a78;
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
+        --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.6), 0 2px 6px 2px rgba(0, 0, 0, 0.3);
+        --shadow-3: 0 4px 8px 3px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.6);
+        --primary: #d0bcff; --on-primary: #381e72; --primary-soft: #4f378b; --on-primary-soft: #eaddff;
+        --nav-active: #4a3880; --on-nav-active: #eaddff;
+        --app-bg: #1c1c1f; --app-card: #26262a; --app-fg: #ececf1; --app-dim: #9a9aa3; --app-accent: #5bd28f; --app-red: #f28b82;
+        color-scheme: dark;
+    }
+    :root:not([data-theme="light"])[data-tint="blue"] {
+        --primary: #a8c7fa; --on-primary: #062e6f; --primary-soft: #0842a0; --on-primary-soft: #d3e3fd;
+        --nav-active: #004a77; --on-nav-active: #c2e7ff;
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #1b1b1c; --surface: #131314; --surface-low: #1e1f20; --surface-high: #282a2c;
+    --on-surface: #e3e3e3; --on-surface-var: #c4c7c5; --outline: #8e918f; --divider: #3a3b3d;
+    --hover: rgba(227, 227, 227, 0.08); --inverse: #e3e3e3; --on-inverse: #1f1f1f; --scrim: rgba(0, 0, 0, 0.6);
+    --danger: #f2b8b5; --danger-soft: #3c1513; --ok: #6dd58c; --warn: #ffd88a; --warn-soft: #3a2d10;
+    --code-bg: #0e0e11; --code-fg: #d7d5e0; --code-dim: #6c6a78;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.6), 0 2px 6px 2px rgba(0, 0, 0, 0.3);
+    --shadow-3: 0 4px 8px 3px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.6);
+    --primary: #d0bcff; --on-primary: #381e72; --primary-soft: #4f378b; --on-primary-soft: #eaddff;
+    --nav-active: #4a3880; --on-nav-active: #eaddff;
+    --app-bg: #1c1c1f; --app-card: #26262a; --app-fg: #ececf1; --app-dim: #9a9aa3; --app-accent: #5bd28f; --app-red: #f28b82;
+    color-scheme: dark;
+}
+:root[data-theme="dark"][data-tint="blue"] {
+    --primary: #a8c7fa; --on-primary: #062e6f; --primary-soft: #0842a0; --on-primary-soft: #d3e3fd;
+    --nav-active: #004a77; --on-nav-active: #c2e7ff;
+}
+
+/* --- Base --- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+    margin: 0; background: var(--bg); color: var(--on-surface); font-family: var(--font); font-size: 14px;
+    display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; overflow: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.i { width: 24px; height: 24px; flex: none; fill: currentColor; display: block; }
+.i.s20 { width: 20px; height: 20px; }
+.i.s18 { width: 18px; height: 18px; }
+
+/* --- Barre de la maquette (à ne pas reprendre) --- */
+.preview-bar {
+    flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 16px;
+    font-size: 12px; color: var(--on-surface-var); border-bottom: 1px dashed var(--outline); background: var(--surface-low);
+}
+.preview-bar strong { color: var(--on-surface); letter-spacing: 0.06em; font-size: 11px; }
+.preview-bar label { display: inline-flex; align-items: center; gap: 6px; }
+.preview-bar select { font-size: 12px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--divider); background: var(--surface); max-width: 46vw; }
+
+/* --- Éléments communs --- */
+.icon-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: var(--on-surface-var);
+    display: inline-grid; place-items: center; flex: none; position: relative;
+}
+.icon-btn:hover { background: var(--hover); }
+.icon-btn:disabled { opacity: 0.38; cursor: default; background: transparent; }
+.btn {
+    height: 40px; border-radius: 20px; padding: 0 24px; border: none; font-weight: 500; letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; flex: none;
+}
+.btn .i { width: 18px; height: 18px; margin-left: -6px; }
+.btn.filled { background: var(--primary); color: var(--on-primary); }
+.btn.filled:hover { box-shadow: var(--shadow-1); filter: brightness(1.06); }
+.btn.tonal { background: var(--nav-active); color: var(--on-nav-active); }
+.btn.tonal:hover { box-shadow: var(--shadow-1); }
+.btn.outlined { background: transparent; color: var(--primary); border: 1px solid var(--outline); }
+.btn.outlined:hover, .btn.text:hover { background: var(--hover); }
+.btn.text { background: transparent; color: var(--primary); padding: 0 12px; }
+.btn.danger { background: var(--danger); color: var(--surface); }
+.avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: #7b5e3b; color: #fff; font-weight: 500; font-size: 15px;
+    display: grid; place-items: center; flex: none;
+}
+.avatar.lg { width: 80px; height: 80px; font-size: 36px; }
+.app-tile {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--primary-soft); display: grid; place-items: center;
+    font-size: 22px; line-height: 1; flex: none;
+}
+.app-tile.sm { width: 28px; height: 28px; border-radius: 8px; font-size: 16px; }
+.logo { width: 40px; height: 40px; color: var(--logo); }
+.logo-word { font-family: var(--font-display); font-size: 22px; color: var(--on-surface-var); white-space: nowrap; }
+.chip {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px;
+    border: 1px solid var(--outline); background: transparent; font-size: 14px; font-weight: 500; color: var(--on-surface-var);
+}
+.chip:hover { background: var(--hover); }
+.chip .i { width: 18px; height: 18px; }
+.badge-shared { display: inline-flex; color: var(--on-surface-var); }
+.badge-shared .i { width: 16px; height: 16px; }
+
+/* --- Écran de connexion (façon page de connexion Google) --- */
+.center-screen { flex: 1; overflow: auto; display: grid; place-items: center; padding: 24px 16px; }
+.signin {
+    width: min(448px, 100%); background: var(--surface); border-radius: 28px; padding: 40px 40px 32px;
+    display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--divider);
+}
+.signin .logo { width: 48px; height: 48px; }
+.signin h1 { font-family: var(--font-display); font-weight: 400; font-size: 32px; line-height: 1.25; margin: 8px 0 0; text-wrap: balance; }
+.signin p { margin: 0; color: var(--on-surface-var); font-size: 16px; line-height: 1.5; }
+.g-btn {
+    height: 48px; border-radius: 24px; border: 1px solid var(--outline); background: var(--surface); color: var(--on-surface);
+    display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 500; font-size: 15px; margin-top: 16px;
+}
+.g-btn:hover { background: var(--hover); }
+.g-btn svg { width: 20px; height: 20px; }
+.signin .fine { font-size: 13px; display: flex; gap: 10px; align-items: flex-start; color: var(--on-surface-var); margin-top: 8px; line-height: 1.45; }
+.signin .fine .i { width: 18px; height: 18px; margin-top: 1px; color: var(--ok); }
+.shared-card { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 16px; background: var(--surface-low); }
+.shared-card b { display: block; font-weight: 500; font-size: 15px; }
+.shared-card span { color: var(--on-surface-var); font-size: 13px; }
+
+/* --- Coquille façon Drive --- */
+.shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 256px 1fr; grid-template-rows: 64px auto 1fr; }
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 8px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 6px; width: 240px; flex: none; padding-left: 8px; background: none; border: none; }
+.brand .logo { width: 36px; height: 36px; }
+.menu-btn { display: none; }
+.search {
+    flex: 1; max-width: 720px; height: 48px; border-radius: 24px; background: var(--surface-high); display: flex; align-items: center;
+    gap: 4px; padding: 0 6px; min-width: 0;
+}
+.search:focus-within { background: var(--surface); box-shadow: var(--shadow-1); }
+.search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none; font-size: 16px; height: 100%; }
+.search input::placeholder { color: var(--on-surface-var); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.sync-pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; font-size: 13px;
+    color: var(--on-surface-var); border: none; background: transparent;
+}
+.sync-pill:hover { background: var(--hover); }
+.sync-pill .i { width: 20px; height: 20px; }
+.sync-pill.offline { background: var(--warn-soft); color: var(--warn); }
+.avatar-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: transparent; display: grid; place-items: center; }
+.avatar-btn:hover { background: var(--hover); }
+
+.banner-slot { grid-column: 1 / -1; }
+.banner {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 0 16px 8px; padding: 10px 12px 10px 16px; border-radius: 12px;
+    background: var(--warn-soft); color: var(--warn); font-size: 14px;
+}
+.banner .i { width: 20px; height: 20px; }
+.banner span { flex: 1; min-width: 200px; }
+.banner .btn.text { color: var(--warn); font-weight: 600; }
+
+.rail { padding: 8px 16px 16px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.new-btn {
+    height: 56px; border-radius: 16px; border: none; background: var(--surface); color: var(--on-surface); box-shadow: var(--shadow-1);
+    display: inline-flex; align-items: center; gap: 12px; padding: 0 20px 0 16px; font-size: 14px; font-weight: 500; align-self: flex-start; margin: 0 0 16px 4px;
+}
+.new-btn:hover { box-shadow: var(--shadow-2); background: var(--surface-low); }
+.nav-item {
+    height: 32px; border-radius: 16px; border: none; background: transparent; display: flex; align-items: center; gap: 16px;
+    padding: 0 12px 0 16px; font-size: 14px; color: var(--on-surface); text-align: left; width: 100%;
+}
+.nav-item:hover { background: var(--hover); }
+.nav-item.active { background: var(--nav-active); color: var(--on-nav-active); font-weight: 600; }
+.nav-item .i { width: 20px; height: 20px; }
+.nav-sep { height: 1px; background: var(--divider); margin: 12px 0 12px 16px; }
+.nav-label { font-size: 12px; color: var(--on-surface-var); padding: 0 16px 6px; font-weight: 500; }
+.nav-app .app-tile { width: 22px; height: 22px; font-size: 13px; border-radius: 6px; background: transparent; }
+.rail-foot { margin-top: auto; padding: 16px 16px 0; font-size: 12px; color: var(--on-surface-var); line-height: 1.5; }
+
+.content { background: var(--surface); border-radius: 16px; margin: 0 16px 16px 0; overflow-y: auto; min-width: 0; padding: 4px 24px 32px; }
+.content-head { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center; gap: 8px; padding: 16px 0 8px; flex-wrap: wrap; }
+.content-head h1 { font-family: var(--font-display); font-weight: 400; font-size: 24px; margin: 0; line-height: 1.3; flex: 1; min-width: 0; }
+.crumbs { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; font-family: var(--font-display); font-size: 24px; }
+.crumbs button { border: none; background: transparent; border-radius: 20px; padding: 2px 10px; font-weight: 400; display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.crumbs button:hover { background: var(--hover); }
+.crumbs .muted { color: var(--on-surface-var); }
+.crumbs .i { color: var(--on-surface-var); }
+.crumbs .cur { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.section-t { font-size: 14px; font-weight: 500; margin: 20px 0 12px; display: flex; align-items: center; gap: 8px; color: var(--on-surface); }
+
+/* Cartes d'applications façon « dossiers suggérés » */
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 12px; }
+.app-card {
+    display: flex; align-items: center; gap: 12px; padding: 10px 4px 10px 12px; border-radius: 12px; background: var(--surface-low);
+    border: none; text-align: left; min-width: 0;
+}
+.app-card:hover { background: var(--surface-high); }
+.app-card .txt { flex: 1; min-width: 0; }
+.app-card b { display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-card span { font-size: 12px; color: var(--on-surface-var); }
+.app-card.add { background: transparent; border: 1px dashed var(--outline); color: var(--on-surface-var); }
+.app-card.add .app-tile { background: transparent; color: var(--primary); }
+.app-card.add:hover { background: var(--hover); }
+
+/* Liste de documents façon Drive */
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; font-weight: 500; font-size: 14px; color: var(--on-surface); padding: 0 8px; height: 48px; border-bottom: 1px solid var(--divider); }
+.table td { padding: 0 8px; height: 48px; border-bottom: 1px solid var(--divider); color: var(--on-surface-var); white-space: nowrap; }
+.table tr.row { cursor: pointer; }
+.table tr.row:hover td { background: var(--hover); }
+.table td.name { color: var(--on-surface); font-weight: 500; width: 55%; }
+.table .name-in { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.table .name-in > span { overflow: hidden; text-overflow: ellipsis; }
+.table .sub { display: none; font-weight: 400; font-size: 12px; color: var(--on-surface-var); }
+.table td.act { width: 48px; text-align: right; }
+.table .app-cell { display: inline-flex; gap: 8px; align-items: center; }
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 48px 16px; color: var(--on-surface-var); }
+.empty .art { width: 120px; height: 120px; border-radius: 50%; background: var(--surface-low); display: grid; place-items: center; font-size: 52px; }
+.empty h2 { margin: 8px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 22px; color: var(--on-surface); }
+.empty p { margin: 0; max-width: 40ch; line-height: 1.5; }
+
+.fab {
+    display: none; position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 30; height: 56px; min-width: 56px; padding: 0 20px 0 16px;
+    border-radius: 16px; border: none; background: var(--primary-soft); color: var(--on-primary-soft); box-shadow: var(--shadow-3);
+    align-items: center; gap: 12px; font-weight: 500;
+}
+
+/* --- Document ouvert, bandeau façon Google Docs --- */
+.doc { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+.docbar { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 12px 8px 8px; min-width: 0; }
+.doc-home { width: 48px; height: 48px; border-radius: 50%; border: none; background: transparent; display: grid; place-items: center; flex: none; }
+.doc-home:hover { background: var(--hover); }
+.doc-home .app-tile { width: 36px; height: 36px; font-size: 20px; }
+.doc-titles { display: flex; flex-direction: column; min-width: 0; flex: 1; padding-left: 4px; }
+.doc-title-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.doc-title {
+    font-family: var(--font-display); font-size: 18px; border: 1px solid transparent; border-radius: 4px; padding: 1px 6px; margin-left: -7px;
+    background: transparent; min-width: 0; width: 100%; max-width: 360px; outline: none; text-overflow: ellipsis;
+}
+.doc-title:hover { border-color: var(--outline); }
+.doc-title:focus { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.doc-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--on-surface-var); min-width: 0; white-space: nowrap; }
+.status-btn { display: inline-flex; align-items: center; gap: 4px; border: none; background: transparent; padding: 2px 6px; margin-left: -6px; border-radius: 4px; color: var(--on-surface-var); font-size: 13px; }
+.status-btn:hover { background: var(--hover); }
+.status-btn .i { width: 18px; height: 18px; }
+.status-btn.offline { color: var(--warn); }
+.status-btn.error { color: var(--danger); }
+.status-btn.saving .i { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(-360deg); } }
+.doc-actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.vsep { width: 1px; height: 24px; background: var(--divider); margin: 0 6px; }
+.mode-chip {
+    height: 40px; border-radius: 20px; border: none; background: transparent; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 12px;
+    color: var(--on-surface-var); font-weight: 500;
+}
+.mode-chip:hover { background: var(--hover); }
+.mode-chip .i { width: 20px; height: 20px; }
+.share-btn { margin-left: 6px; }
+.share-btn .i { margin-left: -4px; }
+.ro-bar {
+    flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 12px 8px; padding: 6px 8px 6px 16px; border-radius: 12px;
+    background: var(--surface-high); color: var(--on-surface); font-size: 14px;
+}
+.ro-bar .i { width: 20px; height: 20px; color: var(--on-surface-var); }
+.ro-bar span { flex: 1; min-width: 180px; }
+.doc-body { flex: 1; min-height: 0; display: flex; gap: 0; }
+.frame { flex: 1; min-width: 0; background: var(--app-bg); color: var(--app-fg); border-radius: 16px 16px 0 0; margin: 0 12px; overflow: auto; box-shadow: var(--shadow-1); position: relative; }
+.preview-tag {
+    position: sticky; top: 12px; margin: 12px auto -44px; z-index: 2; width: max-content; display: flex; align-items: center; gap: 8px;
+    background: var(--inverse); color: var(--on-inverse); padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 500;
+}
+.preview-tag .i { width: 18px; height: 18px; }
+
+/* Barre de l'historique façon Docs */
+.histbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px; flex-wrap: wrap; }
+.histbar h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 20px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-panel {
+    width: 300px; flex: none; background: var(--surface); border-radius: 16px 0 0 0; display: flex; flex-direction: column; overflow: hidden;
+    margin-left: -4px; box-shadow: var(--shadow-1);
+}
+.hist-head { padding: 16px 20px 8px; font-family: var(--font-display); font-size: 18px; }
+.hist-list { overflow-y: auto; padding: 0 8px 16px; }
+.hist-group { font-size: 12px; font-weight: 500; color: var(--on-surface-var); padding: 14px 12px 6px; }
+.hist-item { width: 100%; border: none; background: transparent; text-align: left; padding: 10px 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 3px; }
+.hist-item:hover { background: var(--hover); }
+.hist-item.sel { background: var(--nav-active); color: var(--on-nav-active); }
+.hist-item b { font-weight: 500; font-size: 14px; }
+.hist-item .cur { font-size: 12px; font-style: italic; color: var(--on-surface-var); }
+.hist-item .who { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--on-surface-var); }
+.hist-item .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* --- App fictive affichée dans le cadre --- */
+.mini { padding: 28px clamp(16px, 4vw, 40px) 40px; max-width: 880px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.mini-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mini h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.mini-btn { border: none; background: var(--app-accent); color: var(--app-bg); border-radius: 8px; padding: 9px 14px; font-weight: 600; }
+.mini-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0; }
+.mini-card { background: var(--app-card); border-radius: 12px; padding: 14px 16px; }
+.mini-card span { font-size: 12px; color: var(--app-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.mini-card b { display: block; font-size: 24px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.mini-table td, .mini-table th { padding: 10px 6px; border-bottom: 1px solid var(--app-card); text-align: left; }
+.mini-table th { font-size: 12px; color: var(--app-dim); font-weight: 600; }
+.mini-table td:last-child, .mini-table th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.mini-table .neg { color: var(--app-red); }
+.mini-table .pos { color: var(--app-accent); }
+.mini-list { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.mini-list li { background: var(--app-card); border-radius: 10px; padding: 12px 14px; display: flex; gap: 12px; align-items: center; }
+.mini-list .when { font-size: 12px; color: var(--app-dim); min-width: 74px; font-variant-numeric: tabular-nums; }
+.mini-wrap { overflow-x: auto; }
+
+/* --- Éditeur de code d'une app --- */
+.editor-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; gap: 12px; padding: 0 12px 12px; }
+.guide { background: var(--surface); border-radius: 16px; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.guide h2 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 400; font-size: 20px; }
+.guide > p { margin: 0 0 12px; color: var(--on-surface-var); line-height: 1.5; }
+.gstep { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--divider); }
+.gnum { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-soft); color: var(--on-primary-soft); display: grid; place-items: center; font-weight: 600; font-size: 13px; }
+.gstep > div > b { font-weight: 500; display: block; margin: 4px 0 4px; }
+.gstep p b { font-weight: 600; color: var(--on-surface); }
+.gstep p { margin: 0 0 10px; color: var(--on-surface-var); line-height: 1.5; font-size: 13px; }
+.gstep p:last-child { margin-bottom: 0; }
+.code-pane { background: var(--code-bg); border-radius: 16px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.code-top { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; color: var(--code-dim); font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.code-top span { flex: 1; }
+.code-top .icon-btn { color: var(--code-dim); width: 36px; height: 36px; }
+.code-top .icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.code-pane textarea { flex: 1; min-height: 240px; border: none; outline: none; resize: none; background: transparent; color: var(--code-fg); font-family: var(--font-mono); font-size: 13px; line-height: 1.6; padding: 14px 16px; white-space: pre; }
+
+/* --- Menus, dialogues, snackbar --- */
+.menu {
+    position: fixed; z-index: 60; min-width: 220px; max-width: calc(100vw - 16px); background: var(--surface-low); border-radius: 8px;
+    box-shadow: var(--shadow-2); padding: 8px 0; animation: fade 0.12s ease-out;
+}
+:root[data-theme="dark"] .menu { background: var(--surface-high); }
+.menu button { width: 100%; height: 40px; border: none; background: transparent; display: flex; align-items: center; gap: 14px; padding: 0 16px; text-align: left; font-size: 14px; color: var(--on-surface); }
+.menu button:hover { background: var(--hover); }
+.menu button .i { width: 20px; height: 20px; color: var(--on-surface-var); }
+.menu button.danger, .menu button.danger .i { color: var(--danger); }
+.menu button.checked { font-weight: 600; }
+.menu button .desc { display: block; font-size: 12px; color: var(--on-surface-var); font-weight: 400; }
+.menu button.tall { height: auto; padding-top: 8px; padding-bottom: 8px; }
+.menu hr { border: none; height: 1px; background: var(--divider); margin: 8px 0; }
+.menu .ck { margin-left: auto; color: var(--primary); }
+@keyframes fade { from { opacity: 0; transform: scale(0.98); } }
+
+.account {
+    position: fixed; z-index: 60; right: 8px; top: 60px; width: min(400px, calc(100vw - 16px)); background: var(--surface-low); border-radius: 28px;
+    box-shadow: var(--shadow-3); padding: 12px; animation: fade 0.12s ease-out;
+}
+.account-mail { text-align: center; font-size: 14px; font-weight: 500; padding: 8px 40px 16px; color: var(--on-surface); position: relative; }
+.account-mail .icon-btn { position: absolute; right: 0; top: -2px; }
+.account-id { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-bottom: 18px; }
+.account-id .hello { font-family: var(--font-display); font-size: 22px; }
+.account-rows { background: var(--surface); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+.account-rows button { border: none; background: var(--surface); display: flex; align-items: center; gap: 14px; padding: 16px 20px; font-size: 14px; text-align: left; }
+.account-rows button:hover { background: var(--hover); }
+.account-rows .i { color: var(--on-surface-var); }
+.account-foot { text-align: center; font-size: 12px; color: var(--on-surface-var); padding: 14px 8px 4px; }
+
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 50; display: grid; place-items: center; padding: 16px; animation: fadein 0.15s; }
+.scrim.clear { background: transparent; }
+@keyframes fadein { from { opacity: 0; } }
+.dialog {
+    width: min(560px, 100%); max-height: calc(100% - 32px); overflow-y: auto; background: var(--surface); border-radius: 28px; padding: 24px;
+    box-shadow: var(--shadow-3); display: flex; flex-direction: column; gap: 16px; animation: fade 0.18s ease-out;
+}
+.dialog h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1.3; display: flex; align-items: center; gap: 8px; }
+.dialog h2 span { flex: 1; min-width: 0; }
+.dialog .lead { margin: -6px 0 0; color: var(--on-surface-var); line-height: 1.5; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 8px; }
+.dialog-actions .spacer { flex: 1; }
+.access { display: flex; gap: 14px; align-items: flex-start; padding: 8px 0; }
+.access-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--surface-high); color: var(--on-surface-var); }
+.access-ic.open { background: #c4eed0; color: #0d652d; }
+:root[data-theme="dark"] .access-ic.open { background: #0f5223; color: #c4eed0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .access-ic.open { background: #0f5223; color: #c4eed0; } }
+.access-ic .i { width: 20px; height: 20px; }
+.access-main { flex: 1; min-width: 0; }
+.dd { border: none; background: transparent; border-radius: 4px; padding: 4px 4px 4px 8px; margin-left: -8px; font-weight: 500; display: inline-flex; align-items: center; gap: 2px; }
+.dd:hover { background: var(--hover); }
+.dd .i { width: 20px; height: 20px; }
+.access-main p { margin: 2px 0 0; font-size: 13px; color: var(--on-surface-var); }
+.role { border: none; background: transparent; border-radius: 4px; display: inline-flex; align-items: center; gap: 2px; padding: 6px 4px 6px 10px; color: var(--on-surface-var); font-weight: 500; }
+.role:hover { background: var(--hover); }
+.subt { font-size: 16px; font-weight: 500; margin: 4px 0 -4px; }
+.qr { display: flex; gap: 16px; align-items: center; padding: 12px; border-radius: 16px; background: var(--surface-low); }
+.qr canvas { width: 116px; height: 116px; border-radius: 8px; background: #fff; flex: none; image-rendering: pixelated; }
+.qr p { margin: 0; color: var(--on-surface-var); line-height: 1.5; font-size: 13px; }
+.steps-v { display: flex; flex-direction: column; gap: 0; }
+.steps-v .gstep:first-child { border-top: none; }
+.ex { display: inline-block; margin-top: 2px; padding: 6px 10px; border-radius: 8px; background: var(--surface-low); font-size: 13px; color: var(--on-surface); }
+.field { width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--outline); border-radius: 8px; background: transparent; padding: 10px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; }
+.field:focus { outline: none; border: 2px solid var(--primary); padding: 9px 11px; }
+.pick-list { display: flex; flex-direction: column; gap: 4px; }
+.pick { display: flex; align-items: center; gap: 12px; border: none; background: transparent; padding: 8px 10px; border-radius: 12px; text-align: left; font-size: 15px; }
+.pick:hover { background: var(--hover); }
+
+.snackbar {
+    position: fixed; left: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 80; max-width: min(560px, calc(100vw - 32px)); background: var(--inverse); color: var(--on-inverse);
+    border-radius: 4px; box-shadow: var(--shadow-3); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 16px; min-height: 48px; font-size: 14px;
+    animation: snack 0.2s ease-out;
+}
+.snackbar span { flex: 1; padding: 8px 0; }
+.snackbar .btn.text { color: var(--primary-soft); }
+@keyframes snack { from { transform: translateY(12px); opacity: 0; } }
+
+/* --- Petits écrans --- */
+@media (max-width: 1100px) { .doc-actions .label-wide { display: none; } }
+@media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail {
+        position: fixed; left: 0; top: 0; bottom: 0; width: 300px; max-width: 86vw; z-index: 55; background: var(--surface); border-radius: 0 16px 16px 0;
+        padding-top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-105%); transition: transform 0.22s ease; box-shadow: var(--shadow-3);
+    }
+    .rail.open { transform: none; }
+    .rail .new-btn { display: none; }
+    .rail-head { display: flex !important; }
+    .menu-btn { display: inline-grid; }
+    .brand { width: auto; }
+    .brand .logo-word { display: none; }
+    .content { margin: 0; border-radius: 16px 16px 0 0; padding: 0 16px 96px; }
+    .fab { display: inline-flex; }
+    .sync-pill .lbl { display: none; }
+    .table th.hide-sm, .table td.hide-sm { display: none; }
+    .table .sub { display: block; }
+    .table td { height: 60px; }
+    .table td.name { width: auto; }
+    .editor-body { grid-template-columns: 1fr; overflow-y: auto; }
+    .app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .app-card { flex-wrap: wrap; position: relative; padding: 12px; gap: 10px; }
+    .app-card .txt { flex-basis: 100%; }
+    .app-card .icon-btn { position: absolute; top: 4px; right: 4px; }
+    .app-card.add { grid-column: 1 / -1; flex-wrap: nowrap; }
+    .app-card.add .txt { flex-basis: auto; }
+    .code-pane { min-height: 360px; }
+    .hist-panel { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 46%; border-radius: 24px 24px 0 0; z-index: 20; margin: 0; box-shadow: var(--shadow-3); }
+    .crumbs, .content-head h1 { font-size: 20px; }
+}
+@media (max-width: 640px) {
+    .doc-actions .hide-xs { display: none; }
+    .share-btn { width: 40px; padding: 0; }
+    .share-btn .txt { display: none; }
+    .share-btn .i { margin: 0; }
+    .mode-chip .txt { display: none; }
+    .frame { margin: 0; border-radius: 12px 12px 0 0; }
+    .ro-bar { margin: 0 8px 8px; }
+    .signin { padding: 32px 24px 24px; }
+    .doc-title { font-size: 16px; }
+    .search { height: 44px; }
+    .snackbar { left: 16px; right: 16px; }
+}
+.rail-head { display: none; align-items: center; gap: 6px; padding: 0 8px 16px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3 2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><path d="M9 13.75c-2.34 0-7 1.17-7 3.5V19h14v-1.75c0-2.33-4.66-3.5-7-3.5zM4.34 17c.84-.58 2.87-1.25 4.66-1.25s3.82.67 4.66 1.25H4.34zM9 12c1.93 0 3.5-1.57 3.5-3.5S10.93 5 9 5 5.5 6.57 5.5 8.5 7.07 12 9 12zm0-5c.83 0 1.5.67 1.5 1.5S9.83 10 9 10s-1.5-.67-1.5-1.5S8.17 7 9 7zm7.04 6.81c1.16.84 1.96 1.96 1.96 3.44V19h4v-1.75c0-2.02-3.5-3.17-5.96-3.44zM15 12c1.93 0 3.5-1.57 3.5-3.5S16.93 5 15 5c-.54 0-1.04.13-1.5.35.63.89 1 1.98 1 3.15s-.37 2.26-1 3.15c.46.22.96.35 1.5.35z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
+    <symbol id="i-cloud-done" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95A5.47 5.47 0 0 1 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11A2.98 2.98 0 0 1 22 15c0 1.65-1.35 3-3 3zm-9-3.82-2.09-2.09L6.5 13.5 10 17l6.01-6.01-1.41-1.41z"/></symbol>
+    <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M24 15c0-2.64-2.05-4.78-4.65-4.96C18.67 6.59 15.64 4 12 4c-1.33 0-2.57.36-3.65.97l1.49 1.49C10.51 6.17 11.23 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 .99-.48 1.85-1.21 2.4l1.41 1.41c1.09-.92 1.8-2.27 1.8-3.81zM4.41 3.86 3 5.27l2.77 2.77h-.42A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h11.73l2 2 1.41-1.41L4.41 3.86zM6 18c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73l8 8H6z"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></symbol>
+    <symbol id="i-error" viewBox="0 0 24 24"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zm0 10h2v2h-2zm-6-6h2v2h-2zm2 2h2v2h-2zm-2 2h2v2h-2zm2 2h2v2h-2zm2-2h2v2h-2zm0-4h2v2h-2zm2 2h2v2h-2z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM5.92 19H5v-.92l9.06-9.06.92.92L5.92 19zM20.71 5.63l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83a1 1 0 0 0 0-1.41z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 6a9.77 9.77 0 0 1 8.82 5.5C19.17 14.87 15.79 17 12 17s-7.17-2.13-8.82-5.5A9.77 9.77 0 0 1 12 6m0-2C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 5a2.5 2.5 0 0 1 0 5 2.5 2.5 0 0 1 0-5m0-2c-2.48 0-4.5 2.02-4.5 4.5S9.52 16 12 16s4.5-2.02 4.5-4.5S14.48 7 12 7z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M18 15v3H6v-3H4v3c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-3h-2zm-1-4-1.41-1.41L13 12.17V4h-2v8.17L8.41 9.59 7 11l5 5 5-5z"/></symbol>
+    <symbol id="i-delete" viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="m17 7-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></symbol>
+    <symbol id="i-install" viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M8 16h8v2H8zm0-4h8v2H8zm6-10H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m19 9 1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></symbol>
+    <symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="m16 5-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6a2 2 0 0 1-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm7 10c0 4.52-2.98 8.69-7 9.93-4.02-1.24-7-5.41-7-9.93V6.3l7-3.11 7 3.11V11zm-11.59.59L6 13l4 4 8-8-1.41-1.42L10 14.17z"/></symbol>
+</defs>
+</svg>
+
+<div class="preview-bar">
+    <strong>MAQUETTE</strong>
+    <label for="pv-screen">Écran
+        <select id="pv-screen">
+            <option value="login">Connexion</option>
+            <option value="invite">Lien partagé reçu</option>
+            <option value="home" selected>Accueil</option>
+            <option value="app">Page d'une app</option>
+            <option value="doc">Document ouvert</option>
+            <option value="doc-ro">Document en lecture seule</option>
+            <option value="history">Historique des versions</option>
+            <option value="share">Fenêtre de partage</option>
+            <option value="create">Créer une app</option>
+            <option value="editor">Modifier une app</option>
+        </select>
+    </label>
+    <label for="pv-net">Réseau
+        <select id="pv-net">
+            <option value="online">En ligne</option>
+            <option value="offline">Hors connexion</option>
+            <option value="expired">Session Google expirée</option>
+        </select>
+    </label>
+    <label for="pv-tint">Couleur
+        <select id="pv-tint">
+            <option value="violet">Violet One App</option>
+            <option value="blue">Bleu Google</option>
+        </select>
+    </label>
+    <label for="pv-theme">Thème
+        <select id="pv-theme">
+            <option value="auto">Auto</option>
+            <option value="light">Clair</option>
+            <option value="dark">Sombre</option>
+        </select>
+    </label>
+</div>
+
+<div id="root" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+
+<script>
+(function () {
+    // --- Données fictives ---
+    const ME = { first: 'Alex', email: 'alex.martin@gmail.com', initial: 'A' };
+    const APPS = [
+        { id: 'budget', name: 'Budget', icon: '💰' },
+        { id: 'agenda', name: 'Agenda partagé', icon: '📅', shared: 'Camille' },
+        { id: 'recettes', name: 'Recettes', icon: '🍳' },
+        { id: 'courses', name: 'Liste de courses', icon: '🛒' },
+        { id: 'notes', name: 'Notes de réunion', icon: '📝' },
+        { id: 'sport', name: 'Suivi sport', icon: '🏃' }
+    ];
+    const DOCS = [
+        { id: 'b26', app: 'budget', name: 'Budget 2026', mod: '10:42', who: 'moi' },
+        { id: 'plan', app: 'agenda', name: 'Planning octobre', mod: '09:15', who: 'Camille', shared: true, readonly: true },
+        { id: 'gratin', app: 'recettes', name: 'Gratin dauphinois', mod: 'hier', who: 'moi' },
+        { id: 'sem', app: 'courses', name: 'Courses de la semaine', mod: 'hier', who: 'moi' },
+        { id: 'b25', app: 'budget', name: 'Budget 2025', mod: '28 sept.', who: 'moi' },
+        { id: 'cr', app: 'notes', name: 'Réunion équipe du 24/09', mod: '24 sept.', who: 'moi' },
+        { id: 'tarte', app: 'recettes', name: 'Tarte aux pommes', mod: '12 sept.', who: 'moi' },
+        { id: 'bvac', app: 'budget', name: 'Vacances en Bretagne', mod: '3 août', who: 'moi' }
+    ];
+    const HISTORY = [
+        { g: "Aujourd'hui", items: [{ t: "1 oct., 10:42", cur: true, who: 'Alex Martin', c: '#7b5e3b' }, { t: '1 oct., 08:05', who: 'Alex Martin', c: '#7b5e3b' }] },
+        { g: 'Hier', items: [{ t: '30 sept., 18:12', who: 'Alex Martin', c: '#7b5e3b' }, { t: '30 sept., 12:47', who: 'Sam (téléphone)', c: '#1a73e8' }] },
+        { g: 'Septembre', items: [{ t: '22 sept., 21:30', who: 'Alex Martin', c: '#7b5e3b' }, { t: '2 sept., 09:00', who: 'Alex Martin', c: '#7b5e3b' }] }
+    ];
+    const appOf = (id) => APPS.find((a) => a.id === id);
+    const docsOf = (appId) => DOCS.filter((d) => d.app === appId);
+
+    // --- État ---
+    const S = {
+        screen: 'home', nav: 'home', appId: 'budget', docId: 'b26', query: '', mode: 'edit',
+        net: 'online', status: 'saved', histSel: 0, shareLevel: 'private', shareRole: 'reader', showQr: false, dialog: null, drawer: false
+    };
+
+    const $ = (s, r = document) => r.querySelector(s);
+    const I = (id, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const G_LOGO = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`;
+
+    // --- Statut de synchronisation (comme le petit nuage de Google Docs) ---
+    const STATUS = {
+        saved: { icon: 'cloud-done', txt: 'Enregistré dans Drive', cls: '' },
+        saving: { icon: 'sync', txt: 'Enregistrement…', cls: 'saving' },
+        offline: { icon: 'cloud-off', txt: 'Hors connexion · enregistré sur cet appareil', cls: 'offline' },
+        error: { icon: 'error', txt: "Échec de l'envoi · nouvel essai dans 10 s", cls: 'error' }
+    };
+    function docStatus() { return S.net === 'offline' ? 'offline' : S.status; }
+
+    // =========================================================
+    //  ÉCRANS
+    // =========================================================
+    function viewLogin() {
+        return `<div class="center-screen"><div class="signin">
+            <svg class="i logo"><use href="#i-cloud"/></svg>
+            <h1>Bienvenue dans One App</h1>
+            <p>Vos applications sur mesure, enregistrées dans votre Google Drive.</p>
+            <button class="g-btn" data-go="home">${G_LOGO}Continuer avec Google</button>
+            <div class="fine">${I('shield')}<span>One App n'a pas de serveur. Vos fichiers restent dans votre Drive, dans un dossier « One App ».</span></div>
+        </div></div>`;
+    }
+
+    function viewInvite() {
+        return `<div class="center-screen"><div class="signin">
+            <svg class="i logo"><use href="#i-cloud"/></svg>
+            <h1>Camille vous a partagé un document</h1>
+            <div class="shared-card"><span class="app-tile">📅</span><div><b>Planning octobre</b><span>Ouvert avec l'app Agenda partagé · Lecture seule</span></div></div>
+            <button class="g-btn" data-go="doc-ro">${G_LOGO}Continuer avec Google pour l'ouvrir</button>
+            <div class="fine">${I('info')}<span>Le document et son app seront ajoutés à votre One App. Rien n'est copié : vous voyez toujours la dernière version.</span></div>
+        </div></div>`;
+    }
+
+    function shellTop() {
+        const st = S.net === 'offline'
+            ? `<button class="sync-pill offline" data-act="sync-info" title="Hors connexion">${I('cloud-off')}<span class="lbl">Hors connexion</span></button>`
+            : `<button class="sync-pill" data-act="sync-info" title="Tout est enregistré dans Drive">${I('cloud-done')}<span class="lbl">À jour</span></button>`;
+        return `<header class="topbar">
+            <button class="icon-btn menu-btn" data-act="drawer" aria-label="Menu">${I('menu')}</button>
+            <button class="brand" data-go="home" aria-label="Accueil One App"><svg class="i logo"><use href="#i-cloud"/></svg><span class="logo-word">One App</span></button>
+            <label class="search">
+                <span class="icon-btn" aria-hidden="true">${I('search')}</span>
+                <input id="q" type="search" placeholder="Rechercher une app ou un document" value="${esc(S.query)}" autocomplete="off">
+                ${S.query ? `<button class="icon-btn" data-act="clear-q" aria-label="Effacer">${I('close')}</button>` : ''}
+            </label>
+            <div class="top-right">${st}
+                <button class="avatar-btn" data-act="account" aria-label="Compte Google : ${ME.email}"><span class="avatar">${ME.initial}</span></button>
+            </div>
+        </header>
+        <div class="banner-slot">${S.net === 'expired' ? `<div class="banner">${I('error')}<span>Votre session Google a expiré. Vos modifications sont gardées sur cet appareil.</span><button class="btn text" data-act="reconnect">Se reconnecter</button></div>` : ''}</div>`;
+    }
+
+    function rail() {
+        const appsNav = APPS.map((a) => `<button class="nav-item nav-app ${S.screen === 'app' && S.appId === a.id ? 'active' : ''}" data-app="${a.id}"><span class="app-tile">${a.icon}</span>${esc(a.name)}</button>`).join('');
+        return `<nav class="rail ${S.drawer ? 'open' : ''}" aria-label="Navigation">
+            <div class="rail-head"><svg class="i logo"><use href="#i-cloud"/></svg><span class="logo-word">One App</span></div>
+            <button class="new-btn" data-act="new">${I('add')}Nouveau</button>
+            <button class="nav-item ${S.screen === 'home' && S.nav === 'home' ? 'active' : ''}" data-nav="home">${I('home', 's20')}Accueil</button>
+            <button class="nav-item ${S.screen === 'home' && S.nav === 'shared' ? 'active' : ''}" data-nav="shared">${I('people', 's20')}Partagés avec moi</button>
+            <div class="nav-sep"></div>
+            <div class="nav-label">Mes applications</div>
+            ${appsNav}
+            <div class="rail-foot">Vos données sont dans<br><b>Mon Drive › One App</b></div>
+        </nav>`;
+    }
+
+    function docRow(d, showApp = true) {
+        const a = appOf(d.app);
+        return `<tr class="row" data-doc="${d.id}">
+            <td class="name"><div class="name-in"><span class="app-tile sm">${a.icon}</span><span>${esc(d.name)}
+                ${d.shared ? `<span class="badge-shared" title="Partagé par ${d.who}">${I('people')}</span>` : ''}
+                <span class="sub">${showApp ? esc(a.name) + ' · ' : ''}${d.mod}</span></span></div></td>
+            ${showApp ? `<td class="hide-sm"><span class="app-cell">${esc(a.name)}</span></td>` : ''}
+            <td class="hide-sm">${d.mod}${d.who !== 'moi' ? ` · ${esc(d.who)}` : ''}</td>
+            <td class="act"><button class="icon-btn" data-docmenu="${d.id}" aria-label="Actions pour ${esc(d.name)}">${I('more', 's20')}</button></td>
+        </tr>`;
+    }
+
+    function viewHome() {
+        const q = S.query.trim().toLowerCase();
+        const sharedOnly = S.nav === 'shared';
+        let apps = APPS.filter((a) => (!sharedOnly || a.shared) && (!q || a.name.toLowerCase().includes(q)));
+        let docs = DOCS.filter((d) => (!sharedOnly || d.shared) && (!q || d.name.toLowerCase().includes(q) || appOf(d.app).name.toLowerCase().includes(q)));
+        const title = q ? `Résultats pour « ${esc(S.query)} »` : sharedOnly ? 'Partagés avec moi' : `Bonjour ${ME.first}`;
+        const appCards = apps.map((a) => {
+            const n = docsOf(a.id).length;
+            return `<div class="app-card" role="button" tabindex="0" data-app="${a.id}"><span class="app-tile">${a.icon}</span>
+                <div class="txt"><b>${esc(a.name)}${a.shared ? `<span class="badge-shared" title="Partagée par ${a.shared}">${I('people')}</span>` : ''}</b>
+                <span>${n ? n + ' document' + (n > 1 ? 's' : '') : 'Aucun document'}${a.shared ? ' · de ' + a.shared : ''}</span></div>
+                <button class="icon-btn" data-appmenu="${a.id}" aria-label="Actions pour ${esc(a.name)}">${I('more', 's20')}</button></div>`;
+        }).join('');
+        const addCard = !q && !sharedOnly ? `<button class="app-card add" data-act="create"><span class="app-tile">${I('add')}</span><div class="txt"><b>Créer une app</b><span>Avec l'aide d'une IA</span></div></button>` : '';
+        const nothing = !apps.length && !docs.length;
+        return `<main class="content">
+            <div class="content-head"><h1>${title}</h1></div>
+            ${nothing ? `<div class="empty"><div class="art">🔍</div><h2>Aucun résultat</h2><p>Vérifiez l'orthographe ou cherchez le nom d'une app.</p></div>` : ''}
+            ${apps.length || addCard ? `<div class="section-t">Applications</div><div class="app-grid">${appCards}${addCard}</div>` : ''}
+            ${docs.length ? `<div class="section-t">${q ? 'Documents' : 'Documents récents'}</div>
+            <table class="table"><thead><tr><th>Nom</th><th class="hide-sm">Application</th><th class="hide-sm">Modifié</th><th></th></tr></thead>
+            <tbody>${docs.map((d) => docRow(d)).join('')}</tbody></table>` : ''}
+        </main>`;
+    }
+
+    function viewApp() {
+        const a = appOf(S.appId);
+        const docs = docsOf(a.id).filter((d) => !S.query || d.name.toLowerCase().includes(S.query.toLowerCase()));
+        const list = docs.length
+            ? `<table class="table"><thead><tr><th>Nom</th><th class="hide-sm">Modifié</th><th></th></tr></thead><tbody>${docs.map((d) => docRow(d, false)).join('')}</tbody></table>`
+            : `<div class="empty"><div class="art">${a.icon}</div><h2>Aucun document pour l'instant</h2><p>Un document garde vos données. Vous pouvez en créer autant que vous voulez avec la même app.</p>
+               <button class="btn filled" data-act="new-doc">${I('add')}Nouveau document</button></div>`;
+        return `<main class="content">
+            <div class="content-head">
+                <div class="crumbs"><button class="muted" data-go="home">Accueil</button>${I('chev')}
+                    <button data-appmenu="${a.id}"><span class="app-tile sm">${a.icon}</span><span class="cur">${esc(a.name)}</span>${I('drop')}</button></div>
+                ${a.shared ? '' : `<button class="btn outlined" data-act="edit-app">${I('code')}Modifier l'app</button>`}
+                <button class="btn filled" data-act="new-doc">${I('add')}Nouveau document</button>
+            </div>
+            ${a.shared ? `<p style="color:var(--on-surface-var);margin:0 0 8px">App partagée par ${a.shared}. Elle se met à jour toute seule quand ${a.shared} la modifie.</p>` : ''}
+            ${list}
+        </main>`;
+    }
+
+    function shell(inner) {
+        return `<div class="shell">${shellTop()}${rail()}${inner}</div>
+            ${S.drawer ? `<div class="scrim" data-act="drawer" style="z-index:54"></div>` : ''}
+            <button class="fab" data-act="new" aria-label="Nouveau">${I('add')}<span>Nouveau</span></button>`;
+    }
+
+    // --- Document ouvert ---
+    function miniApp(doc, hist) {
+        if (doc.app === 'budget') {
+            let rows = [
+                ['30/09', 'Salaire', 'Revenus', 3200], ['29/09', 'Supermarché', 'Courses', -86.4], ['27/09', 'Loyer', 'Logement', -890],
+                ['25/09', 'Électricité', 'Logement', -64.9], ['22/09', 'Restaurant', 'Sorties', -42], ['20/09', 'Essence', 'Transport', -71.3]
+            ];
+            if (hist) rows = rows.filter((r, i) => i !== 1 && i !== 4);
+            const fmt = (n) => (n < 0 ? '−' : '+') + Math.abs(n).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' €';
+            const inc = rows.filter((r) => r[3] > 0).reduce((s, r) => s + r[3], 0);
+            const out = rows.filter((r) => r[3] < 0).reduce((s, r) => s - r[3], 0);
+            return `<div class="mini"><div class="mini-head"><h2>${esc(doc.name)}</h2><button class="mini-btn" type="button">+ Ajouter une dépense</button></div>
+                <div class="mini-cards"><div class="mini-card"><span>Revenus</span><b>${inc.toLocaleString('fr-FR')} €</b></div>
+                <div class="mini-card"><span>Dépenses</span><b>${out.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</b></div>
+                <div class="mini-card"><span>Reste</span><b>${(inc - out).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</b></div></div>
+                <div class="mini-wrap"><table class="mini-table"><thead><tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th>Montant</th></tr></thead><tbody>
+                ${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="${r[3] < 0 ? 'neg' : 'pos'}">${fmt(r[3])}</td></tr>`).join('')}
+                </tbody></table></div></div>`;
+        }
+        const items = [['Lun. 6', 'Réunion parents-profs, 18 h'], ['Mer. 8', 'Piscine avec Léo'], ['Sam. 11', 'Anniversaire de Mamie'], ['Mar. 14', 'Dentiste, 9 h 30'], ['Ven. 24', 'Départ en vacances']];
+        return `<div class="mini"><div class="mini-head"><h2>${esc(doc.name)}</h2><button class="mini-btn" type="button">+ Événement</button></div>
+            <ul class="mini-list">${items.map((it) => `<li><span class="when">${it[0]}</span>${it[1]}</li>`).join('')}</ul></div>`;
+    }
+
+    function viewDoc() {
+        const doc = DOCS.find((d) => d.id === S.docId);
+        const a = appOf(doc.app);
+        const ro = !!doc.readonly;
+        const hist = S.screen === 'history';
+        const st = STATUS[docStatus()];
+        const modeTxt = ro ? 'Lecture seule' : S.mode === 'edit' ? 'Modification' : 'Lecture';
+
+        if (hist) {
+            const sel = HISTORY.flatMap((g) => g.items)[S.histSel];
+            let k = -1;
+            const list = HISTORY.map((g) => `<div class="hist-group">${g.g}</div>` + g.items.map((it) => {
+                k++;
+                return `<button class="hist-item ${k === S.histSel ? 'sel' : ''}" data-hist="${k}"><b>${it.t}</b>${it.cur ? '<span class="cur">Version actuelle</span>' : ''}
+                    <span class="who"><span class="dot" style="background:${it.c}"></span>${it.who}</span></button>`;
+            }).join('')).join('');
+            return `<div class="doc">
+                <div class="histbar"><button class="icon-btn" data-go="doc" aria-label="Retour au document">${I('back')}</button>
+                    <h2>${sel.t}</h2>
+                    ${sel.cur ? '' : `<button class="btn outlined" data-act="hist-copy">${I('copy')}Créer une copie</button><button class="btn filled" data-act="restore">Restaurer cette version</button>`}
+                </div>
+                <div class="doc-body">
+                    <div class="frame">${sel.cur ? '' : `<div class="preview-tag">${I('eye')}Aperçu : rien n'est modifié tant que vous ne restaurez pas</div>`}${miniApp(doc, !sel.cur)}</div>
+                    <aside class="hist-panel"><div class="hist-head">Historique des versions</div><div class="hist-list">${list}</div></aside>
+                </div></div>`;
+        }
+
+        return `<div class="doc">
+            ${S.net === 'expired' ? `<div class="banner" style="margin-top:8px">${I('error')}<span>Votre session Google a expiré. Vos modifications sont gardées sur cet appareil.</span><button class="btn text" data-act="reconnect">Se reconnecter</button></div>` : ''}
+            <header class="docbar">
+                <button class="doc-home" data-go="app" data-app-go="${a.id}" title="Retour à ${esc(a.name)}"><span class="app-tile">${a.icon}</span></button>
+                <div class="doc-titles">
+                    <div class="doc-title-row"><input class="doc-title" id="doc-title" value="${esc(doc.name)}" ${ro ? 'readonly' : ''} aria-label="Nom du document"></div>
+                    <div class="doc-meta"><span>${esc(a.name)}</span>·
+                        <button class="status-btn ${st.cls}" data-act="cycle-status" title="Statut de l'enregistrement (cliquez pour voir les autres états)">${I(st.icon)}<span>${st.txt}</span></button></div>
+                </div>
+                <div class="doc-actions">
+                    ${ro ? '' : `<button class="icon-btn" data-act="undo" title="Annuler (Ctrl+Z)">${I('undo', 's20')}</button>
+                    <button class="icon-btn" data-act="redo" title="Rétablir (Ctrl+Y)" disabled>${I('redo', 's20')}</button><span class="vsep hide-xs"></span>`}
+                    <button class="icon-btn hide-xs" data-go="history" title="Historique des versions">${I('history', 's20')}</button>
+                    ${ro ? '' : `<button class="mode-chip" data-act="mode" title="Mode">${I(S.mode === 'edit' ? 'edit' : 'eye')}<span class="txt label-wide">${modeTxt}</span>${I('drop', 's18')}</button>`}
+                    ${ro ? '' : `<button class="btn tonal share-btn" data-act="share">${I('lock')}<span class="txt">Partager</span></button>`}
+                    <button class="icon-btn" data-act="docbar-more" aria-label="Plus d'actions">${I('more', 's20')}</button>
+                </div>
+            </header>
+            ${ro ? `<div class="ro-bar">${I('eye')}<span>Lecture seule : ${esc(doc.who)} vous a partagé ce document.</span><button class="btn text" data-act="copy-doc">Créer une copie modifiable</button></div>` : ''}
+            <div class="doc-body"><div class="frame">${miniApp(doc, false)}</div></div>
+        </div>`;
+    }
+
+    function viewEditor() {
+        const a = appOf(S.appId);
+        const code = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="oneapp-icon" content="${a.icon}">
+  <title>${a.name}</title>
+  <style>
+    body { font-family: system-ui; margin: 0; }
+    .card { border-radius: 12px; padding: 16px; }
+  </style>
+</head>
+<body>
+  <h1>${a.name}</h1>
+  <div id="list"></div>
+  <script>
+    let state = [];
+    OneAppAPI.onLoad((data) => { state = data; render(); });
+    function add(item) {
+      state.push(item);
+      OneAppAPI.saveData(state);
+      render();
+    }
+  <\/script>
+</body>
+</html>`;
+        return `<div class="doc">
+            <header class="docbar">
+                <button class="icon-btn" data-go="app" aria-label="Retour">${I('back')}</button>
+                <span class="app-tile" style="margin:0 6px 0 2px">${a.icon}</span>
+                <div class="doc-titles"><div class="doc-title-row"><input class="doc-title" value="${esc(a.name)}" aria-label="Nom de l'app"></div>
+                    <div class="doc-meta">Code de l'application · modifié le 28 sept.</div></div>
+                <div class="doc-actions">
+                    <button class="icon-btn hide-xs" data-act="undo" title="Annuler (Ctrl+Z)">${I('undo', 's20')}</button>
+                    <button class="icon-btn hide-xs" data-act="redo" title="Rétablir (Ctrl+Y)" disabled>${I('redo', 's20')}</button>
+                    <button class="icon-btn" data-act="editor-more" aria-label="Plus d'actions">${I('more', 's20')}</button>
+                    <button class="btn filled" data-act="save-code" style="margin-left:6px">Enregistrer</button>
+                </div>
+            </header>
+            <div class="editor-body">
+                <section class="guide">
+                    <h2>Modifier avec une IA</h2>
+                    <p>Pas besoin de savoir coder. Votre IA fait la modification, vous collez sa réponse.</p>
+                    <div class="gstep"><span class="gnum">1</span><div><b>Copiez le code</b><p>Il contient aussi les règles pour que l'IA respecte le format One App.</p>
+                        <button class="btn tonal" data-act="copy-code">${I('copy')}Copier pour l'IA</button></div></div>
+                    <div class="gstep"><span class="gnum">2</span><div><b>Décrivez le changement</b><p>Collez dans ChatGPT, Claude ou Gemini, puis écrivez ce que vous voulez à la fin.</p>
+                        <span class="ex">Ex. : « Ajoute un graphique des dépenses par mois »</span></div></div>
+                    <div class="gstep"><span class="gnum">3</span><div><b>Collez la réponse à droite</b><p>Le texte autour du code est retiré tout seul. Puis touchez <b>Enregistrer</b>.</p></div></div>
+                </section>
+                <section class="code-pane" aria-label="Code de l'app">
+                    <div class="code-top">${I('code', 's18')}<span>index.html · 24 lignes</span>
+                        <button class="icon-btn" data-act="paste" title="Remplacer par le presse-papiers">${I('paste', 's20')}</button>
+                        <button class="icon-btn" data-act="clear-code" title="Vider">${I('delete', 's20')}</button></div>
+                    <textarea id="code" spellcheck="false">${esc(code)}</textarea>
+                </section>
+            </div></div>`;
+    }
+
+    // =========================================================
+    //  DIALOGUES
+    // =========================================================
+    function qrCanvas() {
+        const c = document.createElement('canvas');
+        const n = 25; c.width = n; c.height = n;
+        const x = c.getContext('2d');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, n, n); x.fillStyle = '#111';
+        let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+        for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (rnd() > 0.52) x.fillRect(i, j, 1, 1);
+        [[0, 0], [n - 7, 0], [0, n - 7]].forEach(([a, b]) => {
+            x.fillStyle = '#fff'; x.fillRect(a - 1 < 0 ? a : a - 1, b - 1 < 0 ? b : b - 1, 9, 9);
+            x.fillStyle = '#111'; x.fillRect(a, b, 7, 7); x.fillStyle = '#fff'; x.fillRect(a + 1, b + 1, 5, 5); x.fillStyle = '#111'; x.fillRect(a + 2, b + 2, 3, 3);
+        });
+        return c.toDataURL();
+    }
+
+    function dialogShare() {
+        const doc = DOCS.find((d) => d.id === S.docId);
+        const open = S.shareLevel !== 'private';
+        return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
+            <h2 id="dlg-t"><span>Partager « ${esc(doc.name)} »</span><button class="icon-btn" data-act="close-dialog" aria-label="Fermer">${I('close')}</button></h2>
+            <div class="subt">Accès général</div>
+            <div class="access">
+                <span class="access-ic ${open ? 'open' : ''}">${I(open ? 'globe' : 'lock')}</span>
+                <div class="access-main">
+                    <button class="dd" data-act="share-level">${open ? 'Tous les utilisateurs qui ont le lien' : 'Limité'}${I('drop')}</button>
+                    <p>${open ? (S.shareRole === 'writer' ? 'Toute personne disposant du lien peut modifier ce document.' : 'Toute personne disposant du lien peut le consulter, sans le modifier.') : 'Vous seul pouvez ouvrir ce document.'}</p>
+                </div>
+                ${open ? `<button class="role" data-act="share-role">${S.shareRole === 'writer' ? 'Éditeur' : 'Lecteur'}${I('drop', 's20')}</button>` : ''}
+            </div>
+            ${S.showQr ? `<div class="qr"><img alt="Code QR du lien" src="${qrCanvas()}" width="116" height="116" style="border-radius:8px;image-rendering:pixelated;background:#fff;flex:none"><p>Scannez ce code avec l'appareil photo d'un téléphone pour ouvrir le document.</p></div>` : ''}
+            <div class="dialog-actions">
+                <button class="btn outlined" data-act="copy-link">${I('link')}Copier le lien</button>
+                <button class="icon-btn" data-act="qr" title="Code QR">${I('qr', 's20')}</button>
+                <button class="icon-btn" data-act="native-share" title="Envoyer avec une autre app">${I('share', 's20')}</button>
+                <span class="spacer"></span>
+                <button class="btn filled" data-act="close-dialog">OK</button>
+            </div></div>`;
+    }
+
+    function dialogCreate() {
+        return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
+            <h2 id="dlg-t"><span>Créer une app</span><button class="icon-btn" data-act="close-dialog" aria-label="Fermer">${I('close')}</button></h2>
+            <p class="lead">Décrivez l'outil de vos rêves à une IA. One App s'occupe de l'enregistrer dans votre Drive.</p>
+            <div class="steps-v">
+                <div class="gstep"><span class="gnum">1</span><div><b>Copiez les règles de création</b><p>Elles expliquent à l'IA comment fabriquer une app compatible.</p>
+                    <button class="btn tonal" data-act="copy-rules">${I('copy')}Copier les règles</button></div></div>
+                <div class="gstep"><span class="gnum">2</span><div><b>Collez-les dans votre IA et décrivez votre app</b>
+                    <span class="ex">Ex. : « Une app pour noter les films vus, avec une note sur 5 »</span></div></div>
+                <div class="gstep"><span class="gnum">3</span><div><b>Collez sa réponse ici</b><p>Le texte autour du code est retiré tout seul.</p>
+                    <textarea class="field" id="paste-app" placeholder="Collez ici la réponse de l'IA"></textarea></div></div>
+            </div>
+            <div class="dialog-actions"><button class="btn text" data-act="close-dialog">Annuler</button><button class="btn filled" data-act="install-app">Créer l'app</button></div></div>`;
+    }
+
+    function dialogNewDoc() {
+        return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t" style="width:min(400px,100%)">
+            <h2 id="dlg-t"><span>Nouveau document</span></h2>
+            <p class="lead">Avec quelle app ?</p>
+            <div class="pick-list">${APPS.map((a) => `<button class="pick" data-newdoc="${a.id}"><span class="app-tile sm">${a.icon}</span>${esc(a.name)}</button>`).join('')}</div>
+            <div class="dialog-actions"><button class="btn text" data-act="close-dialog">Annuler</button></div></div>`;
+    }
+
+    function dialogConfirmDeleteApp() {
+        const a = appOf(S.appId);
+        return `<div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" style="width:min(420px,100%)">
+            <h2 id="dlg-t"><span>Supprimer « ${esc(a.name)} » ?</span></h2>
+            <p class="lead">L'app et ses ${docsOf(a.id).length} documents iront dans la corbeille de Google Drive. Vous pourrez les y récupérer pendant 30 jours.</p>
+            <div class="dialog-actions"><button class="btn text" data-act="close-dialog">Annuler</button><button class="btn danger" data-act="do-delete-app">Supprimer</button></div></div>`;
+    }
+
+    function accountCard() {
+        return `<div class="account" role="dialog" aria-label="Compte">
+            <div class="account-mail">${ME.email}<button class="icon-btn" data-act="close-pop" aria-label="Fermer">${I('close', 's20')}</button></div>
+            <div class="account-id"><span class="avatar lg">${ME.initial}</span><span class="hello">Bonjour ${ME.first} !</span></div>
+            <div class="account-rows">
+                <button data-act="install">${I('install')}Installer One App sur cet appareil</button>
+                <button data-act="open-drive">${I('folder')}Ouvrir le dossier dans Google Drive</button>
+                <button data-act="logout">${I('logout')}Se déconnecter</button>
+            </div>
+            <div class="account-foot">Vos données restent dans votre Google Drive</div></div>`;
+    }
+
+    // =========================================================
+    //  MENUS
+    // =========================================================
+    let menuEl = null;
+    function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+    function openMenu(anchor, items) {
+        closeMenu();
+        menuEl = document.createElement('div');
+        menuEl.className = 'menu';
+        menuEl.setAttribute('role', 'menu');
+        menuEl.innerHTML = items.map((it) => it === '-' ? '<hr>' :
+            `<button role="menuitem" class="${it.danger ? 'danger' : ''} ${it.desc ? 'tall' : ''} ${it.checked ? 'checked' : ''}" data-mi="${it.id}">${I(it.icon)}<span>${it.label}${it.desc ? `<span class="desc">${it.desc}</span>` : ''}</span>${it.checked ? `<span class="ck">${I('check', 's20')}</span>` : ''}</button>`).join('');
+        document.body.appendChild(menuEl);
+        const r = anchor.getBoundingClientRect();
+        const w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+        let left = Math.min(r.left, window.innerWidth - w - 8);
+        let top = r.bottom + 4;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+        menuEl.style.left = Math.max(8, left) + 'px';
+        menuEl.style.top = top + 'px';
+        menuEl.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-mi]'); if (!b) return;
+            const it = items.find((x) => x.id === b.dataset.mi); closeMenu(); it.run && it.run();
+        });
+        menuEl.querySelector('button')?.focus();
+    }
+
+    // =========================================================
+    //  RENDU
+    // =========================================================
+    const root = $('#root');
+    let pop = null;
+    function render() {
+        let html;
+        const sc = S.screen;
+        if (sc === 'login') html = viewLogin();
+        else if (sc === 'invite') html = viewInvite();
+        else if (sc === 'home') html = shell(viewHome());
+        else if (sc === 'app') html = shell(viewApp());
+        else if (sc === 'doc' || sc === 'history') html = viewDoc();
+        else if (sc === 'editor') html = viewEditor();
+        if (S.dialog) {
+            const d = { share: dialogShare, create: dialogCreate, newdoc: dialogNewDoc, delapp: dialogConfirmDeleteApp }[S.dialog]();
+            html += `<div class="scrim" data-act="scrim">${d}</div>`;
+        }
+        if (pop === 'account') html += `<div class="scrim clear" data-act="close-pop"></div>${accountCard()}`;
+        const active = document.activeElement && document.activeElement.id === 'q';
+        root.innerHTML = html;
+        if (active) { const q = $('#q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+        syncPreviewSelect();
+    }
+
+    function syncPreviewSelect() {
+        let v = S.screen;
+        if (S.dialog === 'share') v = 'share';
+        else if (S.dialog === 'create') v = 'create';
+        else if (v === 'doc' && DOCS.find((d) => d.id === S.docId).readonly) v = 'doc-ro';
+        const sel = $('#pv-screen');
+        if ([...sel.options].some((o) => o.value === v)) sel.value = v;
+    }
+
+    let snackTimer;
+    function snack(msg, action) {
+        document.querySelector('.snackbar')?.remove();
+        const el = document.createElement('div');
+        el.className = 'snackbar'; el.setAttribute('role', 'status');
+        el.innerHTML = `<span>${msg}</span>${action ? `<button class="btn text">${action}</button>` : ''}<button class="icon-btn" style="color:inherit" aria-label="Fermer">${I('close', 's20')}</button>`;
+        el.addEventListener('click', (e) => { if (e.target.closest('button')) el.remove(); });
+        document.body.appendChild(el);
+        clearTimeout(snackTimer); snackTimer = setTimeout(() => el.remove(), 4000);
+    }
+
+    function go(screen, extra = {}) {
+        Object.assign(S, { dialog: null, drawer: false }, extra, { screen });
+        pop = null; closeMenu(); render();
+        const c = $('.content'); if (c) c.scrollTop = 0;
+    }
+
+    // --- Menus contextuels ---
+    function docMenu(anchor, id) {
+        const d = DOCS.find((x) => x.id === id);
+        openMenu(anchor, [
+            { id: 'open', icon: 'open', label: 'Ouvrir', run: () => go('doc', { docId: id }) },
+            { id: 'rename', icon: 'edit', label: 'Renommer', run: () => snack('Le nom devient modifiable directement dans la liste') },
+            { id: 'copy', icon: 'copy', label: 'Créer une copie', run: () => snack(`Copie de « ${esc(d.name)} » créée`, 'Ouvrir') },
+            { id: 'share', icon: 'people', label: 'Partager', run: () => { S.docId = id; S.dialog = 'share'; render(); } },
+            '-',
+            { id: 'del', icon: 'delete', label: 'Placer dans la corbeille', danger: true, run: () => snack(`« ${esc(d.name)} » a été placé dans la corbeille`, 'Annuler') }
+        ]);
+    }
+    function appMenu(anchor, id) {
+        const a = appOf(id);
+        S.appId = id;
+        const items = [
+            { id: 'new', icon: 'add', label: 'Nouveau document', run: () => go('doc', { docId: docsOf(id)[0]?.id || 'b26' }) },
+            { id: 'open', icon: 'folder', label: 'Voir les documents', run: () => go('app', { appId: id }) }
+        ];
+        if (!a.shared) items.push({ id: 'edit', icon: 'code', label: "Modifier l'app", run: () => go('editor', { appId: id }) });
+        items.push({ id: 'drive', icon: 'open', label: 'Ouvrir dans Google Drive', run: () => snack('Ouvre le dossier de l\'app dans Google Drive') }, '-');
+        items.push(a.shared
+            ? { id: 'rm', icon: 'delete', label: 'Retirer de mon One App', danger: true, run: () => snack(`« ${esc(a.name)} » retirée. L'original de ${a.shared} n'est pas touché.`, 'Annuler') }
+            : { id: 'del', icon: 'delete', label: "Supprimer l'app", danger: true, run: () => { S.dialog = 'delapp'; render(); } });
+        openMenu(anchor, items);
+    }
+
+    // --- Clics ---
+    document.addEventListener('click', (e) => {
+        if (menuEl && !e.target.closest('.menu')) { closeMenu(); if (!e.target.closest('[data-docmenu],[data-appmenu],[data-act$="more"],[data-act="mode"],[data-act="new"],[data-act^="share-"]')) return; }
+        const t = e.target.closest('[data-go],[data-act],[data-nav],[data-app],[data-doc],[data-docmenu],[data-appmenu],[data-hist],[data-newdoc]');
+        if (!t) return;
+        if (t.dataset.docmenu) { e.stopPropagation(); return docMenu(t, t.dataset.docmenu); }
+        if (t.dataset.appmenu) { e.stopPropagation(); return appMenu(t, t.dataset.appmenu); }
+        if (t.dataset.go) {
+            const extra = {};
+            if (t.dataset.go === 'doc-ro') return go('doc', { docId: 'plan' });
+            if (t.dataset.go === 'home') extra.nav = 'home';
+            if (t.dataset.go === 'history') extra.histSel = 0;
+            if (t.dataset.appGo) extra.appId = t.dataset.appGo;
+            return go(t.dataset.go, extra);
+        }
+        if (t.dataset.nav) return go('home', { nav: t.dataset.nav, query: '' });
+        if (t.dataset.app) return go('app', { appId: t.dataset.app });
+        if (t.dataset.doc) return go('doc', { docId: t.dataset.doc });
+        if (t.dataset.hist) { S.histSel = +t.dataset.hist; return render(); }
+        if (t.dataset.newdoc) { const a = appOf(t.dataset.newdoc); go('doc', { docId: docsOf(a.id)[0]?.id || 'b26' }); return snack(`Nouveau document « Sans titre » créé avec ${esc(a.name)}`); }
+        act(t.dataset.act, t, e);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { if (menuEl) closeMenu(); else if (S.dialog || pop || S.drawer) { S.dialog = null; pop = null; S.drawer = false; render(); } }
+        if (e.key === 'Enter' && e.target.matches('.app-card[data-app]')) go('app', { appId: e.target.dataset.app });
+        if (e.key === 'Enter' && e.target.id === 'doc-title') e.target.blur();
+    });
+    document.addEventListener('input', (e) => {
+        if (e.target.id === 'q') { S.query = e.target.value; render(); }
+    });
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'doc-title') snack('Document renommé');
+    });
+
+    function act(a, el, e) {
+        switch (a) {
+            case 'drawer': S.drawer = !S.drawer; return render();
+            case 'clear-q': S.query = ''; return render();
+            case 'account': pop = 'account'; return render();
+            case 'close-pop': pop = null; return render();
+            case 'scrim': if (e.target === el) { S.dialog = null; render(); } return;
+            case 'close-dialog': S.dialog = null; return render();
+            case 'new':
+                return openMenu(el, [
+                    { id: 'doc', icon: 'doc', label: 'Nouveau document', desc: 'Avec une de vos apps', run: () => { S.dialog = 'newdoc'; render(); } },
+                    { id: 'app', icon: 'spark', label: 'Créer une app', desc: "Avec l'aide d'une IA", run: () => { S.dialog = 'create'; render(); } }
+                ]);
+            case 'create': S.dialog = 'create'; return render();
+            case 'new-doc': go('doc', { docId: docsOf(S.appId)[0]?.id || 'b26' }); return snack(`Nouveau document « Sans titre » créé avec ${esc(appOf(S.appId).name)}`);
+            case 'edit-app': return go('editor');
+            case 'sync-info': return snack(S.net === 'offline' ? 'Hors connexion. Vos modifications sont sur cet appareil et partiront dès le retour du réseau.' : 'Tout est enregistré dans votre Google Drive.');
+            case 'reconnect': $('#pv-net').value = 'online'; S.net = 'online'; render(); return snack('Reconnecté. 2 modifications envoyées dans Drive.');
+            case 'cycle-status': {
+                if (S.net === 'offline') return snack('Hors connexion : changez « Réseau » dans la barre de maquette pour voir les autres états.');
+                const order = ['saved', 'saving', 'error'];
+                S.status = order[(order.indexOf(S.status) + 1) % order.length]; return render();
+            }
+            case 'undo': return snack('Modification annulée');
+            case 'redo': return;
+            case 'mode':
+                return openMenu(el, [
+                    { id: 'edit', icon: 'edit', label: 'Modification', desc: 'Modifier le document', checked: S.mode === 'edit', run: () => { S.mode = 'edit'; render(); } },
+                    { id: 'view', icon: 'eye', label: 'Lecture', desc: 'Consulter sans risque de modifier', checked: S.mode === 'view', run: () => { S.mode = 'view'; render(); } }
+                ]);
+            case 'share': S.dialog = 'share'; return render();
+            case 'share-level':
+                return openMenu(el, [
+                    { id: 'p', icon: 'lock', label: 'Limité', desc: 'Vous seul pouvez ouvrir', checked: S.shareLevel === 'private', run: () => { S.shareLevel = 'private'; render(); } },
+                    { id: 'l', icon: 'globe', label: 'Tous les utilisateurs qui ont le lien', desc: 'Pas besoin de compte Google pour regarder', checked: S.shareLevel === 'link', run: () => { S.shareLevel = 'link'; render(); snack('Accès mis à jour'); } }
+                ]);
+            case 'share-role':
+                return openMenu(el, [
+                    { id: 'r', icon: 'eye', label: 'Lecteur', checked: S.shareRole === 'reader', run: () => { S.shareRole = 'reader'; render(); } },
+                    { id: 'w', icon: 'edit', label: 'Éditeur', checked: S.shareRole === 'writer', run: () => { S.shareRole = 'writer'; render(); } }
+                ]);
+            case 'copy-link': return snack(S.shareLevel === 'private' ? 'Lien copié. Seul vous pourrez l\'ouvrir tant que l\'accès est « Limité ».' : 'Lien copié');
+            case 'qr': S.showQr = !S.showQr; return render();
+            case 'native-share': return snack('Ouvre le menu de partage du téléphone (Messages, WhatsApp, e-mail…)');
+            case 'docbar-more': {
+                const doc = DOCS.find((d) => d.id === S.docId);
+                const items = [];
+                if (window.innerWidth <= 640) items.push({ id: 'h', icon: 'history', label: 'Historique des versions', run: () => go('history', { histSel: 0 }) });
+                if (!doc.readonly) items.push({ id: 'rn', icon: 'edit', label: 'Renommer', run: () => $('#doc-title').select() });
+                items.push({ id: 'cp', icon: 'copy', label: 'Créer une copie', run: () => snack(`Copie de « ${esc(doc.name)} » créée`, 'Ouvrir') });
+                if (!doc.readonly) items.push({ id: 'ed', icon: 'code', label: "Modifier l'app", run: () => go('editor', { appId: doc.app }) });
+                items.push({ id: 'dr', icon: 'open', label: 'Ouvrir dans Google Drive', run: () => snack('Ouvre le fichier dans Google Drive') });
+                if (!doc.readonly) items.push('-', { id: 'del', icon: 'delete', label: 'Placer dans la corbeille', danger: true, run: () => { go('app', { appId: doc.app }); snack(`« ${esc(doc.name)} » a été placé dans la corbeille`, 'Annuler'); } });
+                return openMenu(el, items);
+            }
+            case 'copy-doc': return snack('Copie créée dans votre One App. Vous pouvez la modifier.', 'Ouvrir');
+            case 'restore': go('doc'); return snack('Version du ' + HISTORY.flatMap((g) => g.items)[S.histSel].t + ' restaurée', 'Annuler');
+            case 'hist-copy': return snack('Copie de cette version créée', 'Ouvrir');
+            case 'editor-more':
+                return openMenu(el, [
+                    { id: 'h', icon: 'history', label: 'Versions précédentes', run: () => snack("Affiche l'historique du code de l'app") },
+                    { id: 'c', icon: 'copy', label: "Créer une copie de l'app", run: () => snack("Copie de l'app créée") },
+                    { id: 'd', icon: 'download', label: 'Télécharger le fichier .html', run: () => snack('Téléchargement du fichier') },
+                    '-',
+                    { id: 'x', icon: 'delete', label: "Supprimer l'app", danger: true, run: () => { S.dialog = 'delapp'; render(); } }
+                ]);
+            case 'copy-code': return snack("Code et règles copiés. Collez-les dans votre IA.");
+            case 'paste': return snack('Code remplacé par le contenu du presse-papiers', 'Annuler');
+            case 'clear-code': { const c = $('#code'); if (c) c.value = ''; return snack('Éditeur vidé', 'Annuler'); }
+            case 'save-code': go('app'); return snack(`« ${esc(appOf(S.appId).name)} » est à jour. Tous ses documents utilisent la nouvelle version.`);
+            case 'copy-rules': return snack('Règles copiées. Collez-les dans votre IA.');
+            case 'install-app': S.dialog = null; go('app', { appId: 'sport' }); return snack('App « Suivi sport » créée dans votre Drive');
+            case 'do-delete-app': { const n = appOf(S.appId).name; go('home', { nav: 'home' }); return snack(`« ${esc(n)} » a été placée dans la corbeille`, 'Annuler'); }
+            case 'install': pop = null; render(); return snack("Ouvre la fenêtre « Installer One App » (voir la maquette dédiée)");
+            case 'open-drive': pop = null; render(); return snack('Ouvre Mon Drive › One App');
+            case 'logout': pop = null; return go('login');
+        }
+    }
+
+    // --- Barre de maquette ---
+    $('#pv-screen').addEventListener('change', (e) => {
+        const v = e.target.value;
+        if (v === 'doc') return go('doc', { docId: 'b26' });
+        if (v === 'doc-ro') return go('doc', { docId: 'plan' });
+        if (v === 'history') return go('history', { docId: 'b26', histSel: 2 });
+        if (v === 'share') { go('doc', { docId: 'b26' }); S.dialog = 'share'; return render(); }
+        if (v === 'create') { go('home', { nav: 'home' }); S.dialog = 'create'; return render(); }
+        if (v === 'app') return go('app', { appId: S.appId || 'budget' });
+        if (v === 'editor') return go('editor', { appId: 'budget' });
+        go(v, { nav: 'home' });
+    });
+    $('#pv-net').addEventListener('change', (e) => { S.net = e.target.value; render(); });
+    $('#pv-tint').addEventListener('change', (e) => {
+        if (e.target.value === 'blue') document.documentElement.setAttribute('data-tint', 'blue'); else document.documentElement.removeAttribute('data-tint');
+    });
+    $('#pv-theme').addEventListener('change', (e) => {
+        if (e.target.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', e.target.value);
+    });
+    window.addEventListener('resize', closeMenu);
+
+    render();
+})();
+</script>
+</body>
+</html>
