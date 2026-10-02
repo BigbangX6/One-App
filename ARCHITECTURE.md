@@ -76,15 +76,21 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 |---|---|
 | `unauthenticated-view` | Connexion Google |
 | `shared-invite-view` | Lien partagé ouvert sans être connecté |
-| `authenticated-view` | Accueil : grille des apps, sous-menu fichiers, installation |
-| `execution-view` | App en cours : bandeau (titre, annuler, synchro, partage) + `iframe-container` |
-| `edit-app-view` | Éditeur du code d'une app |
+| `authenticated-view` | Accueil en cartes (façon iCloud) : compte (`#drive-status`), apps (`#app-grid`), documents (`#doc-search`, `#rec-head`, `#doc-list`) |
+| `execution-view` | App en cours : bandeau (titre, annuler, synchro, mode, partage, menu) + `readonly-banner` + `iframe-container` |
+| `edit-app-view` | Éditeur du code d'une app (3 étapes + code ; menu : copie, téléchargement, versions, suppression de l'app) |
 | `history-sidebar` | Panneau latéral de l'historique des versions |
 | `share-modal-overlay` | Fenêtre de partage |
 | `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
 | `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
 | `network-banner` | Pastille « Hors-ligne » en bas de l'écran : 6 s au passage hors-ligne, puis à chaque clic sur l'icône hors-ligne du bandeau (`showNetworkBanner`) |
 | `install-overlay` | Fenêtre d'installation PWA, adaptée à l'appareil (CSS limité à `#install-overlay`) |
+
+**Style** : variables CSS en tête du `<style>` (`--card`, `--fg`, `--muted`, `--accent`...),
+redéfinies pour le thème sombre de l'appareil ; fond en léger dégradé bleu vertical
+(`--page-bg`). Classes communes : `.card`, `.btn` (`fill`/`soft`/`ghost`), `.pill`, `.icon-btn`,
+`.menu`, `.scrim` + `.dialog`, `.toast`. Icônes : symboles `#u-...` (interface) et `#i-...`
+(fenêtre d'installation).
 
 ## 5. Le JavaScript, section par section
 
@@ -99,18 +105,19 @@ Dans l'ordre du fichier :
 | **ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file)** | Apps publiques lues par clé API, documents partagés autorisés via le Picker | `readDriveFile`, `publicDriveFetch`, `getFileMetaWithAccess`, `requestFileAccess`, `pickFile`, `waitForFileAccess` (l'accès est vérifié auprès de Drive après le Picker, sans se fier à sa réponse) |
 | **STOCKAGE LOCAL (LOCAL D'ABORD)** | Copie des documents et des apps sur l'appareil (IndexedDB) | `localStore`, `persistOpenDoc`, `prepareLocalStore` |
 | REPRISE DES ENVOIS EN ATTENTE | Envoie les modifications restées sur l'appareil | `syncPendingDocs`, `syncPendingDoc` |
-| LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers, accueil | `initializeAppSystem`, `getOrCreateFolder`, `listInstalledApps`, `buildAppIcon`, `toggleAppMenu` |
-| GESTION DU BANDEAU D'EXÉCUTION | Renommer, dupliquer, liste de fichiers | `renameActiveFile`, `duplicateActiveFile`, `loadAppFiles`, `renameFile`, `deleteFile` |
+| LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers | `initializeAppSystem`, `getOrCreateFolder` |
+| **ACCUEIL EN CARTES** | État `home`, chargement des apps et de tous les documents, cartes, menu ⋯ (renommer, copie, partage, versions, Drive, supprimer + Annuler), fenêtres « Créer une app » et « Toutes les apps », notifications | `h`, `icon`, `listInstalledApps`, `loadHomeDocs`, `renderHome`, `openDocMenu`, `openCreateDialog`, `showToast` |
+| GESTION DU BANDEAU D'EXÉCUTION | Renommer, dupliquer le document ouvert | `renameActiveFile`, `duplicateActiveFile` |
 | **CONTRAT ONE APP** | Règles de création données aux IA | `ONEAPP_RULES`, `copyAppGenerationPrompt`, `createNewFile` |
 | **LE PONT DE COMMUNICATION** | API injectée dans chaque app + réception des messages | `oneAppBridge`, `injectBridge`, écouteur `message` |
-| COMMANDES DU MOTEUR VERS L'IFRAME | Annuler/Rétablir des données, lecture seule | `appUndo`, `appRedo`, `toggleAppMode` |
+| COMMANDES DU MOTEUR VERS L'IFRAME | Annuler/Rétablir des données ; mode lecture choisi et bandeau « lecture seule » (seulement si le document n'est pas modifiable, refermable) | `appUndo`, `appRedo`, `toggleAppMode`, `renderModeButton`, `dismissReadonlyBanner` |
 | **LE BOUCLIER DE SAUVEGARDE** | File de synchronisation et conflits | `markDirty`, `syncToDrive`, `performSync`, `resolveConflict`, `flushSync` |
 | LE RADAR SILENCIEUX (POLLING) | Vérifie le Cloud toutes les 15 s | `checkCloudVersion`, `startPolling` |
 | (liens partagés) | `?file=ID` | `checkSharedLink`, `createShortcutIfNeeded` |
 | **MODE HORS-LIGNE** | Accueil, listes et documents servis depuis l'appareil | `isOffline`, `enterOfflineMode`, `leaveOfflineMode`, `openFromDevice`, `requireOnline` |
 | LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `mountApp`, `closeApp` |
 | (partage) | Droits Drive, lien, QR code | `openShareModal`, `validatePermissionChange` |
-| LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `confirmAppHtml`, `installAppFromHtml` |
+| LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `checkAppHtml`, `readAppMeta`, `installApp` |
 | LOGIQUE DE L'ÉDITEUR | Modifier le code d'une app | `openAppEditor`, `copyCodeForAI`, `saveEditorCode`, `saveAppToDrive` |
 | MACHINE À REMONTER LE TEMPS | Révisions Drive | `showDataHistory`, `renderRevisions`, `restoreDataVersion`, `copyDataVersion` |
 | RACCOURCIS CLAVIER | Ctrl+Z / Ctrl+Y dans One App | |
@@ -248,7 +255,8 @@ partagé) → dossier de l'app retrouvé par son nom → dossier « One App » e
    `dirty` n'est retiré de l'appareil qu'après confirmation de Drive (ou à la déconnexion,
    après avertissement).
 4. **Ne jamais insérer un nom, une icône ou une donnée Drive avec `innerHTML`** ou dans un
-   `onclick="..."` généré. Utiliser `textContent`, `addEventListener`, `makeButton`.
+   `onclick="..."` généré. Construire avec `h(tag, props, ...enfants)` (textes en nœuds texte)
+   et `icon(nom)` pour les icônes `#u-...`.
    (Un fichier partagé porte un nom choisi par quelqu'un d'autre.)
 5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.** Et **ne pas élargir le scope au-delà de `drive.file`** (un scope restreint impose un
    audit de sécurité Google). Lire un fichier qui peut appartenir à un autre :
@@ -272,7 +280,7 @@ partagé) → dossier de l'app retrouvé par son nom → dossier « One App » e
 - Un document en attente dont on a perdu l'accès en écriture est retenté indéfiniment.
 - Deux apps avec le même `<title>` partagent le même dossier (leurs documents se mélangent).
 - Renommer une app ne renomme ni son dossier ni `app_name` dans ses documents.
-- La liste des apps et des fichiers n'est pas paginée (100 éléments maximum).
+- Les listes ne sont pas paginées (100 apps, 200 documents au maximum).
 - Le QR code est généré par un service externe (api.qrserver.com).
 - Les messages passent encore par `alert()` / `confirm()`.
 - Un `.onefile` partagé par Drive directement (sans le lien One App) n'apparaît pas tant

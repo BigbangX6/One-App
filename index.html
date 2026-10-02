@@ -19,214 +19,474 @@
     <script src="config.js"></script>
 
     <style>
-        /* --- VARIABLES CSS --- */
+        /* --- VARIABLES CSS ---
+           Thème clair par défaut, sombre selon l'appareil. Les anciens noms
+           (--bg-color, --surface-color...) restent disponibles pour le reste du fichier. */
         :root {
-            --bg-color: #f5f5f7;
-            --surface-color: #ffffff;
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-            --border-color: #d2d2d7;
-            --accent-color: #8b5cf6; 
+            --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+            --bg: #f3f5f9;
+            --page-bg: linear-gradient(180deg, #d9e7fd 0%, #e9f0fb 32%, #f3f5f9 70%);
+            --card: #ffffff;
+            --glass: rgba(255, 255, 255, 0.78);
+            --field: #f2f2f6;
+            --fg: #1d1d1f;
+            --muted: #6e6e73;
+            --line: #e5e5ea;
+            --hover: rgba(29, 29, 31, 0.05);
+            --accent: #8b5cf6;
             --accent-hover: #7c3aed;
-            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+            --accent-strong: #6d28d9;
+            --accent-soft: #efe9fe;
+            --accent-ring: rgba(139, 92, 246, 0.35);
+            --on-accent: #ffffff;
+            --danger: #d70015;
+            --ok: #16a34a;
+            --warn-bg: #fff6e0;
+            --warn-fg: #7a4f00;
+            --scrim: rgba(20, 16, 30, 0.38);
+            --card-shadow: 0 0.5px 1px rgba(20, 30, 60, 0.06), 0 6px 22px rgba(20, 30, 60, 0.07);
+            --card-shadow-hover: 0 1px 2px rgba(20, 30, 60, 0.08), 0 12px 32px rgba(20, 30, 60, 0.11);
+            --pop-shadow: 0 10px 40px rgba(20, 30, 60, 0.2), 0 1px 3px rgba(20, 30, 60, 0.1);
+            --icon-top: 96%;
+            --icon-bottom: 86%;
+            --icon-sat: 80%;
+            --icon-gloss: rgba(255, 255, 255, 0.75);
+            --icon-drop: 0.22;
+            --inverse: #2a2830;
+            --on-inverse: #f5f4f8;
+
+            /* Anciens noms */
+            --bg-color: var(--bg);
+            --surface-color: var(--card);
+            --text-primary: var(--fg);
+            --text-secondary: var(--muted);
+            --border-color: var(--line);
+            --accent-color: var(--accent);
+            --shadow: var(--card-shadow);
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-color: #000000;
-                --surface-color: #1c1c1e;
-                --text-primary: #f5f5f7;
-                --text-secondary: #a1a1a6;
-                --border-color: #38383a;
-                --shadow: 0 4px 24px rgba(0,0,0,0.4);
+                --bg: #000000;
+                --page-bg: linear-gradient(180deg, #0c1a30 0%, #060c18 34%, #000000 72%);
+                --card: #1c1c1e;
+                --glass: rgba(28, 28, 30, 0.8);
+                --field: #2a2a2e;
+                --fg: #f5f5f7;
+                --muted: #a1a1a6;
+                --line: #333338;
+                --hover: rgba(245, 245, 247, 0.07);
+                --accent-strong: #c4b5fd;
+                --accent-soft: #2e2445;
+                --accent-ring: rgba(167, 139, 250, 0.45);
+                --danger: #ff6961;
+                --ok: #4ade80;
+                --warn-bg: #3a2d10;
+                --warn-fg: #ffd88a;
+                --scrim: rgba(0, 0, 0, 0.6);
+                --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 6px 22px rgba(0, 0, 0, 0.5);
+                --card-shadow-hover: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 12px 32px rgba(0, 0, 0, 0.6);
+                --pop-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.07);
+                --icon-top: 36%;
+                --icon-bottom: 24%;
+                --icon-sat: 35%;
+                --icon-gloss: rgba(255, 255, 255, 0.12);
+                --icon-drop: 0.5;
+                --inverse: #f5f4f8;
+                --on-inverse: #1d1d1f;
+                color-scheme: dark;
             }
         }
 
         /* --- STYLES GLOBAUX --- */
-        body, html {
-            margin: 0;
-            padding: 0; height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg-color); color: var(--text-primary);
-            display: flex; justify-content: center; align-items: flex-start;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            padding-top: 40px; box-sizing: border-box;
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; min-height: 100%; }
+        /* Fond : léger dégradé bleu, du haut vers le bas uniquement */
+        body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--page-bg); pointer-events: none; }
+        body {
+            isolation: isolate; background: var(--bg); color: var(--fg);
+            font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased;
         }
+        button, input, textarea { font: inherit; color: inherit; }
+        button { cursor: pointer; }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        [hidden] { display: none !important; }
+        .i { width: 20px; height: 20px; fill: currentColor; flex: none; display: block; }
 
+        /* Boutons communs */
+        .btn {
+            height: 40px; border-radius: 20px; border: none; padding: 0 18px; font-weight: 600;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
+        }
+        .btn .i { width: 18px; height: 18px; margin-left: -4px; }
+        .btn.fill { background: var(--accent); color: var(--on-accent); }
+        .btn.fill:hover { background: var(--accent-hover); }
+        .btn.fill:disabled { opacity: 0.45; cursor: default; }
+        .btn.soft { background: var(--accent-soft); color: var(--accent-strong); }
+        .btn.soft:hover { filter: brightness(0.97); }
+        .btn.ghost { background: transparent; color: var(--muted); }
+        .btn.ghost:hover { background: var(--hover); color: var(--fg); }
+        .btn.danger { background: transparent; color: var(--danger); }
+        .btn.wide { width: 100%; }
+        .icon-btn {
+            width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: var(--muted);
+            display: inline-grid; place-items: center; flex: none; padding: 0;
+        }
+        .icon-btn:hover, .icon-btn[aria-expanded="true"] { background: var(--hover); color: var(--fg); }
+        .icon-btn .i { width: 22px; height: 22px; }
+        .x-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--field); color: var(--muted); display: grid; place-items: center; flex: none; padding: 0; }
+        .x-btn:hover { color: var(--fg); }
+        .x-btn .i { width: 16px; height: 16px; }
+
+        /* Anciennes classes, gardées pour les fenêtres qui les utilisent encore */
+        .primary-btn { background: var(--accent); color: var(--on-accent); border: none; padding: 10px 20px; border-radius: 20px; font-weight: 600; }
+        .primary-btn:hover { background: var(--accent-hover); }
+        .custom-btn { background: var(--field); color: var(--fg); border: none; padding: 10px 18px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+        .custom-btn:hover { background: var(--line); }
+
+        .loader {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; display: none;
+            background: var(--card); color: var(--fg); padding: 14px 20px 14px 46px; border-radius: 16px;
+            box-shadow: var(--pop-shadow); font-weight: 600; text-align: left; max-width: calc(100vw - 32px);
+        }
+        .loader::before {
+            content: ""; position: absolute; left: 16px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
+            border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- CONNEXION / INVITATION --- */
         .app-container {
-            background-color: var(--surface-color);
-            border-radius: 20px;
-            box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 600px;
-            border: 1px solid var(--border-color); box-sizing: border-box;
+            width: min(420px, calc(100% - 32px)); margin: max(48px, 12vh) auto 24px; padding: 34px 28px 24px;
+            background: var(--card); border-radius: 28px; box-shadow: var(--card-shadow); text-align: center;
         }
+        #shared-invite-view, #authenticated-view { display: none; }
+        .app-container .logo-svg { width: 64px; height: 64px; color: var(--accent); fill: currentColor; margin-bottom: 10px; }
+        .app-container h1 { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
+        .app-container .subtitle { color: var(--muted); font-size: 15px; margin: 0 0 26px; line-height: 1.45; }
+        .app-container .btn.fill { width: 100%; height: 48px; border-radius: 24px; font-size: 16px; }
+        .app-container .btn.ghost { margin-top: 8px; font-size: 14px; }
 
-        /* --- VUES --- */
-        #unauthenticated-view { text-align: center; }
-        #authenticated-view { display: none; }
-        
-        .logo-svg { color: var(--accent-color); margin-bottom: 16px; }
-        h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px 0; }
-        p.subtitle { color: var(--text-secondary); font-size: 15px; margin: 0 0 32px 0; }
+        /* --- ACCUEIL EN CARTES ---
+           Ordinateur : compte + apps sur une ligne, documents dessous.
+           Téléphone : tout tient dans l'écran, la liste défile dans sa carte. */
+        .home { max-width: 1080px; margin: 0 auto; padding: 18px 24px 40px; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 20px; align-items: stretch; }
+        .brand { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 4px 4px 2px; }
+        .brand .logo { width: 30px; height: 30px; color: var(--accent); }
+        .brand b { font-family: var(--font-display); font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+        .card { background: var(--card); border-radius: 24px; box-shadow: var(--card-shadow); min-width: 0; transition: box-shadow 0.3s; }
+        @media (hover: hover) { .card:hover { box-shadow: var(--card-shadow-hover); } }
+        .card-label { font-size: 13px; font-weight: 600; color: var(--muted); padding: 18px 20px 0; }
 
-        .custom-btn {
-            background-color: var(--surface-color);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 8px;
-            font-size: 16px; font-weight: 600; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; gap: 12px; width: 100%;
-            transition: background 0.2s;
+        /* Compte */
+        .account { display: flex; flex-direction: column; padding: 22px 20px 16px; gap: 16px; }
+        .account .who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .account .name { font-family: var(--font-display); font-size: 19px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .account .mail { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .drive-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+        .drive-status .i { width: 16px; height: 16px; color: var(--ok); }
+        .drive-status.offline .i { color: var(--muted); }
+        .account-actions { margin-top: auto; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+        .install-btn {
+            width: 100%; height: 44px; border: none; border-radius: 14px; color: var(--on-accent); font-weight: 600; font-size: 15px;
+            background: linear-gradient(180deg, #9a70fa, var(--accent)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 14px var(--accent-ring);
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: filter 0.2s;
         }
-        .custom-btn:hover { background-color: var(--bg-color); }
-        
-        .primary-btn {
-            background-color: var(--accent-color);
-            color: white; border: none;
-            padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;
+        .install-btn:hover { filter: brightness(1.06); }
+        .logout { border: none; background: none; color: var(--muted); font-size: 13px; padding: 7px 10px; border-radius: 10px; }
+        .logout:hover { color: var(--fg); background: var(--hover); }
+
+        /* Apps */
+        .apps { display: flex; flex-direction: column; }
+        .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 4px; padding: 16px 14px 20px; align-content: start; }
+        .app-tile {
+            border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 6px 2px; border-radius: 16px; min-width: 0; transition: opacity 0.2s;
         }
-        .primary-btn:hover { background-color: var(--accent-hover); }
-
-        .loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 9999; display: none; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-color); text-align: center; }
-
-        /* --- TABLEAU DE BORD --- */
-        .user-header {
-            display: flex;
-            align-items: center; gap: 12px; margin-bottom: 24px;
-            padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
+        .app-icon {
+            --h: 265; width: 62px; height: 62px; border-radius: 17px; display: grid; place-items: center; font-size: 31px; line-height: 1;
+            position: relative; flex: none; color: var(--accent-strong);
+            background: linear-gradient(180deg, hsl(var(--h) var(--icon-sat) var(--icon-top)), hsl(var(--h) var(--icon-sat) var(--icon-bottom)));
+            box-shadow: inset 0 1px 0 var(--icon-gloss), 0 1px 2px hsl(var(--h) 40% 30% / var(--icon-drop)), 0 4px 10px hsl(var(--h) 40% 40% / calc(var(--icon-drop) * 0.6));
+            transition: transform 0.25s cubic-bezier(.2, .8, .2, 1), box-shadow 0.25s;
         }
-        .user-info h2 { font-size: 16px; margin: 0; }
-        .user-info p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+        .app-icon img { width: 60%; height: 60%; display: block; }
+        .app-icon .i { width: 56%; height: 56%; }
+        @media (hover: hover) { .app-tile:hover .app-icon { transform: translateY(-2px) scale(1.05); } }
+        .app-label { font-size: 12.5px; font-weight: 500; max-width: 100%; text-align: center; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .app-badge { position: absolute; right: -5px; bottom: -5px; width: 22px; height: 22px; border-radius: 50%; background: var(--card); display: grid; place-items: center; color: var(--muted); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+        .app-badge .i { width: 14px; height: 14px; }
+        .app-grid.has-sel .app-tile:not([aria-pressed="true"]):not(.tool) { opacity: 0.45; }
+        .app-grid.has-sel .app-tile:not([aria-pressed="true"]):not(.tool):hover { opacity: 0.8; }
+        .app-tile[aria-pressed="true"] .app-icon { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--accent), 0 6px 16px var(--accent-ring); }
+        .app-tile[aria-pressed="true"] .app-label { color: var(--accent-strong); font-weight: 700; }
+        .app-tile.unavailable { opacity: 0.4; }
+        .app-tile.tool .app-icon { background: var(--field); box-shadow: inset 0 0 0 1.5px var(--line); color: var(--accent); }
+        .app-tile.tool .app-label { color: var(--muted); }
+        .app-tile.more .app-icon { font-size: 15px; font-weight: 700; color: var(--muted); }
 
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-        .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 0;}
-
-        /* Grille des applications */
-        #app-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px;
+        /* Documents */
+        .recents { grid-column: 1 / -1; display: flex; flex-direction: column; min-height: 0; }
+        .search { margin: 16px 16px 0; height: 42px; border-radius: 12px; background: var(--field); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted); }
+        .search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 15px; color: var(--fg); }
+        .search input::-webkit-search-cancel-button { display: none; }
+        .search .clear { border: none; background: var(--muted); color: var(--card); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+        .search .clear .i { width: 12px; height: 12px; }
+        .rec-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 6px 20px; min-height: 58px; flex-wrap: wrap; }
+        .rec-head h2 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+        .rec-head h2 > span:not(.app-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rec-head h2 .app-icon { width: 30px; height: 30px; border-radius: 9px; font-size: 16px; }
+        .rec-head .acts { display: flex; gap: 8px; }
+        .pill { height: 34px; border-radius: 17px; border: none; padding: 0 14px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+        .pill .i { width: 17px; height: 17px; margin-left: -3px; }
+        .pill.fill { background: var(--accent); color: var(--on-accent); }
+        .pill.fill:hover { background: var(--accent-hover); }
+        .pill.soft { background: var(--field); color: var(--fg); }
+        .pill.soft:hover { background: var(--line); }
+        .doc-list { padding: 0 8px 10px; overflow-y: auto; min-height: 0; }
+        .doc-row {
+            display: grid; grid-template-columns: auto minmax(0, 1fr) 150px 120px auto; align-items: center; gap: 14px;
+            padding: 8px 6px 8px 12px; border-radius: 14px; cursor: pointer;
         }
-        .app-card {
-            background: var(--bg-color);
-            border: 1px solid var(--border-color); border-radius: 12px;
-            padding: 20px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+        .doc-row:hover { background: var(--hover); }
+        .doc-row .app-icon { width: 36px; height: 36px; border-radius: 10px; font-size: 19px; }
+        .doc-name { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .doc-name input { width: 100%; font-weight: 500; font-size: 15px; border: 1.5px solid var(--accent); border-radius: 8px; padding: 3px 8px; background: var(--card); outline: none; }
+        .doc-name .i { display: inline-block; vertical-align: -2px; width: 14px; height: 14px; color: var(--muted); margin-left: 5px; }
+        .doc-sub { display: none; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .doc-col { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .doc-col.pending { color: var(--accent-strong); }
+        .doc-row.flash { animation: flash 1.2s ease-out; }
+        @keyframes flash { from { background: var(--accent-soft); } }
+        .empty { text-align: center; padding: 26px 16px 30px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; line-height: 1.45; }
+
+        /* Menus (⋯ d'un document, bandeau d'une app, éditeur) */
+        .menu, .header-dropdown {
+            position: fixed; z-index: 3200; min-width: 220px; background: var(--card); border-radius: 14px; box-shadow: var(--pop-shadow);
+            padding: 6px; animation: pop 0.14s ease-out; display: flex; flex-direction: column;
         }
-        .app-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent-color); }
-        .app-card svg { color: var(--accent-color); margin-bottom: 10px; }
-        .app-card span { display: block; font-size: 13px; font-weight: 600; }
-
-        /* Sous-menu App (Espace de travail) */
-        .app-submenu { grid-column: 1 / -1; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: none; flex-direction: column; gap: 15px; animation: slideDown 0.2s ease-out; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .submenu-header { display: flex; gap: 10px; flex-wrap: wrap; }
-        .submenu-search { flex: 1; min-width: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: var(--text-primary); outline: none; }
-        .submenu-search:focus { border-color: var(--accent-color); }
-        
-        .file-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
-        .file-item { display: flex; align-items: center; padding: 10px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.1s; }
-        .file-item:hover { border-color: var(--accent-color); }
-        .file-item-name { flex: 1; font-size: 14px; font-weight: 500; }
-        .file-item-date { font-size: 11px; color: var(--text-secondary); margin-right: 10px; }
-        .file-item-menu { position: relative; cursor: pointer; padding: 0 5px; color: var(--text-secondary); }
-        .file-item-menu:hover { color: var(--text-primary); }
-        
-        .file-item-dropdown { position: absolute; right: 0; top: 100%; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; flex-direction: column; min-width: 150px; overflow: hidden; }
-        .file-item-dropdown.active { display: flex; }
-        .file-item-dropdown button { background: none; border: none; padding: 10px 15px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        .file-item-dropdown button:hover { background: var(--bg-color); }
-        .file-item-dropdown button.danger { color: #ef4444; }
-
-        /* Bandeau d'exécution (Look Google Docs) */
-        .execution-header { position: sticky; top: 0; z-index: 100; flex-shrink: 0; background: var(--surface-color); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .execution-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding-right: 24px; }
-        .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; }
-        .execution-app-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-        .execution-title-input { font-size: 16px; font-weight: 500; color: var(--text-primary); border: 1px solid transparent; background: transparent; padding: 2px 4px; margin-left: -4px; border-radius: 4px; outline: none; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: 0.2s; }
-        .execution-title-input:hover { border-color: var(--border-color); }
-        .execution-title-input:focus { border-color: var(--accent-color); background: var(--surface-color); cursor: text; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
-        
-        .execution-center { display: flex; gap: 16px; justify-content: center; align-items: center; }
-        .execution-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-        
-        /* Menu Options du Bandeau */
+        .menu button, .header-dropdown button {
+            width: 100%; border: none; background: transparent; display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+            border-radius: 9px; text-align: left; font-size: 14px; color: var(--fg);
+        }
+        .menu button:hover, .header-dropdown button:hover { background: var(--hover); }
+        .menu button .i, .header-dropdown button .i { width: 18px; height: 18px; color: var(--muted); }
+        .menu button.danger, .menu button.danger .i, .header-dropdown button.danger, .header-dropdown button.danger .i { color: var(--danger); }
+        .menu hr, .header-dropdown hr { border: none; height: 1px; background: var(--line); margin: 5px 6px; }
         .header-menu-container { position: relative; }
-        .header-dropdown { position: absolute; right: 0; top: 100%; margin-top: 5px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow); z-index: 100; display: none; flex-direction: column; min-width: 200px; overflow: hidden; }
+        .header-dropdown { position: absolute; right: 0; top: calc(100% + 6px); display: none; }
         .header-dropdown.active { display: flex; }
-        .header-dropdown button { background: none; border: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
-        .header-dropdown button:hover { background: var(--bg-color); }
-        .header-dropdown button.danger { color: #ef4444; }
 
-        /* Vue Invitation */
-        #shared-invite-view { text-align: center; display: none; }
-        
-        /* Utilitaires Responsive */
-        @media (max-width: 600px) {
-            .hide-on-mobile { display: none !important; }
-            .show-on-mobile-inline { display: inline !important; }
+        /* Fenêtres */
+        .scrim {
+            position: fixed; inset: 0; background: var(--scrim); z-index: 3000; display: flex; align-items: center; justify-content: center;
+            padding: 16px; animation: fade 0.15s; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
         }
+        .dialog {
+            width: min(520px, 100%); max-height: calc(100% - 24px); overflow-y: auto; background: var(--card); border-radius: 24px;
+            padding: 22px 22px 18px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; gap: 14px;
+            animation: pop 0.22s cubic-bezier(.2, .9, .3, 1.1);
+        }
+        .dialog.narrow { width: min(400px, 100%); }
+        .dialog h2 { margin: 0; font-family: var(--font-display); font-size: 21px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .dialog h2 > span { flex: 1; min-width: 0; }
+        .dialog .lead { margin: -4px 0 0; color: var(--muted); line-height: 1.45; }
+        .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; flex-wrap: wrap; }
+        .step { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+        .step:first-of-type { border-top: none; }
+        .num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+        .step b { display: block; font-weight: 600; margin: 4px 0; }
+        .step p { margin: 0 0 10px; color: var(--muted); line-height: 1.45; font-size: 13px; }
+        .field {
+            width: 100%; min-height: 120px; resize: vertical; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card);
+            padding: 10px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; outline: none; color: var(--fg);
+        }
+        .field:focus { border-color: var(--accent); }
+        .found { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--accent-soft); margin-top: 8px; font-size: 13px; }
+        .found .app-icon { width: 34px; height: 34px; border-radius: 9px; font-size: 18px; }
+        .warn { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; line-height: 1.45; }
+        .warn ul { margin: 4px 0 0; padding-left: 18px; }
+        .err { color: var(--danger); font-size: 13px; margin-top: 8px; }
+        .all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px 4px; }
 
-        /* Modal d'installation */
-        #install-section {
-            display: none;
-            background: var(--bg-color); padding: 20px; border-radius: 12px;
-            border: 1px solid var(--border-color); margin-top: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 150px; background: var(--surface-color); color: var(--text-primary);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;
-            font-family: monospace; font-size: 12px; resize: vertical; margin-bottom: 10px; box-sizing: border-box;
-        }
+        /* Partage */
+        .choice-list { display: flex; flex-direction: column; gap: 6px; }
+        .choice { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line); cursor: pointer; }
+        .choice:hover { background: var(--hover); }
+        .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+        .choice .ic { width: 36px; height: 36px; border-radius: 50%; background: var(--field); color: var(--muted); display: grid; place-items: center; }
+        .choice:has(input:checked) .ic { background: var(--accent); color: var(--on-accent); }
+        .choice .ic .i { width: 19px; height: 19px; }
+        .choice b { display: block; font-weight: 600; font-size: 14px; }
+        .choice small { color: var(--muted); font-size: 12.5px; }
+        .choice input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; }
+        .link-row { display: flex; align-items: center; gap: 6px; background: var(--field); border-radius: 12px; padding: 4px 4px 4px 12px; }
+        .link-row input { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--muted); font-size: 13px; }
+        .share-actions { display: flex; gap: 8px; }
+        .share-actions .btn { flex: 1; }
+        .note { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0; }
+        #qr-code-container { text-align: center; }
+        #qr-code-img { border-radius: 12px; background: #fff; padding: 8px; }
 
-        /* --- HISTORIQUE (SIDEBAR) --- */
+        /* Notification en bas (avec action « Annuler » possible) */
+        .toast {
+            position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 3700;
+            background: var(--inverse); color: var(--on-inverse); border-radius: 14px; padding: 8px 8px 8px 16px; display: flex; align-items: center;
+            gap: 12px; font-size: 14px; box-shadow: var(--pop-shadow); max-width: calc(100vw - 32px); animation: fade 0.15s;
+        }
+        .toast span { padding: 4px 0; }
+        .toast button { border: none; background: transparent; color: #b79cff; font-weight: 700; padding: 6px 10px; border-radius: 8px; }
+        .toast.plain { padding-right: 16px; }
+        @keyframes pop { from { opacity: 0; transform: scale(0.97); } }
+        @keyframes fade { from { opacity: 0; } }
+
+        /* --- BARRE DES APPS (exécution et éditeur) : minimaliste, verre dépoli --- */
+        .execution-header {
+            position: sticky; top: 0; z-index: 100; flex-shrink: 0; height: 56px; padding: 0 10px 0 8px;
+            display: flex; align-items: center; gap: 6px; background: var(--glass);
+            -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px);
+            border-bottom: 1px solid var(--line);
+        }
+        .execution-left { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+        .home-btn { width: 40px; height: 40px; border-radius: 12px; border: none; background: transparent; color: var(--accent); display: grid; place-items: center; flex: none; padding: 0; }
+        .home-btn:hover { background: var(--hover); }
+        .home-btn .i { width: 28px; height: 28px; }
+        .execution-title-wrapper { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+        .execution-app-name { font-size: 11.5px; color: var(--muted); font-weight: 500; padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .execution-title-input {
+            font-size: 16px; font-weight: 600; color: var(--fg); border: 1.5px solid transparent; background: transparent; padding: 1px 6px;
+            border-radius: 8px; outline: none; width: 100%; max-width: 520px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text;
+        }
+        .execution-title-input:hover { background: var(--hover); }
+        .execution-title-input:focus { border-color: var(--accent); background: var(--card); }
+        .execution-center { display: flex; gap: 2px; align-items: center; flex: none; }
+        .execution-right { display: flex; justify-content: flex-end; align-items: center; gap: 4px; flex: none; }
+        .bar-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+        .mode-btn { height: 34px; border-radius: 17px; border: none; background: transparent; color: var(--fg); padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+        .mode-btn:hover { background: var(--hover); }
+        .mode-btn .i { width: 19px; height: 19px; color: var(--muted); }
+        .mode-btn.reading { background: var(--field); }
+        .mode-btn.locked { opacity: 0.6; pointer-events: none; }
+        .share-btn { height: 34px; border-radius: 17px; border: none; background: var(--accent); color: var(--on-accent); padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin-left: 4px; }
+        .share-btn:hover { background: var(--accent-hover); }
+        .share-btn .i { width: 17px; height: 17px; }
+
+        /* Bandeau « lecture seule » : seulement si le fichier n'est vraiment pas modifiable */
+        #readonly-banner {
+            display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; font-size: 13px;
+            background: var(--warn-bg); color: var(--warn-fg); border-bottom: 1px solid var(--line);
+        }
+        #readonly-banner .i { width: 18px; height: 18px; }
+        #readonly-banner span { flex: 1; min-width: 0; }
+        #readonly-banner .pill { height: 30px; background: rgba(0, 0, 0, 0.06); color: inherit; }
+        #readonly-banner .x-btn { background: transparent; color: inherit; }
+
+        /* --- ÉDITEUR D'APP --- */
+        .editor-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 24px; }
+        .editor-wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
+        .editor-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .editor-step { background: var(--card); border-radius: 18px; box-shadow: var(--card-shadow); padding: 14px 16px; display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+        .editor-step b { display: block; font-weight: 600; margin: 4px 0 4px; }
+        .editor-step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+        .editor-step .btn { margin-top: 10px; height: 34px; font-size: 13px; padding: 0 14px; }
+        .editor-card { flex: 1; min-height: 320px; background: var(--card); border-radius: 18px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; }
+        #editor-full-code {
+            flex: 1; width: 100%; border: none; outline: none; resize: none; background: transparent; color: var(--fg);
+            font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; padding: 16px 18px; tab-size: 4;
+        }
+        .editor-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 18px; border-top: 1px solid var(--line); }
+        #editor-status { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* --- HISTORIQUE (PANNEAU LATÉRAL) --- */
         #history-sidebar {
-            position: fixed; top: 0; right: 0; width: 300px; height: 100vh;
-            background: var(--surface-color); border-left: 1px solid var(--border-color);
-            box-shadow: -4px 0 24px rgba(0,0,0,0.1); z-index: 2000;
-            transform: translateX(100%); transition: transform 0.3s ease;
-            display: flex; flex-direction: column;
+            position: fixed; top: 0; right: 0; width: 320px; max-width: 100vw; height: 100vh; height: 100dvh;
+            background: var(--card); box-shadow: -10px 0 40px rgba(0, 0, 0, 0.14); z-index: 2000;
+            transform: translateX(105%); transition: transform 0.3s cubic-bezier(.2, .8, .2, 1);
+            display: flex; flex-direction: column; border-radius: 22px 0 0 22px;
         }
+        #history-sidebar:not(.open) { box-shadow: none; visibility: hidden; transition: transform 0.3s cubic-bezier(.2, .8, .2, 1), visibility 0s 0.3s; }
         #history-sidebar.open { transform: translateX(0); }
-        .history-header {
-            padding: 16px; border-bottom: 1px solid var(--border-color);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .history-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
-        .history-close-btn {
-            background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);
-        }
-        .history-close-btn:hover { color: #ef4444; }
-        #history-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        
-        .history-item {
-            padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
-            cursor: pointer; background: var(--bg-color); transition: 0.2s;
-        }
-        .history-item:hover, .history-item.selected { border-color: var(--accent-color); }
-        .history-item-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-        .history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-        
-        /* History Action Buttons area */
-        #history-actions { 
-            padding: 16px; border-top: 1px solid var(--border-color); display: none; 
-            flex-direction: column; gap: 10px; 
-        }
-
-        /* Floating button to restore history view on mobile */
+        .history-header { padding: 14px 12px 10px 20px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .history-header h3 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+        #history-list { flex: 1; overflow-y: auto; padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+        .history-item { padding: 10px 14px; border-radius: 14px; cursor: pointer; border: 1.5px solid transparent; }
+        .history-item:hover { background: var(--hover); }
+        .history-item.selected { border-color: var(--accent); background: var(--accent-soft); }
+        .history-item-date { font-size: 14px; font-weight: 600; color: var(--fg); }
+        .history-item-time { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        #history-actions { padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); display: none; flex-direction: column; gap: 8px; }
         #history-floating-btn {
-            position: fixed; bottom: 20px; right: 20px; z-index: 2100;
-            background: var(--surface-color); color: var(--text-primary);
-            border: 1px solid var(--border-color); border-radius: 20px;
-            padding: 12px 24px; font-size: 14px; font-weight: bold;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.15); cursor: pointer; display: none;
-            transition: transform 0.2s;
+            position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 20px; z-index: 2100; display: none;
+            height: 44px; padding: 0 18px; border-radius: 22px; border: none; background: var(--inverse); color: var(--on-inverse);
+            font-weight: 600; box-shadow: var(--pop-shadow); align-items: center; gap: 8px;
         }
-        #history-floating-btn:hover { transform: scale(1.05); border-color: var(--accent-color); color: var(--accent-color); }
 
-        /* Animation pulsation bouton copie */
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
+        /* Bandeau « session expirée » */
+        #session-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 4000; display: none; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--warn-bg); color: var(--warn-fg); font-size: 14px; font-weight: 600; box-shadow: var(--card-shadow); }
+
+        /* --- TABLETTE --- */
+        @media (max-width: 900px) {
+            .home { grid-template-columns: 250px minmax(0, 1fr); padding: 14px 16px 32px; gap: 16px; }
+            .doc-row { grid-template-columns: auto minmax(0, 1fr) 120px auto; }
+            .doc-col.date { display: none; }
+            .editor-steps { grid-template-columns: 1fr; }
         }
+
+        /* --- TÉLÉPHONE --- */
+        @media (max-width: 640px) {
+            .home { height: 100vh; height: 100dvh; display: flex; flex-direction: column; gap: 10px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+            .brand { padding: 2px 4px 0; }
+            .brand b { font-size: 19px; }
+            .brand .logo { width: 26px; height: 26px; }
+            .card { border-radius: 20px; flex: none; }
+            .account { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who install" "logout install"; align-items: center; padding: 12px 12px 10px 16px; gap: 0 12px; }
+            .account .who { grid-area: who; }
+            .account .name { font-size: 16px; }
+            .account .mail { font-size: 12px; }
+            .drive-status { display: none; }
+            .account-actions { display: contents; }
+            .install-btn { grid-area: install; width: auto; height: 38px; padding: 0 14px; border-radius: 12px; font-size: 14px; }
+            .logout { grid-area: logout; justify-self: start; padding: 2px 0 0; font-size: 12px; color: var(--accent-strong); background: none; }
+            .logout:hover { background: none; }
+            .lg-only { display: none; }
+            .apps .card-label { display: none; }
+            .app-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 2px; padding: 10px 6px 8px; }
+            .app-icon { width: 52px; height: 52px; border-radius: 14px; font-size: 26px; }
+            .app-tile { gap: 5px; padding: 4px 0; }
+            .app-label { font-size: 11.5px; -webkit-line-clamp: 1; }
+            .recents { flex: 1; min-height: 160px; }
+            .search { margin: 12px 12px 0; height: 38px; }
+            .rec-head { padding: 10px 12px 4px 16px; min-height: 0; }
+            .rec-head h2 { font-size: 16px; }
+            .rec-head .acts { width: 100%; }
+            .rec-head .acts .pill { flex: 1; }
+            .doc-list { flex: 1; padding: 0 6px 6px; }
+            .doc-row { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; padding: 6px 2px 6px 10px; }
+            .doc-col { display: none; }
+            .doc-sub { display: block; }
+            .scrim { align-items: flex-end; padding: 0; }
+            .dialog { border-radius: 24px 24px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 92%; }
+            .execution-header { padding: 0 4px 0 2px; gap: 2px; }
+            .execution-center { margin-left: auto; }
+            .hide-on-mobile { display: none !important; }
+            .mode-btn { padding: 0 8px; }
+            .bar-sep { margin: 0 2px; }
+            .editor-body { padding: 10px 10px 14px; }
+            .editor-steps { gap: 6px; }
+            .editor-step { padding: 9px 12px; border-radius: 14px; grid-template-columns: 24px 1fr; align-items: center; }
+            .editor-step .num { width: 24px; height: 24px; font-size: 12px; }
+            .editor-step b { margin: 0; font-size: 13.5px; }
+            .editor-step p { display: none; }
+            .editor-step > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+            .editor-step .btn { margin-top: 0; height: 30px; }
+            .editor-card { min-height: 0; }
+            #history-sidebar { width: 100vw; border-radius: 0; }
+        }
+        @media (min-width: 641px) { .show-on-mobile { display: none !important; } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
         /* --- FENÊTRE D'INSTALLATION (PWA) ---
            Bas d'écran sur téléphone, centrée ailleurs. Les étapes sont illustrées par de
@@ -431,8 +691,8 @@
         /* Bandeau hors-ligne : discret, ne bloque pas les clics */
         #network-banner {
             position: fixed; opacity: 0; visibility: hidden; transition: opacity 0.4s, visibility 0.4s; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3400;
-            background: var(--text-primary); color: var(--bg-color); padding: 8px 14px; border-radius: 999px;
-            font-size: 12px; font-weight: 600; box-shadow: var(--shadow); pointer-events: none;
+            background: var(--inverse); color: var(--on-inverse); padding: 10px 16px; border-radius: 14px;
+            font-size: 13px; font-weight: 600; box-shadow: var(--pop-shadow); pointer-events: none;
             max-width: calc(100% - 32px); text-align: center;
         }
         #network-banner.visible { opacity: 1; visibility: visible; }
@@ -440,226 +700,243 @@
 </head>
 <body>
 
-    <div id="session-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:4000; background:#fff3cd; color:#b45309; border-bottom:1px solid #fde68a; padding:10px 16px; font-size:14px; font-weight:600; justify-content:center; align-items:center; gap:12px; flex-wrap:wrap;">
+    <!-- Icônes de l'interface (préfixe u-), utilisées via <use href="#u-..."> ou icon('...') -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+        <symbol id="u-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+        <symbol id="u-cloud-done" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95A5.47 5.47 0 0 1 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11A2.98 2.98 0 0 1 22 15c0 1.65-1.35 3-3 3zm-9-3.82-2.09-2.09L6.5 13.5 10 17l6.01-6.01-1.41-1.41z"/></symbol>
+        <symbol id="u-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+        <symbol id="u-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+        <symbol id="u-more" viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+        <symbol id="u-more-vert" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+        <symbol id="u-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+        <symbol id="u-person-add" viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+        <symbol id="u-install" viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z"/></symbol>
+        <symbol id="u-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+        <symbol id="u-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM5.92 19H5v-.92l9.06-9.06.92.92L5.92 19zM20.71 5.63l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83a1 1 0 0 0 0-1.41z"/></symbol>
+        <symbol id="u-copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></symbol>
+        <symbol id="u-delete" viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></symbol>
+        <symbol id="u-code" viewBox="0 0 24 24"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></symbol>
+        <symbol id="u-history" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
+        <symbol id="u-folder" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></symbol>
+        <symbol id="u-wifi-off" viewBox="0 0 24 24"><path d="M21 11 23 9a15.9 15.9 0 0 0-12.43-4.47l2.58 2.58c2.89.27 5.7 1.55 7.85 3.89zm-2 2a9.86 9.86 0 0 0-4.11-2.62l3.2 3.2zM9 17l3 3 3-3a4.24 4.24 0 0 0-6 0zM3.41 1.64 2 3.05 5.05 6.1C3.59 6.83 2.22 7.79 1 9l2 2c1.24-1.24 2.65-2.21 4.17-2.9l2.24 2.24A9.86 9.86 0 0 0 5 13l2 2a7.03 7.03 0 0 1 4.89-2.06L19.95 21l1.41-1.41L3.41 1.64z"/></symbol>
+        <symbol id="u-check-c" viewBox="0 0 24 24"><path d="M16.59 7.58 10 14.17l-3.59-3.58L5 12l5 5 8-8zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></symbol>
+        <symbol id="u-undo" viewBox="0 -960 960 960"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></symbol>
+        <symbol id="u-redo" viewBox="0 -960 960 960"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></symbol>
+        <symbol id="u-visibility" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></symbol>
+        <symbol id="u-lock" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></symbol>
+        <symbol id="u-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></symbol>
+        <symbol id="u-logout" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></symbol>
+        <symbol id="u-public" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></symbol>
+        <symbol id="u-qr" viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM19 19h2v2h-2zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM15 19h2v2h-2zM17 17h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2z"/></symbol>
+        <symbol id="u-send" viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></symbol>
+        <symbol id="u-save" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></symbol>
+        <symbol id="u-doc" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></symbol>
+        <symbol id="u-file" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></symbol>
+    </defs></svg>
+
+    <div id="session-banner">
         <span>Votre session Google a expiré. Vos modifications sont conservées en attente.</span>
-        <button class="primary-btn" onclick="reconnectFromBanner()" style="padding:6px 14px;">Se reconnecter</button>
+        <button class="btn fill" onclick="reconnectFromBanner()" style="height:34px;">Se reconnecter</button>
     </div>
 
     <div id="network-banner" role="status">Hors-ligne — vos modifications sont gardées sur cet appareil et partiront au retour du réseau.</div>
+    <div id="loading-apps" class="loader">Recherche de vos One Apps...</div>
 
     <div id="unauthenticated-view" class="app-container">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+        <svg class="logo-svg"><use href="#u-cloud"/></svg>
         <h1>One App</h1>
         <p class="subtitle">Votre Personal Cloud décentralisé</p>
-        <button class="custom-btn" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
-        <button class="custom-btn install-link" onclick="openInstallSheet()" style="margin-top: 12px; font-size: 13px; color: var(--text-secondary); border-color: transparent;">📱 Installer l'application</button>
+        <button class="btn fill" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
+        <button class="btn ghost install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button>
     </div>
 
     <div id="shared-invite-view" class="app-container">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="64" height="64" style="color: #1a73e8;"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-        <h1 id="invite-title">Fichier Partagé</h1>
-        <p class="subtitle">Ouvrez ce fichier dans votre espace de travail One App.</p>
-        <button class="primary-btn" onclick="authorizeAndConnect()" style="width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px;">Se connecter pour ouvrir</button>
-        <button class="custom-btn" onclick="openInstallSheet()" style="font-size: 13px; color: var(--text-secondary); border-color: transparent;">Vous n'avez pas l'application ? Installer.</button>
+        <svg class="logo-svg"><use href="#u-file"/></svg>
+        <h1 id="invite-title">Fichier partagé</h1>
+        <p class="subtitle">Ouvrez ce fichier dans votre espace One App.</p>
+        <button class="btn fill" onclick="authorizeAndConnect()">Se connecter pour ouvrir</button>
+        <button class="btn ghost" onclick="openInstallSheet()">Vous n'avez pas l'application ? Installer.</button>
     </div>
 
-    <div id="authenticated-view" class="app-container">
-        <div class="user-header">
-            <svg class="logo-svg" viewBox="0 0 24 24" width="36" height="36" style="margin:0;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-            <div class="user-info">
-                <h2 id="user-greeting">Mon Compte</h2>
-                <p id="user-email">Chargement...</p>
-                <a href="#" onclick="logout()" style="font-size:11px; color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Se déconnecter</a>
-                <a href="#" class="install-link" onclick="openInstallSheet(); return false;" style="font-size:11px; color: var(--accent-color); text-decoration: none; margin-left: 10px;">📱 Installer l'application</a>
-            </div>
-        </div>
+    <!-- Accueil en cartes : compte, apps, documents (construits par renderHome) -->
+    <div id="authenticated-view">
+        <div class="home">
+            <header class="brand"><svg class="i logo"><use href="#u-cloud"/></svg><b>One App</b></header>
 
-        <div class="header-actions">
-            <div class="section-title">Mes Applications</div>
-            <button class="primary-btn" onclick="toggleInstallSection()">+ Créer une App</button>
-        </div>
+            <section class="card account" aria-label="Mon compte">
+                <div class="who">
+                    <div class="name" id="user-name">Mon compte</div>
+                    <div class="mail" id="user-email">Chargement...</div>
+                    <div class="drive-status" id="drive-status"></div>
+                </div>
+                <div class="account-actions">
+                    <button class="install-btn install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg><span>Installer<span class="lg-only"> One App</span></span></button>
+                    <button class="logout" onclick="logout()">Se déconnecter</button>
+                </div>
+            </section>
 
-        <div id="app-grid">
-            </div>
-        <div id="loading-apps" class="loader" style="display:block;">Recherche de vos One Apps...</div>
+            <section class="card apps" aria-label="Apps">
+                <div class="card-label">Apps</div>
+                <div class="app-grid" id="app-grid"></div>
+            </section>
 
-        <div id="install-section">
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.5;">
-                Créez votre outil sur-mesure. Aucune connaissance technique n'est requise : copiez nos instructions de création, demandez à l'IA l'application de vos rêves, et collez son résultat HTML ici.
-            </div>
-            <button class="custom-btn" onclick="copyAppGenerationPrompt()" style="margin-bottom: 15px; border-color: var(--accent-color); color: var(--accent-color);">📋 Copier les règles de création</button>
-            <div class="section-title" style="margin-bottom: 10px;">Coller le fichier généré par l'IA ici :</div>
-            <textarea id="json-input" placeholder='<!DOCTYPE html>...'></textarea>
-            <button class="primary-btn" onclick="installAppFromHtml()" style="width:100%;">Installer l'Application</button>
-            <div id="install-loader" class="loader">Création du dossier et du fichier en cours...</div>
+            <section class="card recents" aria-label="Documents">
+                <label class="search">
+                    <svg class="i"><use href="#u-search"/></svg>
+                    <input id="doc-search" type="search" placeholder="Rechercher un document" autocomplete="off" aria-label="Rechercher un document">
+                    <button class="clear" id="doc-search-clear" type="button" aria-label="Effacer" hidden><svg class="i"><use href="#u-close"/></svg></button>
+                </label>
+                <div class="rec-head" id="rec-head"></div>
+                <div class="doc-list" id="doc-list"></div>
+            </section>
         </div>
     </div>
 
-    <div id="execution-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1000; flex-direction: column;">
+    <div id="execution-view" style="display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1000; flex-direction: column;">
         <header class="execution-header">
             <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeApp()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <button class="home-btn" onclick="closeApp()" title="Retour à l'accueil" aria-label="Retour à l'accueil"><svg class="i"><use href="#u-cloud"/></svg></button>
                 <div class="execution-title-wrapper">
-                    <span id="running-app-name" class="execution-app-name">App Name</span>
-                    <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
+                    <span id="running-app-name" class="execution-app-name">App</span>
+                    <input type="text" id="running-file-title" class="execution-title-input" value="Nom du fichier" aria-label="Nom du document" onblur="renameActiveFile()" onkeydown="if(event.key === 'Enter') this.blur();">
                 </div>
             </div>
-            
+
             <div class="execution-center">
-                <button class="custom-btn" onclick="appUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Annuler (Ctrl+Z)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
-                </button>
-                <button class="custom-btn" onclick="appRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Rétablir (Ctrl+Y)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
-                </button>
-                <button class="custom-btn" id="sync-status-btn" onclick="forceRefresh()" style="width: auto; padding: 6px 10px; border:none; background:transparent;" title="Statut de synchronisation">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"/></svg>
-                </button>
+                <button class="icon-btn" onclick="appUndo()" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="i"><use href="#u-undo"/></svg></button>
+                <button class="icon-btn" onclick="appRedo()" title="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="i"><use href="#u-redo"/></svg></button>
+                <button class="icon-btn" id="sync-status-btn" onclick="forceRefresh()" title="Statut de synchronisation" aria-label="Synchronisation"></button>
             </div>
 
             <div class="execution-right">
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button id="toggle-readonly-btn" class="custom-btn" onclick="toggleAppMode()" style="width: auto; padding: 4px 8px; font-size: 13px; border-color: transparent; color: var(--text-primary);" title="Mode">
-                    ✏️ <span class="hide-on-mobile">Édition</span>
-                </button>
-                
-                <button class="primary-btn hide-on-mobile" onclick="openShareModal()" style="border-radius: 20px; padding: 6px 16px; font-size: 13px; display: flex; align-items: center; margin-left: 8px;">
-                    🔒 Partager
-                </button>
-                
+                <span class="bar-sep hide-on-mobile"></span>
+                <button id="toggle-readonly-btn" class="mode-btn" onclick="toggleAppMode()"></button>
+                <button class="share-btn hide-on-mobile" onclick="openShareModal()"><svg class="i"><use href="#u-person-add"/></svg>Partager</button>
                 <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <button class="icon-btn" onclick="toggleHeaderMenu()" aria-label="Plus d'options" title="Plus d'options"><svg class="i"><use href="#u-more-vert"/></svg></button>
                     <div class="header-dropdown" id="execution-header-menu">
-                        <button class="show-on-mobile-inline" onclick="openShareModal()" style="display: none;">🔒 Partager</button>
-                        <button id="btn-create-copy" onclick="duplicateActiveFile()">📄 Créer une copie</button>
-                        <button class="install-link" onclick="openInstallSheet()">📱 Télécharger l'App</button>
-                        <button onclick="showDataHistory()">🕒 Historique des versions</button>
-                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                        <button class="danger" onclick="closeApp()">✕ Fermer le fichier</button>
+                        <button class="show-on-mobile" onclick="openShareModal()"><svg class="i"><use href="#u-person-add"/></svg>Partager</button>
+                        <button id="btn-create-copy" onclick="duplicateActiveFile()"><svg class="i"><use href="#u-copy"/></svg><span>Créer une copie</span></button>
+                        <button onclick="showDataHistory()"><svg class="i"><use href="#u-history"/></svg>Versions précédentes</button>
+                        <button class="install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Télécharger l'App</button>
+                        <hr>
+                        <button onclick="closeApp()"><svg class="i"><use href="#u-close"/></svg>Fermer le document</button>
                     </div>
                 </div>
             </div>
         </header>
-        <div id="readonly-banner" style="display:none; background:#fff3cd; color:#b45309; text-align:center; padding:8px; font-size:13px; font-weight:bold; border-bottom: 1px solid #fde68a;">
-            Vous êtes en mode Lecture Seule. Créez une copie pour pouvoir modifier ce fichier.
+        <div id="readonly-banner" role="status">
+            <svg class="i"><use href="#u-lock"/></svg>
+            <span>Lecture seule<span class="hide-on-mobile"> : ce document vous est partagé sans droit de modification</span></span>
+            <button class="pill" onclick="duplicateActiveFile()">Créer une copie</button>
+            <button class="x-btn" onclick="dismissReadonlyBanner()" aria-label="Fermer" title="Fermer"><svg class="i"><use href="#u-close"/></svg></button>
         </div>
-        <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;">
-            </div>
+        <div id="iframe-container" style="flex: 1; overflow: hidden; background: #fff;"></div>
     </div>
 
-    <div id="edit-app-view" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 1100; flex-direction: column;">
+    <div id="edit-app-view" style="display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1100; flex-direction: column;">
         <header class="execution-header">
             <div class="execution-left">
-                <svg viewBox="0 0 24 24" width="28" height="28" style="color: var(--accent-color); min-width: 28px; cursor: pointer;" onclick="closeAppEditor()"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <button class="home-btn" onclick="closeAppEditor()" title="Retour à l'accueil" aria-label="Retour à l'accueil"><svg class="i"><use href="#u-cloud"/></svg></button>
                 <div class="execution-title-wrapper">
-                    <span class="execution-app-name">Éditeur One App</span>
-                    <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
+                    <span class="execution-app-name">Modifier l'app</span>
+                    <input type="text" id="edit-app-title-input" class="execution-title-input" value="Nom de l'application" aria-label="Nom de l'app" onblur="renameActiveAppFromEditor()" onkeydown="if(event.key === 'Enter') this.blur();">
                 </div>
             </div>
-            
+
             <div class="execution-center">
-                <button class="custom-btn" onclick="editorUndo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Annuler (Ctrl+Z)">↩️</button>
-                <button class="custom-btn" onclick="editorRedo()" style="width: auto; padding: 6px 10px; border:none; background:transparent; font-size: 16px;" title="Rétablir (Ctrl+Y)">↪️</button>
+                <button class="icon-btn" onclick="editorUndo()" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="i"><use href="#u-undo"/></svg></button>
+                <button class="icon-btn" onclick="editorRedo()" title="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="i"><use href="#u-redo"/></svg></button>
             </div>
 
             <div class="execution-right">
                 <div class="header-menu-container">
-                    <button class="custom-btn" onclick="toggleEditHeaderMenu()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent; font-size: 18px;">⠇</button>
+                    <button class="icon-btn" onclick="toggleEditHeaderMenu()" aria-label="Plus d'options" title="Plus d'options"><svg class="i"><use href="#u-more-vert"/></svg></button>
                     <div class="header-dropdown" id="edit-header-menu">
-                        <button onclick="alert('Le partage est géré automatiquement lors de la création.')">🔒 Partager l'application</button>
-                        <button onclick="duplicateAppFromEditor()">📄 Créer une copie de l'App</button>
-                        <button onclick="downloadAppCode()">📥 Télécharger le fichier (.html)</button>
-                        <button onclick="showAppHistory()">🕒 Historique des versions</button>
-                        <div style="height: 1px; background: var(--border-color); margin: 5px 0;"></div>
-                        <button class="danger" onclick="deleteAppFromEditor()">🗑️ Supprimer l'application</button>
+                        <button onclick="duplicateAppFromEditor()"><svg class="i"><use href="#u-copy"/></svg>Créer une copie de l'app</button>
+                        <button onclick="downloadAppCode()"><svg class="i"><use href="#u-download"/></svg>Télécharger le fichier (.html)</button>
+                        <button onclick="showAppHistory()"><svg class="i"><use href="#u-history"/></svg>Versions précédentes</button>
+                        <hr>
+                        <button class="danger" onclick="deleteAppFromEditor()"><svg class="i"><use href="#u-delete"/></svg>Supprimer l'app</button>
                     </div>
                 </div>
-
-                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
-                
-                <button class="custom-btn" onclick="closeAppEditor()" style="width: 32px; height: 32px; padding: 0; border-radius: 50%; border-color: transparent; color: #ef4444; font-size: 18px; font-weight:bold; background: #fce8e6;" title="Fermer">✕</button>
+                <button class="icon-btn" onclick="closeAppEditor()" title="Fermer" aria-label="Fermer"><svg class="i"><use href="#u-close"/></svg></button>
             </div>
         </header>
 
-        <div style="padding: 15px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 15px;">
-            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-                <strong>Comment modifier votre application ?</strong><br>
-                1. Copiez le code actuel avec le bouton ci-dessous.<br>
-                2. Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez le texte et décrivez la modification souhaitée à la dernière ligne.<br>
-                3. Copiez la réponse de l'IA et collez-la dans la zone ci-dessous (le texte autour du code est retiré automatiquement).
+        <div class="editor-body">
+            <div class="editor-wrap">
+                <div class="editor-steps">
+                    <div class="editor-step"><span class="num">1</span><div><b>Copiez le code et les règles</b><p>Tout ce dont l'IA a besoin pour modifier l'app.</p>
+                        <button class="btn soft" id="editor-copy-btn" onclick="copyCodeForAI()"><svg class="i"><use href="#u-copy"/></svg>Copier</button></div></div>
+                    <div class="editor-step"><span class="num">2</span><div><b>Demandez la modification</b><p>Collez le texte dans votre IA (ChatGPT, Claude, Gemini…) et remplacez la dernière ligne par votre demande.</p></div></div>
+                    <div class="editor-step"><span class="num">3</span><div><b>Collez sa réponse ici</b><p>Le texte autour du code est retiré tout seul, puis enregistrez.</p></div></div>
+                </div>
+                <div class="editor-card">
+                    <textarea id="editor-full-code" spellcheck="false" placeholder="Collez ici la réponse de l'IA, ou modifiez le code directement…"></textarea>
+                    <div class="editor-foot">
+                        <span id="editor-status">Prêt.</span>
+                        <button class="btn ghost" onclick="clearEditor()">Vider</button>
+                        <button class="btn fill" onclick="saveEditorCode()"><svg class="i"><use href="#u-save"/></svg>Enregistrer</button>
+                    </div>
+                </div>
             </div>
-
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="primary-btn" onclick="copyCodeForAI()" style="flex: 1; min-width: 200px; font-size: 14px;">📋 1. Copier le code & instructions</button>
-                <button class="custom-btn" onclick="clearEditor()" style="flex: 1; min-width: 150px; color: #ef4444; border-color: #ef4444; font-size: 14px;">🗑️ Vider l'éditeur</button>
-                <button class="primary-btn" onclick="saveEditorCode()" style="flex: 1; min-width: 200px; background-color: #10b981; font-size: 14px;">💾 2. Sauvegarder les modifications</button>
-            </div>
-
-            <div style="padding: 0; text-align: center; font-size: 12px; color: var(--text-secondary); font-weight: bold;" id="editor-status">Prêt.</div>
-
-            <textarea id="editor-full-code" placeholder="Collez l'intégralité du code HTML de votre application ici..." style="flex: 1; color: #a6e22e; background: #222; font-family: monospace; font-size: 13px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; outline: none; box-sizing: border-box;"></textarea>
         </div>
     </div>
 
-    <div id="history-sidebar">
+    <div id="history-sidebar" aria-label="Versions précédentes">
         <div class="history-header">
-            <h3>Historique des versions</h3>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="custom-btn" onclick="toggleHistorySidebar(false)" style="width: auto; padding: 4px 8px; font-size: 12px;">👁️ Aperçu</button>
-                <button class="history-close-btn" onclick="closeHistorySidebar()">✕</button>
+            <h3>Versions précédentes</h3>
+            <div style="display:flex; align-items:center; gap:2px;">
+                <button class="icon-btn" onclick="toggleHistorySidebar(false)" title="Aperçu : masquer le panneau" aria-label="Aperçu"><svg class="i"><use href="#u-visibility"/></svg></button>
+                <button class="icon-btn" onclick="closeHistorySidebar()" title="Fermer" aria-label="Fermer"><svg class="i"><use href="#u-close"/></svg></button>
             </div>
         </div>
-        <div id="history-list">
-            <!-- Items will be injected here -->
-        </div>
+        <div id="history-list"></div>
         <div id="history-actions">
-            <button class="primary-btn" id="restore-version-btn" style="width: 100%; background: #10b981;">Restaurer cette version</button>
-            <button class="custom-btn" id="copy-version-btn" style="width: 100%; font-size: 14px;">Créer une copie</button>
+            <button class="btn fill wide" id="restore-version-btn"><svg class="i"><use href="#u-history"/></svg>Restaurer cette version</button>
+            <button class="btn soft wide" id="copy-version-btn"><svg class="i"><use href="#u-copy"/></svg>Créer une copie</button>
         </div>
     </div>
-    
-    <button id="history-floating-btn" onclick="toggleHistorySidebar(true)">👁️ Rouvrir l'historique</button>
 
-    <!-- Modale de Partage -->
-    <div id="share-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
-        <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow);">
-            <h3 style="margin-top:0;">Partager ce fichier</h3>
-            
-            <div id="share-permissions-block" style="margin-bottom:16px;">
-                <label><input type="radio" name="share-level" value="private"> Privé (Moi uniquement)</label><br>
-                <label><input type="radio" name="share-level" value="reader"> Lecture seule (Tout le monde avec le lien)</label><br>
-                <label><input type="radio" name="share-level" value="writer"> Éditeur (Tout le monde avec le lien)</label>
-            </div>
-            <button id="btn-validate-share" class="primary-btn" style="width:100%; margin-bottom: 16px;" onclick="validatePermissionChange()">Valider les droits</button>
-            
-            <div id="share-no-permission-text" style="display:none; color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
-                Vous n'êtes pas le propriétaire. Vous pouvez uniquement copier le lien ci-dessous.
-            </div>
+    <button id="history-floating-btn" onclick="toggleHistorySidebar(true)"><svg class="i"><use href="#u-history"/></svg>Versions</button>
 
-            <input type="text" id="share-link-input" readonly style="width:100%; padding:8px; margin-bottom:16px; border:1px solid var(--border-color); border-radius:6px; box-sizing:border-box;">
-            <div style="display:flex; gap:10px;">
-                <button class="custom-btn" onclick="copyShareLink()">📋 Copier</button>
-                <button class="custom-btn" onclick="nativeShare()">🔗 Partager</button>
-                <button class="custom-btn" onclick="showQRCode()">📱 QR Code</button>
+    <!-- Fenêtre de partage -->
+    <div id="share-modal-overlay" class="scrim" style="display:none;">
+        <div class="dialog narrow" role="dialog" aria-modal="true" aria-labelledby="share-title">
+            <h2 id="share-title"><span>Partager</span><button class="x-btn" onclick="closeShareModal()" aria-label="Fermer"><svg class="i"><use href="#u-close"/></svg></button></h2>
+
+            <div id="share-permissions-block" class="choice-list">
+                <label class="choice"><span class="ic"><svg class="i"><use href="#u-lock"/></svg></span><span><b>Privé</b><small>Vous seul</small></span><input type="radio" name="share-level" value="private"></label>
+                <label class="choice"><span class="ic"><svg class="i"><use href="#u-visibility"/></svg></span><span><b>Lecture</b><small>Toute personne avec le lien peut consulter</small></span><input type="radio" name="share-level" value="reader"></label>
+                <label class="choice"><span class="ic"><svg class="i"><use href="#u-edit"/></svg></span><span><b>Modification</b><small>Toute personne avec le lien peut modifier</small></span><input type="radio" name="share-level" value="writer"></label>
             </div>
-            <div id="qr-code-container" style="display:none; text-align:center; margin-top:16px;">
-                <img id="qr-code-img" src="" alt="QR Code" width="150" height="150">
+            <button id="btn-validate-share" class="btn fill wide" onclick="validatePermissionChange()">Valider</button>
+
+            <p id="share-no-permission-text" class="note" style="display:none;">Vous n'êtes pas le propriétaire : vous pouvez seulement partager le lien.</p>
+
+            <div class="link-row">
+                <input type="text" id="share-link-input" readonly aria-label="Lien de partage">
+                <button class="pill fill" onclick="copyShareLink()"><svg class="i"><use href="#u-copy"/></svg>Copier</button>
             </div>
-            <button class="custom-btn" style="margin-top:16px; width:100%; color:#ef4444; border-color:#ef4444;" onclick="closeShareModal()">Fermer</button>
+            <div class="share-actions">
+                <button class="btn soft" onclick="nativeShare()"><svg class="i"><use href="#u-send"/></svg>Envoyer</button>
+                <button class="btn soft" onclick="showQRCode()"><svg class="i"><use href="#u-qr"/></svg>QR code</button>
+            </div>
+            <div id="qr-code-container" style="display:none;">
+                <img id="qr-code-img" src="" alt="QR code du lien" width="150" height="150">
+            </div>
         </div>
     </div>
 
     <!-- Accès à un fichier partagé (scope drive.file : l'utilisateur l'autorise une fois via le Picker Google) -->
-    <div id="access-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index: 3000; justify-content:center; align-items:center;">
-        <div style="background:var(--surface-color); padding:24px; border-radius:12px; width:90%; max-width:400px; box-shadow:var(--shadow); text-align:center;">
-            <div style="font-size:40px;">📄</div>
-            <h3 id="access-modal-title" style="margin:8px 0;">Fichier partagé</h3>
-            <p style="color: var(--text-secondary); font-size: 14px;">
-                a été partagé avec vous. Ajoutez-le à One App pour l'ouvrir : Google vous demandera de confirmer, une seule fois.
-            </p>
-            <button id="access-modal-add" class="primary-btn" style="width:100%; padding:12px; font-size:16px; margin-bottom:10px;">Ajouter à One App</button>
-            <button id="access-modal-cancel" class="custom-btn" style="width:100%;">Annuler</button>
+    <div id="access-modal-overlay" class="scrim" style="display:none;">
+        <div class="dialog narrow" role="dialog" aria-modal="true" style="text-align:center; align-items:center;">
+            <span class="app-icon" style="--h:220"><svg class="i"><use href="#u-file"/></svg></span>
+            <h2 id="access-modal-title" style="justify-content:center;">Fichier partagé</h2>
+            <p class="lead">a été partagé avec vous. Ajoutez-le à One App pour l'ouvrir : Google vous demandera de confirmer, une seule fois.</p>
+            <button id="access-modal-add" class="btn fill wide">Ajouter à One App</button>
+            <button id="access-modal-cancel" class="btn ghost">Annuler</button>
         </div>
     </div>
 
@@ -1241,11 +1518,10 @@
             return rootFolderId;
         }
 
-        // Dossier de l'app affiché dans l'accueil (sous-menu ouvert), s'il correspond à cette app
+        // Dossier de l'app connu de l'accueil (liste des apps), s'il existe
         function knownAppFolderId(appFileId) {
-            if (!activeSubmenu || activeSubmenu.dataset.appId !== appFileId) return null;
-            const folderId = activeSubmenu.dataset.folderId;
-            return folderId && folderId !== 'null' && folderId !== 'undefined' ? folderId : null;
+            const app = home.apps.find(a => a.id === appFileId);
+            return app && app.folderId ? app.folderId : null;
         }
 
         // --- ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file) ---
@@ -1589,11 +1865,13 @@
         async function fetchUserProfile() {
             try {
                 // L'e-mail vient de Drive : disponible avec le seul scope drive.file
-                let info = await driveJson("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)");
+                let info = await driveJson("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)");
                 if (info.user && info.user.emailAddress) {
                     currentUserEmail = info.user.emailAddress;
                     document.getElementById('user-email').innerText = currentUserEmail;
+                    document.getElementById('user-name').innerText = info.user.displayName || currentUserEmail.split('@')[0];
                 }
+                renderAccountStatus();
             } catch(e) {
                 console.error("Impossible de récupérer le profil");
                 if (localStoreReady) document.getElementById('user-email').innerText = currentUserEmail;
@@ -1745,10 +2023,103 @@
             }
         }
 
+        // --- ACCUEIL EN CARTES ---
+        // Trois cartes : le compte, les apps (choisir une app filtre les documents),
+        // les documents récents. Tout est construit par le DOM via h() : un nom de
+        // fichier ou d'app n'est jamais interprété comme du HTML (règle n° 4).
+        const SHORTCUT_MIME = 'application/vnd.google-apps.shortcut';
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const home = {
+            apps: [],        // { id (vrai .oneapp), name, icon, folderId, shared, available }
+            docs: [],        // { id (vrai .onefile), listId (fichier listé : raccourci si partagé), name, appId, folderId, modified, shared, dirty }
+            sel: null,       // id de l'app choisie
+            q: '',           // recherche
+            fromDevice: false,
+            loading: true,
+            error: null,
+            renaming: null,  // id du document en cours de renommage
+            flash: null      // id du document à mettre en évidence (copie créée...)
+        };
+
+        // Petit constructeur DOM. Les textes passent par des nœuds texte.
+        function h(tag, props, ...children) {
+            const el = document.createElement(tag);
+            for (const [k, v] of Object.entries(props || {})) {
+                if (v === null || v === undefined || v === false) continue;
+                if (k === 'class') el.className = v;
+                else if (k === 'text') el.textContent = v;
+                else if (k === 'style') el.style.cssText = v;
+                else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+                else el.setAttribute(k, v === true ? '' : v);
+            }
+            for (const c of children.flat()) {
+                if (c === null || c === undefined || c === false) continue;
+                el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+            }
+            return el;
+        }
+
+        function icon(name) {
+            const svg = document.createElementNS(SVG_NS, 'svg');
+            svg.setAttribute('class', 'i');
+            svg.setAttribute('aria-hidden', 'true');
+            const use = document.createElementNS(SVG_NS, 'use');
+            use.setAttribute('href', '#u-' + name);
+            svg.append(use);
+            return svg;
+        }
+
+        // Teinte stable par app (fond pastel de son icône)
+        function appHue(app) {
+            const key = String(app.id || app.name || '');
+            let hash = 0;
+            for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) % 360;
+            return hash;
+        }
+
+        // Contenu de l'icône (stockée dans la description du .oneapp) : emoji en texte,
+        // SVG en image (aucun script ne peut s'y exécuter), sinon icône par défaut
+        function appGlyph(rawIcon) {
+            rawIcon = (rawIcon || '').trim();
+            if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
+                let svg = rawIcon.includes('<svg') ? rawIcon : new DOMParser().parseFromString(rawIcon, 'text/html').body.textContent;
+                if (!svg.includes('xmlns=')) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+                // Affiché comme image, currentColor vaudrait noir : on applique la couleur d'accent
+                const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8b5cf6';
+                svg = svg.replace(/currentColor/g, accent);
+                return h('img', { src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), alt: '' });
+            }
+            if (rawIcon) return document.createTextNode(rawIcon);
+            return icon('doc');
+        }
+
+        function appIconEl(app, withBadge) {
+            return h('span', { class: 'app-icon', style: `--h:${appHue(app)}` },
+                appGlyph(app.icon),
+                withBadge && app.shared ? h('span', { class: 'app-badge', title: 'App partagée avec vous' }, icon('people')) : null);
+        }
+
+        const appById = (id) => home.apps.find(a => a.id === id);
+
+        function formatDocDate(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d)) return '';
+            const now = new Date();
+            const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+            const diff = Math.round((day(now) - day(d)) / 86400000);
+            const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            if (diff === 0) return `Aujourd'hui, ${time}`;
+            if (diff === 1) return 'Hier';
+            const opts = { day: 'numeric', month: 'short' };
+            if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+            return d.toLocaleDateString('fr-FR', opts);
+        }
+
+        // Charge les apps puis les documents, et redessine l'accueil
         async function listInstalledApps() {
-            document.getElementById('loading-apps').style.display = 'block';
-            document.getElementById('app-grid').innerHTML = '';
-            if(activeSubmenu) activeSubmenu = null;
+            if (!home.apps.length) { home.loading = true; renderHome(); }
+            home.error = null;
 
             const query = encodeURIComponent("name contains '.oneapp' and trashed = false");
             let data;
@@ -1759,8 +2130,9 @@
                 } catch (e) {
                     console.error("Erreur chargement des applications :", e);
                     if (!isNetworkError(e)) {
-                        document.getElementById('loading-apps').style.display = 'none';
-                        document.getElementById('app-grid').innerHTML = '<p style="grid-column: 1 / -1; color: #ef4444; text-align:center; padding: 20px;">Impossible de charger vos applications. Vérifiez votre connexion puis rechargez la page.</p>';
+                        home.loading = false;
+                        home.error = "Impossible de charger vos applications. Vérifiez votre connexion puis rechargez la page.";
+                        renderHome();
                         return;
                     }
                     fromDevice = true;
@@ -1778,11 +2150,10 @@
                 data = { files: snapshot ? snapshot.files : [] };
                 availableApps = new Set(cachedApps.map(a => a.appFileId));
             }
-            
+
             // Une app partagée apparaît chez moi sous forme de raccourci Drive, dont la
             // description (l'icône) est vide : on lit celle de l'app d'origine, ce qui
             // suit aussi les changements d'icône faits ensuite par son auteur
-            const SHORTCUT_MIME = 'application/vnd.google-apps.shortcut';
             if (!fromDevice) await Promise.all((data.files || [])
                 .filter(f => f.mimeType === SHORTCUT_MIME && f.shortcutDetails)
                 .map(async (f) => {
@@ -1800,147 +2171,491 @@
                     .catch((e) => console.warn("Liste des apps non gardée sur l'appareil :", e && e.message));
             }
 
-            document.getElementById('loading-apps').style.display = 'none';
-
-            if (data.files && data.files.length > 0) {
-                data.files.forEach(file => {
-                    let displayName = file.name.replace('.oneapp', '');
-                    let parentFolderId = file.parents ? file.parents[0] : null;
-                    let targetId = (file.mimeType === 'application/vnd.google-apps.shortcut' && file.shortcutDetails) ? file.shortcutDetails.targetId : file.id;
-
-                    if (!displayName || displayName.trim() === '') {
-                        displayName = "Application en cours...";
-                    }
-
-                    // Construction par le DOM : un nom ou une icône piégés ne peuvent pas exécuter de code
-                    let card = document.createElement('div');
-                    card.className = 'app-card';
-                    card.appendChild(buildAppIcon(file.description));
-                    const label = document.createElement('span');
-                    label.textContent = displayName;
-                    card.appendChild(label);
-                    
+            home.apps = (data.files || []).map(file => {
+                const shared = file.mimeType === SHORTCUT_MIME && !!file.shortcutDetails;
+                const id = shared ? file.shortcutDetails.targetId : file.id;
+                return {
+                    id: id,
+                    name: file.name.replace(/\.oneapp$/, '').trim() || 'Application en cours...',
+                    icon: file.description || '',
+                    folderId: file.parents ? file.parents[0] : null,
+                    shared: shared,
                     // Hors-ligne, une app jamais ouverte sur cet appareil n'est pas disponible
-                    if (availableApps && !availableApps.has(targetId)) {
-                        card.style.opacity = '0.45';
-                        card.title = "Pas encore disponible hors-ligne sur cet appareil";
-                    }
-                    card.onclick = () => toggleAppMenu(card, targetId, displayName, parentFolderId);
-                    document.getElementById('app-grid').appendChild(card);
-                });
-            } else {
-                document.getElementById('app-grid').innerHTML = fromDevice
-                    ? '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Hors-ligne : aucune application enregistrée sur cet appareil.</p>'
-                    : '<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align:center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px;">Aucune application trouvée.</p>';
-            }
+                    available: !availableApps || availableApps.has(id)
+                };
+            });
+            home.fromDevice = fromDevice;
+            home.docs = await loadHomeDocs(fromDevice);
+            if (home.sel && !appById(home.sel)) home.sel = null;
+            home.loading = false;
+            renderHome();
+            renderAccountStatus();
         }
 
-        const DEFAULT_APP_ICON = `<svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>`;
+        // Documents de toutes les apps, du plus récent au plus ancien
+        async function loadHomeDocs(fromDevice) {
+            let local = [];
+            try { local = await localStore.getAll('docs'); } catch (e) {}
+            const pending = new Set(local.filter(d => d.dirty).map(d => d.fileId));
 
-        // Icône d'app (stockée dans la description du fichier) : un emoji est
-        // affiché comme texte, un SVG comme image (aucun script ne peut s'y exécuter)
-        function buildAppIcon(rawIcon) {
-            rawIcon = (rawIcon || '').trim();
-
-            if (rawIcon.includes('<svg') || rawIcon.includes('&lt;svg')) {
-                let svg = rawIcon.includes('<svg') ? rawIcon : new DOMParser().parseFromString(rawIcon, 'text/html').body.textContent;
-                if (!svg.includes('xmlns=')) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-                // Affiché comme image, currentColor vaudrait noir : on applique la couleur d'accent
-                const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#8b5cf6';
-                svg = svg.replace(/currentColor/g, accent);
-                const img = document.createElement('img');
-                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-                img.alt = '';
-                img.width = 32;
-                img.height = 32;
-                img.style.display = 'block';
-                img.style.margin = '0 auto 10px';
-                return img;
+            if (fromDevice) {
+                return local
+                    .map(d => ({ id: d.fileId, listId: d.fileId, name: d.fileName || 'Sans titre', appId: d.appFileId, folderId: d.folderId || null,
+                                 modified: d.lastOpened, shared: false, dirty: !!d.dirty }))
+                    .filter(d => d.appId)
+                    .sort((a, b) => (b.modified || 0) - (a.modified || 0));
             }
 
-            if (rawIcon) {
-                const div = document.createElement('div');
-                div.style.fontSize = '32px';
-                div.style.marginBottom = '10px';
-                div.textContent = rawIcon;
-                return div;
+            const folderToApp = new Map();
+            home.apps.forEach(a => { if (a.folderId && !folderToApp.has(a.folderId)) folderToApp.set(a.folderId, a); });
+
+            let files = [];
+            try {
+                const q = encodeURIComponent("name contains '.onefile' and trashed = false");
+                const data = await driveJson(`${DRIVE_API_URL}?q=${q}&fields=files(id, name, parents, modifiedTime, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('modifiedTime desc')}&pageSize=200`);
+                files = data.files || [];
+            } catch (e) {
+                console.error("Erreur chargement des documents :", e);
+                if (isNetworkError(e)) return loadHomeDocs(true);
+                return [];
             }
 
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = DEFAULT_APP_ICON; // SVG fixe, défini ci-dessus
-            return wrapper.firstElementChild;
-        }
-
-        // Crée un bouton dont le libellé est du texte (jamais interprété comme HTML)
-        function makeButton(className, label, onClick) {
-            const btn = document.createElement('button');
-            if (className) btn.className = className;
-            btn.textContent = label;
-            btn.addEventListener('click', onClick);
-            return btn;
-        }
-
-        // Ferme les menus déroulants lors d'un clic ailleurs (enregistré une seule fois)
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.file-item-menu')) {
-                document.querySelectorAll('.file-item-dropdown').forEach(d => d.classList.remove('active'));
-            }
-            if (!e.target.closest('.header-menu-container')) {
-                const headerMenu = document.getElementById('execution-header-menu');
-                if(headerMenu) headerMenu.classList.remove('active');
-                const editHeaderMenu = document.getElementById('edit-header-menu');
-                if(editHeaderMenu) editHeaderMenu.classList.remove('active');
-            }
-        });
-
-        let activeSubmenu = null;
-
-        async function toggleAppMenu(cardElement, appFileId, appName, appFolderId) {
-            if (activeSubmenu && activeSubmenu.dataset.appId === appFileId) {
-                activeSubmenu.remove();
-                activeSubmenu = null;
-                return;
-            }
-            if (activeSubmenu) activeSubmenu.remove();
-
-            const submenu = document.createElement('div');
-            submenu.className = 'app-submenu';
-            submenu.dataset.appId = appFileId;
-            submenu.dataset.appName = appName;
-            submenu.dataset.folderId = appFolderId;
-            submenu.style.display = 'flex';
-
-            submenu.innerHTML = `
-                <div class="submenu-title" style="font-weight:bold; color:var(--accent-color);"></div>
-                <div class="submenu-header">
-                    <input type="text" id="submenu-search" class="submenu-search" placeholder="Rechercher un fichier...">
-                    <button class="primary-btn" id="submenu-new-btn" style="white-space: nowrap;">
-                        ➕ <span class="hide-on-mobile">Nouveau</span>
-                    </button>
-                    <button class="custom-btn" id="submenu-edit-btn" style="white-space: nowrap; padding: 10px; border-color: var(--accent-color); color: var(--accent-color);">
-                        ⚙️ <span class="hide-on-mobile">Modifier</span>
-                    </button>
-                </div>
-                <div class="loader" id="submenu-loader" style="display:block; margin-top:5px;">Chargement des fichiers récents...</div>
-                <div class="file-list" id="submenu-file-list"></div>
-            `;
-            submenu.querySelector('.submenu-title').textContent = `${appName} - Fichiers`;
-            submenu.querySelector('#submenu-new-btn').addEventListener('click', () => createNewFile(appFileId, appName, appFolderId));
-            submenu.querySelector('#submenu-edit-btn').addEventListener('click', () => openAppEditor(appFileId, appName));
-
-            document.getElementById('app-grid').appendChild(submenu);
-            activeSubmenu = submenu;
-
-            document.getElementById('submenu-search').addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                document.querySelectorAll('.file-item').forEach(item => {
-                    const name = item.querySelector('.file-item-name').innerText.toLowerCase();
-                    item.style.display = name.includes(term) ? 'flex' : 'none';
-                });
+            const docs = files.map(f => {
+                const shared = f.mimeType === SHORTCUT_MIME && !!f.shortcutDetails;
+                const parent = f.parents ? f.parents[0] : null;
+                const app = parent ? folderToApp.get(parent) : null;
+                const id = shared ? f.shortcutDetails.targetId : f.id;
+                return { id: id, listId: f.id, name: f.name.replace(/\.onefile$/, ''), appId: app ? app.id : null,
+                         folderId: app ? parent : null, modified: f.modifiedTime, shared: shared, dirty: pending.has(id) };
             });
 
-            loadAppFiles(appFolderId, appFileId, appName);
+            // Dossier non indiqué par Drive (drive.file) : on interroge chaque dossier d'app
+            if (docs.some(d => !d.appId) && folderToApp.size) {
+                await Promise.all([...folderToApp].map(async ([folderId, app]) => {
+                    try {
+                        const q = encodeURIComponent(`'${escapeDriveQuery(folderId)}' in parents and name contains '.onefile' and trashed = false`);
+                        const r = await driveJson(`${DRIVE_API_URL}?q=${q}&fields=files(id)`);
+                        (r.files || []).forEach(f => {
+                            const d = docs.find(x => x.listId === f.id && !x.appId);
+                            if (d) { d.appId = app.id; d.folderId = folderId; }
+                        });
+                    } catch (e) { /* dossier illisible : ses documents restent masqués */ }
+                }));
+            }
+            return docs.filter(d => d.appId);
         }
+
+        function renderAccountStatus() {
+            const status = document.getElementById('drive-status');
+            if (!status) return;
+            const offline = isOffline();
+            status.classList.toggle('offline', offline);
+            status.replaceChildren(icon(offline ? 'wifi-off' : 'cloud-done'),
+                h('span', { text: offline ? 'Hors-ligne · gardé sur cet appareil' : 'Enregistré dans votre Drive' }));
+        }
+
+        function renderHome() {
+            renderAppGrid();
+            renderRecents();
+        }
+
+        function appTile(app) {
+            return h('button', {
+                class: 'app-tile' + (app.available === false ? ' unavailable' : ''),
+                'aria-pressed': String(home.sel === app.id),
+                title: app.available === false ? "Pas encore disponible hors-ligne sur cet appareil" : app.name,
+                'data-app-id': app.id,
+                onclick: () => selectApp(app.id)
+            }, appIconEl(app, true), h('span', { class: 'app-label', text: app.name }));
+        }
+
+        function renderAppGrid() {
+            const grid = document.getElementById('app-grid');
+            if (!grid) return;
+            grid.classList.toggle('has-sel', !!home.sel);
+            if (home.loading && !home.apps.length) {
+                grid.replaceChildren();
+                return;
+            }
+            const createTile = () => h('button', { class: 'app-tile tool', id: 'create-app-tile', title: 'Créer une app', onclick: openCreateDialog },
+                h('span', { class: 'app-icon' }, icon('add')), h('span', { class: 'app-label', text: 'Créer' }));
+            grid.replaceChildren(...home.apps.map(appTile), createTile());
+
+            // Deux lignes au plus : au-delà, une tuile « Tout voir »
+            if (grid.offsetParent === null) return; // accueil masqué : mise en page impossible à mesurer
+            const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+            const capacity = cols * 2;
+            if (cols >= 2 && home.apps.length + 1 > capacity) {
+                let shown = home.apps.slice(0, capacity - 2);
+                const selected = appById(home.sel);
+                if (selected && !shown.includes(selected)) shown = shown.slice(0, -1).concat(selected);
+                grid.replaceChildren(...shown.map(appTile), createTile(),
+                    h('button', { class: 'app-tile tool more', title: 'Toutes les apps', onclick: openAllAppsDialog },
+                        h('span', { class: 'app-icon', text: '+' + (home.apps.length - shown.length) }),
+                        h('span', { class: 'app-label', text: 'Tout voir' })));
+            }
+        }
+
+        function selectApp(appId) {
+            home.sel = home.sel === appId ? null : appId;
+            home.q = '';
+            home.renaming = null;
+            document.getElementById('doc-search').value = '';
+            renderHome();
+        }
+
+        function renderRecents() {
+            const head = document.getElementById('rec-head');
+            const list = document.getElementById('doc-list');
+            const search = document.getElementById('doc-search');
+            if (!head || !list) return;
+            const app = appById(home.sel);
+
+            document.getElementById('doc-search-clear').hidden = !home.q;
+            search.placeholder = app ? `Rechercher dans ${app.name}` : 'Rechercher un document';
+
+            if (app) {
+                head.replaceChildren(
+                    h('h2', {}, appIconEl(app, false), h('span', { id: 'rec-title', text: app.name }),
+                        h('button', { class: 'x-btn', title: 'Tous les documents', 'aria-label': 'Revenir à tous les documents', onclick: () => selectApp(app.id) }, icon('close'))),
+                    h('div', { class: 'acts' },
+                        h('button', { class: 'pill fill', id: 'new-doc-btn', onclick: () => createNewFile(app.id, app.name, app.folderId) }, icon('add'), 'Nouveau document'),
+                        app.shared ? null : h('button', { class: 'pill soft', id: 'edit-app-btn', onclick: () => openAppEditor(app.id, app.name) }, icon('code'), "Modifier l'app")));
+            } else {
+                head.replaceChildren(h('h2', {}, h('span', { id: 'rec-title', text: home.fromDevice ? 'Sur cet appareil' : 'Récents' })));
+            }
+
+            if (home.error) return list.replaceChildren(h('div', { class: 'empty', text: home.error }));
+            if (home.loading) return list.replaceChildren(h('div', { class: 'empty', text: 'Chargement…' }));
+
+            const q = home.q.trim().toLowerCase();
+            const docs = home.docs.filter(d => (!app || d.appId === app.id) && (!q || d.name.toLowerCase().includes(q)));
+            if (docs.length) {
+                list.replaceChildren(...docs.map(docRow));
+                const input = document.getElementById('rename-input');
+                if (input) { input.focus(); input.select(); }
+                home.flash = null;
+                return;
+            }
+
+            let empty;
+            if (q) empty = h('div', { class: 'empty', text: `Aucun document ne contient « ${home.q.trim()} ».` });
+            else if (app) empty = h('div', { class: 'empty' }, h('span', { text: home.fromDevice ? "Aucun document de cette app n'est enregistré sur cet appareil." : 'Pas encore de document.' }),
+                home.fromDevice ? null : h('button', { class: 'pill fill', onclick: () => createNewFile(app.id, app.name, app.folderId) }, icon('add'), 'Créer le premier'));
+            else if (!home.apps.length) empty = h('div', { class: 'empty' }, h('span', { text: 'Créez votre première app : décrivez-la à une IA, One App l’enregistre dans votre Drive.' }),
+                home.fromDevice ? null : h('button', { class: 'pill fill', onclick: openCreateDialog }, icon('add'), 'Créer une app'));
+            else empty = h('div', { class: 'empty', text: home.fromDevice ? "Aucun document n'est enregistré sur cet appareil." : 'Choisissez une app pour créer votre premier document.' });
+            list.replaceChildren(empty);
+        }
+
+        function docRow(doc) {
+            const app = appById(doc.appId) || { id: doc.appId, name: 'App', icon: '' };
+            const renaming = home.renaming === doc.id;
+            const date = doc.dirty ? 'Pas encore envoyé' : formatDocDate(doc.modified);
+            const name = renaming
+                ? h('input', { id: 'rename-input', value: doc.name, 'aria-label': 'Nouveau nom',
+                      onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { home.renaming = null; renderRecents(); } },
+                      onblur: (e) => finishRename(doc, e.target.value), onclick: (e) => e.stopPropagation() })
+                : [doc.name, doc.shared ? h('span', { title: 'Partagé avec vous' }, icon('people')) : null];
+            return h('div', {
+                class: 'doc-row' + (home.flash === doc.id ? ' flash' : ''), role: 'button', tabindex: '0', 'data-doc-id': doc.id,
+                onclick: () => { if (home.renaming !== doc.id) openHomeDoc(doc); },
+                onkeydown: (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) openHomeDoc(doc); }
+            },
+                appIconEl(app, false),
+                h('div', { style: 'min-width:0' }, h('div', { class: 'doc-name' }, name),
+                    h('div', { class: 'doc-sub', text: (home.sel ? '' : app.name + ' · ') + date })),
+                h('span', { class: 'doc-col', text: home.sel ? '' : app.name }),
+                h('span', { class: 'doc-col date' + (doc.dirty ? ' pending' : ''), text: date }),
+                h('button', { class: 'icon-btn doc-more', 'aria-label': `Actions pour ${doc.name}`, 'aria-haspopup': 'menu',
+                    onclick: (e) => { e.stopPropagation(); openDocMenu(e.currentTarget, doc); } }, icon('more')));
+        }
+
+        function openHomeDoc(doc) {
+            const app = appById(doc.appId);
+            return openAppEnvironment(doc.appId, app ? app.name : 'App', doc.id, doc.name);
+        }
+
+        // --- Menu ⋯ d'un document ---
+        let docMenu = null;
+        function closeDocMenu() {
+            if (!docMenu) return;
+            docMenu.anchor.setAttribute('aria-expanded', 'false');
+            docMenu.el.remove();
+            docMenu = null;
+        }
+
+        function openDocMenu(anchor, doc) {
+            const same = docMenu && docMenu.anchor === anchor;
+            closeDocMenu();
+            if (same) return;
+            const item = (name, label, action, cls) => h('button', { role: 'menuitem', class: cls || null,
+                onclick: () => { closeDocMenu(); action(); } }, icon(name), label);
+            const el = h('div', { class: 'menu', role: 'menu' },
+                item('edit', 'Renommer', () => startRename(doc)),
+                item('copy', 'Créer une copie', () => copyDoc(doc)),
+                item('person-add', 'Partager', () => openShareModal(doc.id)),
+                item('history', 'Versions précédentes', () => openDocHistory(doc)),
+                item('folder', 'Ouvrir dans Google Drive', () => openInDrive(doc)),
+                h('hr'),
+                item('delete', doc.shared ? 'Retirer de One App' : 'Supprimer', () => deleteDoc(doc), 'danger'));
+            document.body.append(el);
+            const r = anchor.getBoundingClientRect();
+            el.style.left = Math.max(8, Math.min(r.right - el.offsetWidth, innerWidth - el.offsetWidth - 8)) + 'px';
+            el.style.top = (r.bottom + 4 + el.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - el.offsetHeight - 4) : r.bottom + 4) + 'px';
+            anchor.setAttribute('aria-expanded', 'true');
+            docMenu = { el, anchor };
+            el.querySelector('button').focus({ preventScroll: true });
+        }
+
+        function startRename(doc) {
+            if (!requireOnline("Renommer un document")) return;
+            home.renaming = doc.id;
+            renderRecents();
+        }
+
+        async function finishRename(doc, value) {
+            if (home.renaming !== doc.id) return;
+            home.renaming = null;
+            const newName = (value || '').trim();
+            if (!newName || newName === doc.name) return renderRecents();
+            const oldName = doc.name;
+            doc.name = newName;
+            renderRecents();
+            try {
+                await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(doc.id)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: `${newName}.onefile` })
+                });
+            } catch (e) {
+                doc.name = oldName;
+                renderRecents();
+                alert("Le document n'a pas pu être renommé (" + e.message + ").");
+            }
+        }
+
+        async function copyDoc(doc) {
+            if (!requireOnline("Créer une copie")) return;
+            const app = appById(doc.appId);
+            const loader = document.getElementById('loading-apps');
+            loader.innerText = "Création de la copie...";
+            loader.style.display = 'block';
+            try {
+                const json = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(doc.id)}?alt=media`);
+                const meta = json.oneapp_metadata || {};
+                const folderId = doc.folderId || await getDocFolderId(doc.id, app && app.name, app && app.folderId);
+                const created = await createOneFile(`Copie de ${doc.name}`, folderId, meta.app_name || (app && app.name), doc.appId, json.app_data);
+                home.flash = created.id;
+                await listInstalledApps();
+                showToast('Copie créée');
+            } catch (e) {
+                console.error(e);
+                alert("La copie n'a pas pu être créée (" + e.message + ").");
+            } finally {
+                loader.style.display = 'none';
+                loader.innerText = "Recherche de vos One Apps...";
+            }
+        }
+
+        async function openDocHistory(doc) {
+            if (!requireOnline("L'historique des versions")) return;
+            await openHomeDoc(doc);
+            if (currentActiveOneFileId === doc.id) showDataHistory();
+        }
+
+        function openInDrive(doc) {
+            if (!requireOnline("Ouvrir dans Google Drive")) return;
+            const url = doc.folderId
+                ? `https://drive.google.com/drive/folders/${encodeURIComponent(doc.folderId)}`
+                : `https://drive.google.com/file/d/${encodeURIComponent(doc.id)}/view`;
+            window.open(url, '_blank');
+        }
+
+        // Corbeille Drive (ou retrait du raccourci pour un document partagé), avec « Annuler »
+        async function deleteDoc(doc) {
+            if (!requireOnline(doc.shared ? "Retirer un document" : "Supprimer un document")) return;
+            const setTrashed = (trashed) => driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(doc.listId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trashed: trashed })
+            });
+            const at = home.docs.indexOf(doc);
+            home.docs.splice(at, 1);
+            renderRecents();
+            try {
+                await setTrashed(true);
+                localStore.get('docs', doc.id).then(d => { if (d && !d.dirty) return localStore.remove('docs', doc.id); }).catch(() => {});
+                showToast(`« ${doc.name} » ${doc.shared ? 'retiré' : 'supprimé'}`, 'Annuler', async () => {
+                    try {
+                        await setTrashed(false);
+                        home.flash = doc.id;
+                        await listInstalledApps();
+                    } catch (e) {
+                        alert("Le document n'a pas pu être restauré (" + e.message + ").");
+                    }
+                });
+            } catch (e) {
+                home.docs.splice(at, 0, doc);
+                renderRecents();
+                alert("Le document n'a pas pu être supprimé (" + e.message + ").");
+            }
+        }
+
+        // --- Fenêtres de l'accueil ---
+        function openDialog(build, className) {
+            const scrim = h('div', { class: 'scrim' });
+            const dialog = h('div', { class: 'dialog' + (className ? ' ' + className : ''), role: 'dialog', 'aria-modal': 'true' });
+            const onKey = (e) => { if (e.key === 'Escape') close(); };
+            const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
+            scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
+            document.addEventListener('keydown', onKey);
+            scrim.append(dialog);
+            build(dialog, close);
+            document.body.append(scrim);
+            return close;
+        }
+
+        function dialogTitle(text, close) {
+            return h('h2', {}, h('span', { text }), h('button', { class: 'x-btn', 'aria-label': 'Fermer', onclick: close }, icon('close')));
+        }
+
+        function openAllAppsDialog() {
+            openDialog((dialog, close) => {
+                const grid = h('div', { class: 'all-grid' }, home.apps.map(app => {
+                    const tile = appTile(app);
+                    tile.addEventListener('click', close);
+                    return tile;
+                }));
+                dialog.append(dialogTitle('Toutes les apps', close), grid);
+            });
+        }
+
+        // Texte copié pour l'IA : règles de création + besoin à compléter
+        function buildCreationPrompt() {
+            return `Crée une application "One App".
+
+${ONEAPP_RULES}
+
+MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
+        }
+
+        async function copyText(text) {
+            try { await navigator.clipboard.writeText(text); return true; }
+            catch (e) {
+                const ta = h('textarea', { style: 'position:fixed; opacity:0' });
+                ta.value = text;
+                document.body.append(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (err) {}
+                ta.remove();
+                return ok;
+            }
+        }
+
+        function openCreateDialog() {
+            if (!requireOnline("Créer une app")) return;
+            openDialog((dialog, close) => {
+                const copyBtn = h('button', { class: 'btn soft' }, icon('copy'), 'Copier les règles');
+                const field = h('textarea', { class: 'field', id: 'paste-app', placeholder: "Collez ici la réponse de l'IA", spellcheck: 'false' });
+                const result = h('div');
+                const go = h('button', { class: 'btn fill', id: 'create-app-go', disabled: true }, "Créer l'app");
+                let html = null;
+
+                copyBtn.addEventListener('click', async () => {
+                    const ok = await copyText(buildCreationPrompt());
+                    copyBtn.replaceChildren(icon(ok ? 'check-c' : 'copy'), ok ? 'Règles copiées' : 'Copie impossible');
+                    setTimeout(() => copyBtn.replaceChildren(icon('copy'), 'Copier les règles'), 2200);
+                });
+
+                field.addEventListener('input', () => {
+                    html = null;
+                    result.replaceChildren();
+                    const text = field.value.trim();
+                    go.disabled = true;
+                    if (!text) return;
+                    const extracted = extractAppHtml(text);
+                    if (!/<!doctype html|<html[\s>]/i.test(extracted)) {
+                        result.append(h('div', { class: 'err', text: "Je ne trouve pas de code d'app dans ce texte. Collez toute la réponse de l'IA." }));
+                        return;
+                    }
+                    html = extracted;
+                    go.disabled = false;
+                    const info = readAppMeta(html);
+                    result.append(h('div', { class: 'found' }, appIconEl({ id: info.name, icon: info.icon }, false),
+                        h('span', {}, "App trouvée : ", h('b', { text: info.name }))));
+                    const problems = checkAppHtml(html);
+                    if (problems.length) result.append(h('div', { class: 'warn' }, h('b', { text: 'Attention' }),
+                        h('ul', {}, problems.map(p => h('li', { text: p }))), "Vous pouvez quand même la créer, ou demander à l'IA de corriger."));
+                });
+
+                go.addEventListener('click', async () => {
+                    if (!html) return;
+                    go.disabled = true;
+                    go.textContent = 'Création...';
+                    try {
+                        const created = await installApp(html);
+                        close();
+                        home.sel = created.id;
+                        home.q = '';
+                        await listInstalledApps();
+                        showToast(`« ${created.name} » est prête`);
+                    } catch (e) {
+                        console.error(e);
+                        go.disabled = false;
+                        go.textContent = "Créer l'app";
+                        result.append(h('div', { class: 'err', text: "L'app n'a pas pu être enregistrée dans Google Drive (" + e.message + ")." }));
+                    }
+                });
+
+                const step = (n, title, text, ...content) => h('div', { class: 'step' }, h('span', { class: 'num', text: String(n) }),
+                    h('div', {}, h('b', { text: title }), h('p', { text }), ...content));
+                dialog.append(
+                    dialogTitle('Créer une app', close),
+                    h('p', { class: 'lead', text: "Décrivez l'outil de vos rêves à une IA. One App l'enregistre dans votre Drive." }),
+                    step(1, 'Copiez les règles de création', 'Elles expliquent à l’IA comment fabriquer une app compatible.', copyBtn),
+                    step(2, 'Collez-les dans votre IA et décrivez votre app', 'ChatGPT, Claude, Gemini… Remplacez la dernière ligne par votre besoin.'),
+                    step(3, 'Collez sa réponse ici', 'Le texte autour du code est retiré tout seul.', field, result),
+                    h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Annuler'), go));
+            });
+        }
+
+        // --- Notifications ---
+        let toastTimer = null;
+        function showToast(message, actionLabel, onAction) {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
+            const toast = h('div', { class: 'toast' + (actionLabel ? '' : ' plain'), role: 'status' }, h('span', { text: message }));
+            if (actionLabel) toast.append(h('button', { onclick: () => { toast.remove(); onAction(); } }, actionLabel));
+            document.body.append(toast);
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.remove(), actionLabel ? 6000 : 3500);
+        }
+
+        // --- Interactions globales de l'accueil ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const search = document.getElementById('doc-search');
+            search.addEventListener('input', () => { home.q = search.value; renderRecents(); });
+            document.getElementById('doc-search-clear').addEventListener('click', () => {
+                home.q = ''; search.value = ''; renderRecents(); search.focus();
+            });
+        });
+
+        // Clic ailleurs : ferme les menus (⋯ d'un document, menus des bandeaux)
+        document.addEventListener('click', (e) => {
+            if (docMenu && !e.target.closest('.menu') && !e.target.closest('.doc-more')) closeDocMenu();
+            if (!e.target.closest('.header-menu-container')) {
+                document.querySelectorAll('.header-dropdown.active').forEach(m => m.classList.remove('active'));
+            }
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDocMenu(); });
+
+        let homeResizeTimer = null;
+        window.addEventListener('resize', () => {
+            closeDocMenu();
+            clearTimeout(homeResizeTimer);
+            homeResizeTimer = setTimeout(renderAppGrid, 120);
+        });
 
         // --- GESTION DU BANDEAU D'EXÉCUTION ---
         function toggleHeaderMenu() {
@@ -2013,130 +2728,6 @@
                 document.getElementById('loading-apps').style.display = 'none';
                 document.getElementById('loading-apps').innerText = "Recherche de vos One Apps...";
                 alert("Erreur lors de la création de la copie. Vérifiez votre connexion internet.");
-            }
-        }
-
-        // Ligne d'un document dans le sous-menu. Construction par le DOM : le nom d'un
-        // fichier partagé est choisi par quelqu'un d'autre et ne doit jamais être interprété comme du HTML
-        function makeFileItem(targetId, fName, dateStr, folderId, appFileId, appName) {
-            const open = () => openAppEnvironment(appFileId, appName, targetId, fName);
-
-            const item = document.createElement('div');
-            item.className = 'file-item';
-
-            const nameEl = document.createElement('div');
-            nameEl.className = 'file-item-name';
-            nameEl.textContent = fName;
-            nameEl.addEventListener('click', open);
-
-            const dateEl = document.createElement('div');
-            dateEl.className = 'file-item-date';
-            dateEl.textContent = dateStr;
-            dateEl.addEventListener('click', open);
-
-            const menuEl = document.createElement('div');
-            menuEl.className = 'file-item-menu';
-            menuEl.textContent = '⠇';
-            const dropdown = document.createElement('div');
-            dropdown.className = 'file-item-dropdown';
-            dropdown.append(
-                makeButton('', '↗️ Ouvrir le dossier', () => { if (requireOnline("Ouvrir le dossier Drive")) window.open(`https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`, '_blank'); }),
-                makeButton('', '✏️ Renommer', () => renameFile(targetId, fName, folderId, appFileId, appName)),
-                makeButton('danger', '🗑️ Supprimer', () => deleteFile(targetId, folderId, appFileId, appName))
-            );
-            menuEl.appendChild(dropdown);
-            menuEl.addEventListener('click', () => toggleFileMenu(dropdown));
-
-            item.append(nameEl, dateEl, menuEl);
-            return item;
-        }
-
-        async function loadAppFiles(folderId, appFileId, appName) {
-            const query = encodeURIComponent(`'${folderId}' in parents and name contains '.onefile' and trashed = false`);
-            const showDeviceFiles = async () => {
-                const listContainer = document.getElementById('submenu-file-list');
-                const loader = document.getElementById('submenu-loader');
-                if (!listContainer || !activeSubmenu || activeSubmenu.dataset.folderId !== String(folderId)) return;
-                loader.style.display = 'none';
-                await renderDeviceFiles(listContainer, folderId, appFileId, appName);
-            };
-            if (isOffline()) return showDeviceFiles();
-            try {
-                let data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, modifiedTime, mimeType, shortcutDetails)&orderBy=modifiedTime desc`);
-                
-                // Le sous-menu a pu être fermé ou remplacé pendant le chargement
-                const listContainer = document.getElementById('submenu-file-list');
-                const loader = document.getElementById('submenu-loader');
-                if (!listContainer || !activeSubmenu || activeSubmenu.dataset.folderId !== String(folderId)) return;
-                loader.style.display = 'none';
-                listContainer.innerHTML = '';
-
-                if (data.files && data.files.length > 0) {
-                    data.files.forEach(f => {
-                        let dateObj = new Date(f.modifiedTime);
-                        let dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        let fName = f.name.replace('.onefile', '');
-                        let targetId = (f.mimeType === 'application/vnd.google-apps.shortcut' && f.shortcutDetails) ? f.shortcutDetails.targetId : f.id;
-                        
-                        let item = makeFileItem(targetId, fName, dateStr, folderId, appFileId, appName);
-                        listContainer.appendChild(item);
-                    });
-                } else {
-                    listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); font-size:13px; padding:10px;">Aucun fichier récent. Créez-en un nouveau !</div>';
-                }
-            } catch (e) {
-                console.error(e);
-                if (isNetworkError(e)) return showDeviceFiles();
-                const loader = document.getElementById('submenu-loader');
-                if (loader) loader.style.display = 'none';
-                const listContainer = document.getElementById('submenu-file-list');
-                if (listContainer) listContainer.innerHTML = '<div style="text-align:center; color:#ef4444; font-size:13px; padding:10px;">Impossible de charger les fichiers. Vérifiez votre connexion.</div>';
-            }
-        }
-
-        function toggleFileMenu(dropdown) {
-            document.querySelectorAll('.file-item-dropdown').forEach(d => {
-                if (d !== dropdown) d.classList.remove('active');
-            });
-            dropdown.classList.toggle('active');
-        }
-
-        async function renameFile(fileId, oldName, folderId, appFileId, appName) {
-            if (!requireOnline("Renommer un document")) return;
-            let newName = prompt("Nouveau nom :", oldName);
-            if (!newName || newName.trim() === "" || newName === oldName) return;
-            
-            document.getElementById('submenu-loader').style.display = 'block';
-            try {
-                await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: `${newName}.onefile` })
-                });
-                document.getElementById('submenu-file-list').innerHTML = '';
-                loadAppFiles(folderId, appFileId, appName);
-            } catch (e) {
-                alert("Erreur lors du renommage.");
-                document.getElementById('submenu-loader').style.display = 'none';
-            }
-        }
-
-        async function deleteFile(fileId, folderId, appFileId, appName) {
-            if (!requireOnline("Supprimer un document")) return;
-            if (!confirm("Voulez-vous vraiment envoyer ce fichier dans la corbeille Google Drive ?")) return;
-            
-            document.getElementById('submenu-loader').style.display = 'block';
-            try {
-                await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trashed: true })
-                });
-                document.getElementById('submenu-file-list').innerHTML = '';
-                loadAppFiles(folderId, appFileId, appName);
-            } catch (e) {
-                alert("Erreur lors de la suppression.");
-                document.getElementById('submenu-loader').style.display = 'none';
             }
         }
 
@@ -2220,33 +2811,31 @@ OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
 7. MÉMOIRE POUR LES FUTURES MODIFICATIONS
 Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : le but de l'app, la structure exacte de state, et les choix importants. Mets-le à jour à chaque modification. N'y mets aucune donnée personnelle (le code de l'app est partagé par lien).`;
 
-        function copyAppGenerationPrompt() {
-            const prompt = `Crée une application "One App".
-
-${ONEAPP_RULES}
-
-MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
-            navigator.clipboard.writeText(prompt).then(() => {
-                alert("Règles copiées ! Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez ce texte, remplacez la dernière ligne par votre besoin, puis revenez coller le HTML obtenu ici.");
-            }).catch(() => {
-                alert("La copie a échoué. Vérifiez que le navigateur autorise l'accès au presse-papiers.");
-            });
-        }
-
+        // Nouveau document « Sans titre », ouvert aussitôt avec son nom sélectionné
+        // dans le bandeau : il suffit de taper pour le renommer
         async function createNewFile(appFileId, appName, folderId) {
             if (!requireOnline("Créer un document")) return;
-            let fileName = prompt("Nom du nouveau fichier :");
-            if (!fileName || fileName.trim() === "") return;
+            const taken = new Set(home.docs.filter(d => d.appId === appFileId).map(d => d.name));
+            let fileName = 'Sans titre';
+            for (let n = 2; taken.has(fileName); n++) fileName = `Sans titre ${n}`;
 
-            document.getElementById('submenu-loader').style.display = 'block';
-
+            const loader = document.getElementById('loading-apps');
+            loader.innerText = "Création du document...";
+            loader.style.display = 'block';
             try {
-                let createdFile = await createOneFile(fileName, folderId, appName, appFileId, []);
-                openAppEnvironment(appFileId, appName, createdFile.id, fileName);
+                const created = await createOneFile(fileName, folderId, appName, appFileId, []);
+                await openAppEnvironment(appFileId, appName, created.id, fileName);
+                if (currentActiveOneFileId === created.id) {
+                    const title = document.getElementById('running-file-title');
+                    title.focus();
+                    title.select();
+                }
             } catch(e) {
                 console.error(e);
-                document.getElementById('submenu-loader').style.display = 'none';
                 alert("Erreur lors de la création du fichier sur Drive.");
+            } finally {
+                loader.style.display = 'none';
+                loader.innerText = "Recherche de vos One Apps...";
             }
         }
 
@@ -2383,36 +2972,40 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             markDirty(newData);
         }
 
+        // Mode lecture choisi par l'utilisateur (le document reste modifiable)
         function toggleAppMode() {
-            if (isViewingHistory) return;
+            if (isViewingHistory || !docCanEdit) return;
             isAppReadOnly = !isAppReadOnly;
-            const btn = document.getElementById('toggle-readonly-btn');
-            const banner = document.getElementById('readonly-banner');
-            const copyBtn = document.getElementById('btn-create-copy');
-            
-            if (isAppReadOnly) {
-                btn.innerHTML = '👁️ <span class="hide-on-mobile">Lecture</span>';
-                btn.style.background = "var(--bg-color)";
-                if(banner) banner.style.display = 'block';
-                if (copyBtn) {
-                    copyBtn.style.animation = 'pulse 2s infinite';
-                    copyBtn.innerHTML = '✨ Créer une copie pour éditer';
-                    copyBtn.style.color = 'var(--accent-color)';
-                    copyBtn.style.fontWeight = 'bold';
-                }
-            } else {
-                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.background = "transparent";
-                if(banner) banner.style.display = 'none';
-                if (copyBtn) {
-                    copyBtn.style.animation = '';
-                    copyBtn.innerHTML = '📄 Créer une copie';
-                    copyBtn.style.color = '';
-                    copyBtn.style.fontWeight = '';
-                }
-            }
-            
+            renderModeButton();
             document.querySelector('#iframe-container iframe').contentWindow.postMessage({ type: 'SET_READ_ONLY', payload: isAppReadOnly }, '*');
+        }
+
+        // Bouton de mode + bandeau « lecture seule ». Le bandeau ne s'affiche que si le
+        // document n'est vraiment pas modifiable (partagé sans droit d'écriture), pas
+        // quand l'utilisateur choisit lui-même le mode lecture ; il se ferme avec sa croix.
+        let docCanEdit = true;
+        let readonlyBannerDismissed = false;
+
+        function renderModeButton() {
+            const btn = document.getElementById('toggle-readonly-btn');
+            const locked = !docCanEdit;
+            const reading = isAppReadOnly && !locked;
+            btn.replaceChildren(icon(locked ? 'lock' : reading ? 'visibility' : 'edit'),
+                h('span', { class: 'hide-on-mobile', text: locked ? 'Lecture seule' : reading ? 'Lecture' : 'Édition' }));
+            btn.classList.toggle('locked', locked);
+            btn.classList.toggle('reading', reading);
+            btn.title = locked ? 'Ce document vous est partagé en lecture seule'
+                : reading ? 'Mode lecture : cliquer pour modifier' : 'Mode édition : cliquer pour passer en lecture';
+
+            const copyLabel = document.querySelector('#btn-create-copy span');
+            if (copyLabel) copyLabel.textContent = locked ? 'Créer une copie pour modifier' : 'Créer une copie';
+
+            document.getElementById('readonly-banner').style.display = locked && !readonlyBannerDismissed ? 'flex' : 'none';
+        }
+
+        function dismissReadonlyBanner() {
+            readonlyBannerDismissed = true;
+            renderModeButton();
         }
 
         // --- LE BOUCLIER DE SAUVEGARDE (FILE D'ATTENTE + RÉCONCILIATION) ---
@@ -2792,6 +3385,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             }
             bannerWasOffline = offline;
             if (currentActiveOneFileId && !isSyncing) setSyncStatus(isDirty ? 'pending' : 'idle');
+            renderAccountStatus();
         }
 
         // Démarrage ou perte du réseau : accueil construit depuis l'appareil
@@ -2815,7 +3409,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             document.getElementById('unauthenticated-view').style.display = 'none';
             document.getElementById('shared-invite-view').style.display = 'none';
             document.getElementById('authenticated-view').style.display = 'block';
-            document.getElementById('user-email').innerText = `${currentUserEmail} · hors-ligne`;
+            document.getElementById('user-email').innerText = currentUserEmail;
+            renderAccountStatus();
             await listInstalledApps();
         }
 
@@ -2885,60 +3480,16 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             return true;
         }
 
-        // Liste des documents d'une app gardés sur l'appareil
-        async function renderDeviceFiles(listContainer, folderId, appFileId, appName) {
-            let docs = [];
-            try { docs = (await localStore.getAll('docs')).filter(d => d.appFileId === appFileId); } catch (e) {}
-            docs.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
-            listContainer.innerHTML = '';
-            if (docs.length === 0) {
-                listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); font-size:13px; padding:10px;">Hors-ligne : aucun document de cette app n\'est enregistré sur cet appareil.</div>';
-                return;
-            }
-            docs.forEach(d => {
-                const date = new Date(d.lastOpened || Date.now());
-                const dateStr = (d.dirty ? '⏳ non envoyé · ' : '') + date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                listContainer.appendChild(makeFileItem(d.fileId, d.fileName, dateStr, folderId, appFileId, appName));
-            });
-        }
-
         // --- LE CHARGEUR D'APPLICATION ---
         // Affiche l'app et ses données (déjà chargées dans localContent) dans l'iframe
         function mountApp(appHtml, appName, fileName, canEdit) {
             appDataHistory = [JSON.parse(JSON.stringify(window.currentLoadedAppData))];
             appDataCurrentIndex = 0;
             
-            isAppReadOnly = !canEdit;
-
-            const btn = document.getElementById('toggle-readonly-btn');
-            const copyBtn = document.getElementById('btn-create-copy');
-            const banner = document.getElementById('readonly-banner');
-
-            if (isAppReadOnly) {
-                btn.innerHTML = '🔒 Lecture Seule';
-                btn.style.background = "var(--bg-color)";
-                btn.style.pointerEvents = 'none';
-                btn.style.opacity = '0.5';
-                if (copyBtn) {
-                    copyBtn.style.animation = 'pulse 2s infinite';
-                    copyBtn.innerHTML = '✨ Créer une copie pour éditer';
-                    copyBtn.style.color = 'var(--accent-color)';
-                    copyBtn.style.fontWeight = 'bold';
-                }
-                if (banner) banner.style.display = 'block';
-            } else {
-                btn.innerHTML = '✏️ <span class="hide-on-mobile">Édition</span>';
-                btn.style.background = "transparent";
-                btn.style.pointerEvents = 'auto';
-                btn.style.opacity = '1';
-                if (copyBtn) {
-                    copyBtn.style.animation = '';
-                    copyBtn.innerHTML = '📄 Créer une copie';
-                    copyBtn.style.color = '';
-                    copyBtn.style.fontWeight = '';
-                }
-                if (banner) banner.style.display = 'none';
-            }
+            docCanEdit = canEdit !== false;
+            isAppReadOnly = !docCanEdit;
+            readonlyBannerDismissed = false;
+            renderModeButton();
 
             let fullHTML = injectBridge(appHtml);
 
@@ -3109,26 +3660,27 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             retryDelay = 0;
             closeHistorySidebar(); 
 
-            // La liste des apps est reconstruite (ce qui supprime le sous-menu) :
-            // on rouvre ensuite le sous-menu de l'app qui était ouverte
-            const reopen = activeSubmenu ? { ...activeSubmenu.dataset } : null;
+            // L'accueil est rechargé ; l'app choisie (home.sel) reste sélectionnée
             syncPendingDocs(); // envoie ce qui serait resté sur l'appareil
             await listInstalledApps();
-            if (reopen) toggleAppMenu(null, reopen.appId, reopen.appName, reopen.folderId);
         }
 
-        async function openShareModal() {
+        // Document partagé par la fenêtre : celui qui est ouvert, ou un document de l'accueil
+        let shareFileId = null;
+
+        async function openShareModal(fileId) {
             if (!requireOnline("Le partage")) return;
-            if(!currentActiveOneFileId) return;
+            shareFileId = (typeof fileId === 'string' && fileId) || currentActiveOneFileId;
+            if (!shareFileId) return;
             document.getElementById('share-modal-overlay').style.display = 'flex';
             document.getElementById('execution-header-menu').classList.remove('active');
             
-            const link = window.location.origin + window.location.pathname + '?file=' + currentActiveOneFileId;
+            const link = window.location.origin + window.location.pathname + '?file=' + shareFileId;
             document.getElementById('share-link-input').value = link;
             document.getElementById('qr-code-container').style.display = 'none';
             
             try {
-                let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=permissions,capabilities`);
+                let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${shareFileId}?fields=permissions,capabilities`);
                 
                 const permBlock = document.getElementById('share-permissions-block');
                 const validateBtn = document.getElementById('btn-validate-share');
@@ -3181,25 +3733,25 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             try {
                 if (level === 'private') {
                     if (window.currentAnyonePermissionId) {
-                        await driveFetch(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions/${window.currentAnyonePermissionId}`, {
+                        await driveFetch(`https://www.googleapis.com/drive/v3/files/${shareFileId}/permissions/${window.currentAnyonePermissionId}`, {
                             method: 'DELETE'
                         });
                         window.currentAnyonePermissionId = null;
                     }
                 } else {
-                    let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}/permissions`, {
+                    let data = await driveJson(`https://www.googleapis.com/drive/v3/files/${shareFileId}/permissions`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ role: level, type: 'anyone' })
                     });
                     window.currentAnyonePermissionId = data.id;
                 }
-                alert("Droits mis à jour avec succès !");
+                showToast("Droits de partage mis à jour");
 
                 // Un changement de droits modifie modifiedTime : sans headRevisionId,
                 // on met à jour la référence pour ne pas croire à un conflit
-                if (!currentFileVersion || !currentFileVersion.rev) {
-                    let meta = await driveJson(`https://www.googleapis.com/drive/v3/files/${currentActiveOneFileId}?fields=modifiedTime,headRevisionId`);
+                if (shareFileId === currentActiveOneFileId && (!currentFileVersion || !currentFileVersion.rev)) {
+                    let meta = await driveJson(`https://www.googleapis.com/drive/v3/files/${shareFileId}?fields=modifiedTime,headRevisionId`);
                     rememberRemoteVersion(meta);
                 }
 
@@ -3213,11 +3765,9 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             }
         }
 
-        function copyShareLink() {
-            const linkInput = document.getElementById('share-link-input');
-            linkInput.select();
-            document.execCommand('copy');
-            alert("Lien copié !");
+        async function copyShareLink() {
+            const ok = await copyText(document.getElementById('share-link-input').value);
+            showToast(ok ? "Lien copié" : "Copie impossible : sélectionnez le lien à la main");
         }
 
         function nativeShare() {
@@ -3237,12 +3787,6 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         // --- LOGIQUE D'INSTALLATION (HTML) ---
-        function toggleInstallSection() {
-            if (!requireOnline("Créer une app")) return;
-            const section = document.getElementById('install-section');
-            section.style.display = section.style.display === 'block' ? 'none' : 'block';
-        }
-
         // Extrait le HTML d'une réponse d'IA : retire les balises ```html et le
         // texte éventuel avant <!DOCTYPE>/<html> ou après </html>
         function extractAppHtml(text) {
@@ -3257,50 +3801,41 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
             return html;
         }
 
-        // Signale les erreurs fréquentes des IA ; renvoie false si l'utilisateur annule
-        function confirmAppHtml(html) {
+        // Erreurs fréquentes des IA (liste vide si tout va bien)
+        function checkAppHtml(html) {
             const problems = [];
-            if (!/<\/html>\s*$/i.test(html)) problems.push("- Le code semble incomplet (pas de </html> à la fin) : l'IA l'a peut-être tronqué.");
-            if (!/OneAppAPI/.test(html)) problems.push("- L'app n'utilise pas l'API One App : ses données ne seront pas enregistrées.");
-            if (/localStorage|indexedDB/i.test(html)) problems.push("- L'app utilise localStorage ou IndexedDB, qui sont bloqués dans One App.");
-            if (problems.length === 0) return true;
-            return confirm("Attention :\n" + problems.join("\n") + "\n\nContinuer quand même ?");
+            if (!/<\/html>\s*$/i.test(html)) problems.push("Le code semble incomplet (pas de </html> à la fin) : l'IA l'a peut-être coupé.");
+            if (!/OneAppAPI/.test(html)) problems.push("L'app n'utilise pas l'API One App : ses données ne seront pas enregistrées.");
+            if (/localStorage|indexedDB/i.test(html)) problems.push("L'app utilise localStorage ou IndexedDB, qui sont bloqués dans One App.");
+            return problems;
         }
 
-        async function installAppFromHtml() {
-            const htmlContent = extractAppHtml(document.getElementById('json-input').value);
-            if (!htmlContent) return alert("Veuillez coller le code HTML.");
-            if (!confirmAppHtml(htmlContent)) return;
+        // Signale ces erreurs avant d'enregistrer ; renvoie false si l'utilisateur annule
+        function confirmAppHtml(html) {
+            const problems = checkAppHtml(html);
+            if (problems.length === 0) return true;
+            return confirm("Attention :\n- " + problems.join("\n- ") + "\n\nContinuer quand même ?");
+        }
 
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlContent, 'text/html');
-            const appName = doc.title ? doc.title.trim() : "Nouvelle Application";
+        // Nom (<title>) et icône (<meta name="oneapp-icon">) d'une app
+        function readAppMeta(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
             const metaIcon = doc.querySelector('meta[name="oneapp-icon"]');
-            const appIcon = metaIcon ? metaIcon.getAttribute('content') : "";
+            return {
+                name: (doc.title || '').trim() || "Nouvelle application",
+                icon: metaIcon ? (metaIcon.getAttribute('content') || '') : ''
+            };
+        }
 
-            const fileName = `${appName}.oneapp`;
-
-            document.getElementById('install-loader').style.display = 'block';
-
-            try {
-                const appFolderId = await getOrCreateFolder(appName, rootFolderId);
-                const metadata = { name: fileName, mimeType: "text/html", parents: [appFolderId], description: appIcon };
-                let createdFile = await driveCreateFile(metadata, htmlContent, 'text/html');
-                
-                await makeFilePublic(createdFile.id);
-
-                alert(`L'application "${appName}" a été installée avec succès !`);
-                
-                document.getElementById('json-input').value = '';
-                toggleInstallSection();
-                document.getElementById('install-loader').style.display = 'none';
-                await listInstalledApps();
-
-            } catch (error) {
-                console.error(error);
-                alert("Erreur lors de l'installation sur Google Drive.");
-                document.getElementById('install-loader').style.display = 'none';
-            }
+        // Enregistre une nouvelle app dans Drive (dossier « One App/<nom> ») et la rend
+        // lisible par lien (nécessaire au partage de ses documents). Renvoie { id, name }.
+        async function installApp(htmlContent) {
+            const info = readAppMeta(htmlContent);
+            const appFolderId = await getOrCreateFolder(info.name, rootFolderId);
+            const metadata = { name: `${info.name}.oneapp`, mimeType: "text/html", parents: [appFolderId], description: info.icon };
+            const createdFile = await driveCreateFile(metadata, htmlContent, 'text/html');
+            await makeFilePublic(createdFile.id);
+            return { id: createdFile.id, name: info.name };
         }
 
         // --- LOGIQUE DE L'ÉDITEUR D'APPLICATION (IDE) ---
@@ -3383,11 +3918,10 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 let createdFile = await driveCreateFile(metadata, currentCode, 'text/html');
                 await makeFilePublic(createdFile.id);
 
-                alert(`La copie "${newName}" a été créée avec succès !`);
                 showEditorStatus("Prêt.");
-                
-                closeAppEditor();
-                await listInstalledApps();
+                home.sel = createdFile.id;
+                await closeAppEditor();
+                showToast(`Copie « ${newName} » créée`);
             } catch (e) {
                 console.error(e);
                 showEditorStatus("Erreur lors de la copie.");
@@ -3416,7 +3950,9 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
         }
 
         async function deleteAppFromEditor() {
-            if (!confirm("Voulez-vous vraiment envoyer cette application à la corbeille Google Drive ?")) return;
+            if (!requireOnline("Supprimer une app")) return;
+            const appName = document.getElementById('edit-app-title-input').value;
+            if (!confirm(`Supprimer l'app « ${appName} » ? Elle sera placée dans la corbeille Google Drive ; ses documents ne sont pas supprimés.`)) return;
 
             showEditorStatus("Suppression en cours...");
             document.getElementById('edit-header-menu').classList.remove('active');
@@ -3428,8 +3964,9 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     body: JSON.stringify({ trashed: true })
                 });
                 
-                closeAppEditor();
-                await listInstalledApps();
+                home.sel = null;
+                await closeAppEditor();
+                showToast("App supprimée (dans la corbeille Google Drive)");
             } catch (e) {
                 alert("Erreur lors de la suppression.");
                 showEditorStatus("Prêt.");
@@ -3491,10 +4028,11 @@ Conserve la structure de state : les documents déjà enregistrés doivent conti
 
 MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
 
-            navigator.clipboard.writeText(aiPrompt).then(() => {
-                alert("Le code et les règles ont été copiés ! Ouvrez votre IA (ChatGPT, Claude, Gemini...), collez ce texte, remplacez la dernière ligne par votre demande, puis revenez coller le nouveau code ici.");
-            }).catch(() => {
-                alert("Erreur lors de la copie.");
+            copyText(aiPrompt).then((ok) => {
+                const btn = document.getElementById('editor-copy-btn');
+                btn.replaceChildren(icon(ok ? 'check-c' : 'copy'), ok ? 'Copié' : 'Copie impossible');
+                setTimeout(() => btn.replaceChildren(icon('copy'), 'Copier'), 2200);
+                if (ok) showToast("Code et règles copiés : collez-les dans votre IA");
             });
         }
 
@@ -3625,7 +4163,7 @@ MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
                 floatingBtn.style.display = 'none';
             } else {
                 sidebar.classList.remove('open');
-                floatingBtn.style.display = 'block';
+                floatingBtn.style.display = 'flex';
             }
         }
 
@@ -3641,8 +4179,9 @@ MODIFICATION DEMANDÉE : [DÉCRIVEZ VOTRE MODIFICATION ICI]`;
 
             revisions.forEach(rev => {
                 let dateObj = new Date(rev.modifiedTime);
-                let dateStr = dateObj.toLocaleDateString();
-                let timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                // Ex. « Aujourd'hui » / « 29 sept. » puis l'heure ; aucun texte externe dans le HTML
+                let dateStr = formatDocDate(rev.modifiedTime).replace(/, \d\d:\d\d$/, '');
+                let timeStr = dateObj.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
 
                 let item = document.createElement('div');
                 item.className = 'history-item';

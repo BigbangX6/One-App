@@ -97,7 +97,7 @@ async function handleDrive(route) {
     if (q.includes("contains '.onefile'")) list = list.filter(f => f.name.includes('.onefile'));
     const par = q.match(/'([^']+)' in parents/); if (par) list = list.filter(f => (f.parents || []).includes(par[1]));
     if (q.includes('shortcut')) list = [];
-    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime, description: f.description, shortcutDetails: f.shortcutDetails })) });
+    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime, description: f.description, shortcutDetails: f.shortcutDetails })) });
   }
   if (!id && method === 'POST') {
     let meta, content = '';
@@ -115,7 +115,7 @@ async function handleDrive(route) {
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
     // hideParents : comme Drive en drive.file quand One App n'a pas accès au dossier parent
-    return json({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: true, canShare: true } });
+    return json({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: !f.readOnly, canShare: true } });
   }
   if (method === 'PATCH' && isUpload) {
     if (ctl.patchDelay) await new Promise(r => setTimeout(r, ctl.patchDelay));
@@ -193,7 +193,7 @@ async function test(name, fn, contextOptions = {}) {
     window.google.picker = P;
   });
   await page.goto(`http://localhost:${PORT}/index.html`);
-  await page.waitForFunction(() => document.querySelector('.app-card'));
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
   try {
     await fn(page);
     await wait(50);
@@ -216,6 +216,12 @@ const openDoc = async (page) => {
 const saved = () => JSON.parse(files.doc1.content).app_data;
 const save = (frame, data) => frame.evaluate(d => window.OneAppAPI.saveData(d), data);
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const idb = (page, store) => page.evaluate(s => localStore.getAll(s), store);
+const waitFor = async (cond, ms = 6000) => {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (await cond()) return; await wait(100); }
+  throw new Error('condition non atteinte en ' + ms + ' ms');
+};
 function eq(a, b, msg) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg}: attendu ${JSON.stringify(b)}, obtenu ${JSON.stringify(a)}`); }
 
 await test("Liste des apps : dossier avec apostrophe trouvé (pas de doublon)", async (page) => {
@@ -395,34 +401,84 @@ await test("Sécurité : noms et icône piégés affichés comme texte, sans ex�
   add({ id: 'evildoc', name: "x'); window.__pwned=4; ('<img src=x onerror=window.__pwned=5>.onefile", mimeType: 'application/json', parents: ['fold1'],
         content: JSON.stringify({ oneapp_metadata: { app_name: 'x', source_app_drive_id: 'app1' }, app_data: [] }) });
   await page.evaluate(() => listInstalledApps());
-  await page.waitForFunction(() => document.querySelectorAll('.app-card').length === 2);
-  const cards = await page.$$eval('.app-card span', els => els.map(e => e.textContent));
+  await page.waitForFunction(() => document.querySelectorAll('.app-tile:not(.tool)').length === 2);
+  const cards = await page.$$eval('.app-tile:not(.tool) .app-label', els => els.map(e => e.textContent));
   if (!cards.some(c => c.includes('<img src=x'))) throw new Error('nom piégé non affiché en texte : ' + cards);
-  await page.locator('.app-card', { hasText: "L'agenda" }).click();
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 2);
-  await page.locator('.file-item-menu').last().click();
+  await page.locator('.app-tile:not(.tool)', { hasText: "L'agenda" }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 2);
+  await page.locator('.doc-more').last().click();
   await wait(500);
   eq(await page.evaluate(() => window.__pwned), undefined, 'code injecté exécuté');
-  const names = await page.$$eval('.file-item-name', els => els.map(e => e.textContent));
+  const names = await page.$$eval('.doc-name', els => els.map(e => e.textContent));
   if (!names.some(n => n.includes('window.__pwned=4'))) throw new Error('nom de fichier altéré : ' + names);
 });
 
-await test("Sous-menu : Nouveau / Modifier / menu fichier fonctionnent (apostrophe dans le nom d'app)", async (page) => {
-  await page.locator('.app-card').first().click();
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
-  eq(await page.textContent('.submenu-title'), "L'agenda - Fichiers", 'titre');
-  await page.locator('.file-item-menu').click();
-  eq(await page.isVisible('.file-item-dropdown'), true, 'menu ouvert');
-  await page.click('h2');
-  eq(await page.isVisible('.file-item-dropdown'), false, 'menu fermé par clic ailleurs');
-  page.removeAllListeners('dialog');
-  page.on('dialog', d => d.accept('Nouveau doc'));
-  await page.click('#submenu-new-btn');
+await test("Accueil : choisir une app filtre les documents ; « Nouveau document » crée « Sans titre » et l'ouvre", async (page) => {
+  await page.locator('.app-tile:not(.tool)').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  eq(await page.textContent('#rec-title'), "L'agenda", "titre de l'app choisie");
+  await page.click('#new-doc-btn');
   await page.waitForFunction(() => document.getElementById('execution-view').style.display === 'flex');
-  const created = Object.values(files).find(f => f.name === 'Nouveau doc.onefile');
+  const created = Object.values(files).find(f => f.name === 'Sans titre.onefile');
   if (!created) throw new Error('fichier non créé');
   eq(JSON.parse(created.content).oneapp_metadata.app_name, "L'agenda", 'app_name');
-  eq(await page.inputValue('#running-file-title'), 'Nouveau doc', 'titre ouvert');
+  eq(created.parents, ['fold1'], "dossier de l'app");
+  eq(await page.inputValue('#running-file-title'), 'Sans titre', 'titre ouvert');
+  eq(await page.evaluate(() => document.activeElement.id), 'running-file-title', 'titre prêt à être renommé');
+  await page.keyboard.type('Mon document');
+  await page.keyboard.press('Enter');
+  await waitFor(async () => created.name === 'Mon document.onefile');
+});
+
+await test("Accueil : menu ⋯ (ouvert/fermé), renommer en place, recherche", async (page) => {
+  add({ id: 'doc2', name: 'Courses.onefile', mimeType: 'application/json', parents: ['fold1'],
+        content: JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['x'] }) });
+  await page.evaluate(() => listInstalledApps());
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 2);
+  await page.locator('.doc-row', { hasText: 'Courses' }).locator('.doc-more').click();
+  eq(await page.isVisible('.menu'), true, 'menu ouvert');
+  await page.click('.brand');
+  eq(await page.isVisible('.menu'), false, 'menu fermé par clic ailleurs');
+  await page.locator('.doc-row', { hasText: 'Courses' }).locator('.doc-more').click();
+  await page.click('.menu >> text=Renommer');
+  await page.fill('#rename-input', 'Courses de la semaine');
+  await page.keyboard.press('Enter');
+  await waitFor(async () => files.doc2.name === 'Courses de la semaine.onefile');
+  await page.fill('#doc-search', 'semaine');
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  eq(await page.textContent('.doc-row .doc-name'), 'Courses de la semaine', 'résultat de recherche');
+});
+
+await test("Accueil : créer une copie, supprimer puis annuler", async (page) => {
+  await page.locator('.doc-row .doc-more').first().click();
+  await page.click('.menu >> text=Créer une copie');
+  await waitFor(async () => !!Object.values(files).find(f => f.name === 'Copie de Doc.onefile'));
+  const copy = Object.values(files).find(f => f.name === 'Copie de Doc.onefile');
+  eq(copy.parents, ['fold1'], 'dossier de la copie');
+  eq(JSON.parse(copy.content).app_data, ['initial'], 'contenu copié');
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 2);
+  await page.locator('.doc-row', { hasText: 'Copie de Doc' }).locator('.doc-more').click();
+  await page.click('.menu >> text=Supprimer');
+  await waitFor(async () => copy.trashed === true);
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  await page.click('.toast button');
+  await waitFor(async () => copy.trashed === false);
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 2);
+});
+
+await test("Accueil : fenêtre « Créer une app » (analyse du collage, création, sélection)", async (page) => {
+  await page.click('#create-app-tile');
+  await page.fill('#paste-app', 'Voici votre app :\n```html\n<!DOCTYPE html><html><head><title>Films vus</title><meta name="oneapp-icon" content="🎬"></head><body><script>window.OneAppAPI.loadData()<\/script></body></html>\n```');
+  await page.waitForSelector('.found');
+  eq(await page.textContent('.found b'), 'Films vus', 'app trouvée');
+  eq(await page.isVisible('.warn'), false, 'pas d\'avertissement');
+  await page.click('#create-app-go');
+  await waitFor(async () => !!Object.values(files).find(f => f.name === 'Films vus.oneapp'));
+  const app = Object.values(files).find(f => f.name === 'Films vus.oneapp');
+  eq(app.description, '🎬', 'icône');
+  if (!app.content.startsWith('<!DOCTYPE html>')) throw new Error('texte autour du code non retiré');
+  await page.waitForFunction(() => document.getElementById('rec-title') && document.getElementById('rec-title').textContent === 'Films vus');
+  eq(await page.isVisible('.scrim'), false, 'fenêtre fermée');
 });
 
 await test("Lien partagé sans être connecté : écran d'invitation", async (page) => {
@@ -468,14 +524,38 @@ await test("Compteur (Gemini) : Annuler remet l'écran à jour", async (page) =>
   eq(await frame.textContent('.player-score'), '0', 'score après annulation');
 });
 
-await test("Fermer une app avec le sous-menu ouvert : pas d'erreur, sous-menu rouvert", async (page) => {
-  await page.locator('.app-card').first().click();
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
-  await page.locator('.file-item-name').first().click();
+await test("Éditeur : « Modifier l'app » ouvre le code ; « Supprimer l'app » la met à la corbeille", async (page) => {
+  await page.locator('.app-tile:not(.tool)').first().click();
+  await page.click('#edit-app-btn');
+  await page.waitForFunction(() => document.getElementById('edit-app-view').style.display === 'flex');
+  if (!(await page.inputValue('#editor-full-code')).includes('<title>')) throw new Error("code de l'app non chargé");
+  await page.click('#edit-app-view .header-menu-container .icon-btn');
+  await page.click("#edit-header-menu >> text=Supprimer l'app");
+  await waitFor(async () => files.app1.trashed === true);
+  await page.waitForFunction(() => document.getElementById('authenticated-view').style.display === 'block');
+  await page.waitForFunction(() => document.querySelectorAll('.app-tile:not(.tool)').length === 0);
+});
+
+await test("Fermer une app : retour à l'accueil, app toujours choisie", async (page) => {
+  await page.locator('.app-tile:not(.tool)').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  await page.locator('.doc-row').first().click();
   await page.waitForFunction(() => document.getElementById('execution-view').style.display === 'flex');
   await page.evaluate(() => closeApp());
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1, null, { timeout: 5000 });
-  eq(await page.textContent('.submenu-title'), "L'agenda - Fichiers", 'sous-menu rouvert');
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1, null, { timeout: 5000 });
+  eq(await page.textContent('#rec-title'), "L'agenda", 'app toujours choisie');
+});
+
+await test("Bandeau lecture seule : seulement pour un document vraiment non modifiable, et refermable", async (page) => {
+  await openDoc(page);
+  await page.click('#toggle-readonly-btn');                 // mode lecture choisi par l'utilisateur
+  eq(await page.isVisible('#readonly-banner'), false, 'pas de bandeau en mode lecture choisi');
+  await page.evaluate(() => closeApp());
+  files.doc1.readOnly = true;                                // partagé sans droit de modification
+  await openDoc(page);
+  eq(await page.isVisible('#readonly-banner'), true, 'bandeau pour un document non modifiable');
+  await page.click('#readonly-banner .x-btn');
+  eq(await page.isVisible('#readonly-banner'), false, 'bandeau refermé');
 });
 
 await test("Icône d'une app partagée (raccourci) : lue sur l'app d'origine", async (page) => {
@@ -483,26 +563,20 @@ await test("Icône d'une app partagée (raccourci) : lue sur l'app d'origine", a
   add({ id: 'sc1', name: 'Partagée.oneapp', mimeType: 'application/vnd.google-apps.shortcut', parents: ['fold1'],
         shortcutDetails: { targetId: 'sharedapp' } });
   await page.evaluate(() => listInstalledApps());
-  await page.waitForFunction(() => document.querySelectorAll('.app-card').length === 3);
-  const card = page.locator('.app-card', { hasText: 'Partagée' }).first();
-  eq(await card.locator('div').first().textContent(), '🎲', 'icône affichée');
+  await page.waitForFunction(() => document.querySelectorAll('.app-tile:not(.tool)').length === 3);
+  const card = page.locator('.app-tile:not(.tool)', { hasText: 'Partagée' }).first();
+  eq(await card.locator('.app-icon').first().textContent(), '🎲', 'icône affichée');
 });
 
 await test("Icône SVG avec currentColor : affichée dans la couleur d'accent", async (page) => {
   files.app1.description = "&lt;svg viewBox='0 0 24 24' width='32' height='32'&gt;&lt;path fill='currentColor' d='M4 6H2v14h14v-2H4V6z'/&gt;&lt;/svg&gt;";
   await page.evaluate(() => listInstalledApps());
-  await page.waitForFunction(() => document.querySelector('.app-card img'));
-  const src = decodeURIComponent(await page.getAttribute('.app-card img', 'src'));
+  await page.waitForFunction(() => document.querySelector('.app-tile img'));
+  const src = decodeURIComponent(await page.getAttribute('.app-tile img', 'src'));
   if (src.includes('currentColor') || !src.includes('#8b5cf6')) throw new Error('couleur non appliquée : ' + src);
 });
 
 // --- Local d'abord (IndexedDB) ---
-const idb = (page, store) => page.evaluate(s => localStore.getAll(s), store);
-const waitFor = async (cond, ms = 6000) => {
-  const end = Date.now() + ms;
-  while (Date.now() < end) { if (await cond()) return; await wait(100); }
-  throw new Error('condition non atteinte en ' + ms + ' ms');
-};
 
 await test("Local d'abord : Drive en panne à la fermeture → gardé sur l'appareil puis envoyé", async (page) => {
   const frame = await openDoc(page);
@@ -570,7 +644,7 @@ await test("Local d'abord : déconnexion → stockage local effacé", async (pag
   await page.evaluate(() => closeApp());
   eq((await idb(page, 'docs')).length, 1, 'document en cache avant');
   await Promise.all([page.waitForNavigation(), page.evaluate(() => logout())]);
-  await page.waitForFunction(() => document.querySelector('.app-card'));
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
   eq((await idb(page, 'docs')).length, 0, 'documents après');
   eq((await idb(page, 'apps')).length, 0, 'apps après');
 });
@@ -582,7 +656,7 @@ await test("Local d'abord : autre compte sur l'appareil → ses données effacé
       metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, base: null });
   });
   await page.reload();
-  await page.waitForFunction(() => document.querySelector('.app-card'));
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
   await wait(500);
   eq((await idb(page, 'docs')).length, 0, 'documents de l\'autre compte');
   eq(saved(), ['initial'], 'Drive non modifié');
@@ -656,9 +730,9 @@ await test("drive.file : icône d'une app partagée lue en public", async (page)
   addSharedFromOther();
   add({ id: 'sc2', name: 'Budget.oneapp', mimeType: 'application/vnd.google-apps.shortcut', parents: ['fold1'], shortcutDetails: { targetId: 'otherapp' } });
   await page.evaluate(() => listInstalledApps());
-  await page.waitForFunction(() => document.querySelectorAll('.app-card').length === 2);
-  const card = page.locator('.app-card', { hasText: 'Budget' }).first();
-  eq(await card.locator('div').first().textContent(), '💰', 'icône affichée');
+  await page.waitForFunction(() => document.querySelectorAll('.app-tile:not(.tool)').length === 2);
+  const card = page.locator('.app-tile:not(.tool)', { hasText: 'Budget' }).first();
+  eq(await card.locator('.app-icon').first().textContent(), '💰', 'icône affichée');
 });
 
 await test("drive.file : app partagée illisible (clé API refusée) → copie de l'appareil, raison affichée", async (page) => {
@@ -696,12 +770,12 @@ await test("Hors-ligne : One App s'ouvre sans réseau, document modifié puis en
   await prepareOffline(page);
   await page_context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => document.querySelector('.app-card'));
-  if (!(await page.textContent('#user-email')).includes('hors-ligne')) throw new Error('mode hors-ligne non indiqué');
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
+  if (!(await page.textContent('#drive-status')).includes('Hors-ligne')) throw new Error('mode hors-ligne non indiqué');
   eq(await page.isVisible('#network-banner'), true, 'bandeau hors-ligne');
-  await page.locator('.app-card').first().click();
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
-  await page.locator('.file-item-name').first().click();
+  await page.locator('.app-tile:not(.tool)').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  await page.locator('.doc-row').first().click();
   await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
   const frame = page.frames().find(f => f !== page.mainFrame());
   await frame.waitForFunction(() => window.shown !== null);
@@ -721,7 +795,7 @@ await test("Hors-ligne : démarrage avec jeton expiré → accueil depuis l'appa
   await page.evaluate(() => sessionStorage.setItem('__expired', '1'));
   await page_context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => document.querySelector('.app-card'));
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
   eq(await page.isVisible('#unauthenticated-view'), false, 'écran de connexion masqué');
 });
 
@@ -839,9 +913,9 @@ const backupOf = (name) => Object.values(files).find(f => f.name === name);
 
 await test("Copie de secours : rangée dans le dossier de l'app même si Drive cache le dossier parent", async (page) => {
   files.doc1.hideParents = true;
-  await page.locator('.app-card').first().click();          // ouverture depuis le sous-menu de l'app
-  await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 1);
-  await page.locator('.file-item-name').first().click();
+  await page.locator('.app-tile:not(.tool)').first().click();          // ouverture depuis le sous-menu de l'app
+  await page.waitForFunction(() => document.querySelectorAll('.doc-row').length === 1);
+  await page.locator('.doc-row').first().click();
   await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
   const frame = page.frames().find(f => f !== page.mainFrame());
   await frame.waitForFunction(() => window.shown !== null);
