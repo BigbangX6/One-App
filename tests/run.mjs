@@ -948,6 +948,25 @@ await test("Créer une copie / copie de secours en arrière-plan : dossier de l'
   eq(backupOf('Doc - Copie de secours.onefile').parents, ['fold1'], 'dossier de la copie de secours');
 });
 
+await test("QR code du partage : généré sur l'appareil, sans service extérieur", async (page) => {
+  const outside = [];
+  page.on('request', r => { if (!/localhost|googleapis|google\.com/.test(r.url())) outside.push(r.url()); });
+  await page.evaluate(() => {
+    document.getElementById('share-link-input').value = location.origin + '/index.html?file=1AbCdEfGhIjKlMnOp';
+    showQRCode();
+  });
+  const src = await page.getAttribute('#qr-code-img', 'src');
+  if (!src.startsWith('data:image/svg+xml')) throw new Error('image du QR code : ' + src.slice(0, 60));
+  // Structure : taille 17 + 4 × version, trois motifs de repérage aux coins
+  const r = await page.evaluate(() => {
+    const m = qrMatrix('a'), big = qrMatrix('x'.repeat(300));
+    const finder = (x, y) => m[y][x] && m[y][x + 6] && m[y + 6][x] && !m[y + 1][x + 1] && m[y + 3][x + 3];
+    return [m.length, big.length, finder(0, 0), finder(14, 0), finder(0, 14)];
+  });
+  eq(r, [21, 69, true, true, true], 'matrice du QR code');
+  eq(outside, [], 'aucune requête vers un service extérieur');
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');

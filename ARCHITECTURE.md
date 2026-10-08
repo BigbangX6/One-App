@@ -34,6 +34,7 @@ Choix assumés :
 | `manifest.json`, `icon-512.png` | PWA : installation sur l'écran d'accueil |
 | `sw.js` | Service worker : garde One App sur l'appareil pour l'ouvrir sans réseau |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : liens pour ouvrir One App depuis Drive, et `?download` qui ouvre la fenêtre d'installation |
+| `confidentialite.html` | Règles de confidentialité (lien discret dans One App, URL à donner à Google) |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
 
 ## 3. Organisation dans Google Drive
@@ -117,6 +118,7 @@ Dans l'ordre du fichier :
 | **MODE HORS-LIGNE** | Accueil, listes et documents servis depuis l'appareil | `isOffline`, `enterOfflineMode`, `leaveOfflineMode`, `openFromDevice`, `requireOnline` |
 | LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `mountApp`, `closeApp` |
 | (partage) | Droits Drive, lien, QR code | `openShareModal`, `validatePermissionChange` |
+| QR CODE | QR code généré sur l'appareil (aucun service extérieur) | `qrMatrix`, `qrSvgDataUrl` |
 | LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `checkAppHtml`, `readAppMeta`, `installApp` |
 | LOGIQUE DE L'ÉDITEUR | Modifier le code d'une app | `openAppEditor`, `copyCodeForAI`, `saveEditorCode`, `saveAppToDrive` |
 | MACHINE À REMONTER LE TEMPS | Révisions Drive | `showDataHistory`, `renderRevisions`, `restoreDataVersion`, `copyDataVersion` |
@@ -281,7 +283,6 @@ partagé) → dossier de l'app retrouvé par son nom → dossier « One App » e
 - Deux apps avec le même `<title>` partagent le même dossier (leurs documents se mélangent).
 - Renommer une app ne renomme ni son dossier ni `app_name` dans ses documents.
 - Les listes ne sont pas paginées (100 apps, 200 documents au maximum).
-- Le QR code est généré par un service externe (api.qrserver.com).
 - Les messages passent encore par `alert()` / `confirm()`.
 - Un `.onefile` partagé par Drive directement (sans le lien One App) n'apparaît pas tant
   qu'il n'a pas été ouvert avec le lien : pas encore de bouton « Ajouter depuis Drive ».

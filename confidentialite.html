@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Règles de confidentialité — One App</title>
+    <meta name="description" content="Règles de confidentialité de One App : vos applications et vos données restent dans votre Google Drive.">
+    <link rel="icon" href="icon-512.png">
+    <style>
+        :root {
+            --bg: #f3f5f9;
+            --page-bg: linear-gradient(180deg, #d9e7fd 0%, #e9f0fb 32%, #f3f5f9 70%);
+            --card: #ffffff;
+            --fg: #1d1d1f;
+            --muted: #6e6e73;
+            --line: #e5e5ea;
+            --accent: #8b5cf6;
+            --accent-strong: #6d28d9;
+            --accent-soft: #efe9fe;
+            --card-shadow: 0 0.5px 1px rgba(20, 30, 60, 0.06), 0 6px 22px rgba(20, 30, 60, 0.07);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --page-bg: linear-gradient(180deg, #0c1a30 0%, #060c18 34%, #000000 72%);
+                --card: #1c1c1e;
+                --fg: #f5f5f7;
+                --muted: #a1a1a6;
+                --line: #333338;
+                --accent-strong: #c4b5fd;
+                --accent-soft: #2e2445;
+                --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 6px 22px rgba(0, 0, 0, 0.5);
+                color-scheme: dark;
+            }
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--page-bg); }
+        body {
+            isolation: isolate; background: var(--bg); color: var(--fg); line-height: 1.6; font-size: 15.5px;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        main { max-width: 760px; margin: 0 auto; padding: 18px 16px 48px; }
+        .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); text-decoration: none; padding: 4px; margin-bottom: 14px; }
+        .brand svg { width: 30px; height: 30px; fill: var(--accent); }
+        .brand b { font-size: 21px; font-weight: 600; }
+        .card { background: var(--card); border-radius: 24px; box-shadow: var(--card-shadow); padding: 30px 32px 26px; }
+        h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+        .updated { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; }
+        .summary { background: var(--accent-soft); color: var(--fg); border-radius: 16px; padding: 14px 18px; margin: 0 0 8px; }
+        .summary ul { margin: 6px 0 0; padding-left: 20px; }
+        h2 { font-size: 18px; margin: 28px 0 8px; padding-top: 18px; border-top: 1px solid var(--line); }
+        p, li { margin: 0 0 10px; }
+        ul { padding-left: 22px; margin: 0 0 10px; }
+        a { color: var(--accent-strong); }
+        code { background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; font-size: 13.5px; }
+        .back { display: inline-block; margin-top: 18px; font-weight: 600; text-decoration: none; }
+        @media (max-width: 640px) {
+            main { padding: 10px 12px 32px; }
+            .card { border-radius: 20px; padding: 22px 18px 20px; }
+            h1 { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg><b>One App</b></a>
+
+    <article class="card">
+        <h1>Règles de confidentialité</h1>
+        <p class="updated">Dernière mise à jour : 8 octobre 2026</p>
+
+        <div class="summary">
+            <strong>En bref</strong>
+            <ul>
+                <li>One App n'a pas de serveur : vos applications et vos documents sont enregistrés dans <strong>votre</strong> Google Drive.</li>
+                <li>One App n'accède qu'aux fichiers qu'elle a créés ou que vous lui avez ouverts, jamais au reste de votre Drive.</li>
+                <li>Aucune donnée n'est vendue, ni utilisée pour de la publicité, ni envoyée à un serveur de One App.</li>
+            </ul>
+        </div>
+
+        <h2>1. Ce qu'est One App</h2>
+        <p>One App (<a href="https://bigbangx6.github.io/One-App/">bigbangx6.github.io/One-App</a>) est une application web qui permet de créer, d'ouvrir et de partager de petites applications (fichiers <code>.oneapp</code>) et leurs documents (fichiers <code>.onefile</code>). Elle fonctionne entièrement dans votre navigateur et utilise votre compte Google Drive comme espace de stockage.</p>
+
+        <h2>2. Données Google auxquelles One App accède</h2>
+        <p>Lors de la connexion, Google vous demande d'autoriser One App. L'autorisation demandée est limitée (<code>drive.file</code>) :</p>
+        <ul>
+            <li><strong>Les fichiers créés par One App</strong> dans votre Drive : le dossier « One App », vos applications, vos documents, le raccourci « #Ouvrir One App.pdf ».</li>
+            <li><strong>Les fichiers que vous ouvrez avec One App</strong>, par exemple un document qu'une autre personne vous a partagé et que vous choisissez d'ajouter via la fenêtre de sélection Google.</li>
+            <li><strong>Votre nom et votre adresse e-mail Google</strong>, uniquement pour les afficher dans One App et pour réserver les données gardées sur l'appareil à votre compte.</li>
+        </ul>
+        <p>One App ne peut pas voir, lire ni modifier les autres fichiers de votre Drive.</p>
+
+        <h2>3. Utilisation de ces données</h2>
+        <p>Ces données servent uniquement à faire fonctionner One App : afficher vos applications et documents, les ouvrir, enregistrer vos modifications, gérer l'historique des versions et le partage que vous déclenchez.</p>
+        <p>L'utilisation et le transfert vers toute autre application des informations reçues des API Google respectent les <a href="https://developers.google.com/terms/api-services-user-data-policy">règles relatives aux données utilisateur des services API Google</a>, y compris les exigences d'utilisation limitée (Limited Use).</p>
+
+        <h2>4. Où sont stockées vos données</h2>
+        <ul>
+            <li><strong>Dans votre Google Drive</strong> : vos applications et vos documents. Ils sont soumis aux <a href="https://policies.google.com/privacy">règles de confidentialité de Google</a>.</li>
+            <li><strong>Sur votre appareil</strong>, dans le stockage de votre navigateur : le jeton de connexion Google (valable environ une heure), une copie des applications et des documents que vous avez ouverts (pour l'ouverture rapide et l'utilisation hors-ligne), et vos modifications pas encore envoyées à Drive.</li>
+        </ul>
+        <p>Les données gardées sur l'appareil sont <strong>effacées lorsque vous vous déconnectez</strong>, ainsi que lorsqu'un autre compte Google se connecte sur le même appareil.</p>
+
+        <h2>5. Partage</h2>
+        <ul>
+            <li><strong>Documents</strong> : ils restent privés tant que vous ne choisissez pas de les partager. Le partage (lecture ou modification par toute personne disposant du lien) n'est appliqué que lorsque vous le validez.</li>
+            <li><strong>Applications</strong> : le code d'une application que vous créez est rendu lisible par toute personne disposant de son lien, afin que les personnes avec qui vous partagez un document puissent l'ouvrir. Ce code ne contient pas vos documents ; n'y écrivez pas d'informations personnelles.</li>
+        </ul>
+
+        <h2>6. Services tiers</h2>
+        <ul>
+            <li><strong>Google</strong> (connexion, Google Drive, fenêtre de sélection de fichiers) : <a href="https://policies.google.com/privacy">règles de confidentialité de Google</a>.</li>
+            <li><strong>GitHub Pages</strong>, qui héberge One App : comme tout hébergeur, GitHub peut enregistrer des informations techniques de connexion (adresse IP, navigateur). <a href="https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement">Déclaration de confidentialité de GitHub</a>.</li>
+            <li><strong>Applications créées par les utilisateurs</strong> : elles s'exécutent dans un espace isolé et peuvent charger des bibliothèques externes choisies par leur auteur.</li>
+        </ul>
+        <p>Le QR code d'un lien de partage est créé directement sur votre appareil, sans passer par un service extérieur. One App n'utilise ni cookies publicitaires, ni outil de mesure d'audience.</p>
+
+        <h2>7. Vos choix et vos droits</h2>
+        <ul>
+            <li><strong>Supprimer vos données</strong> : supprimez le dossier « One App » dans votre Google Drive.</li>
+            <li><strong>Retirer l'accès de One App</strong> à votre compte Google : <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+            <li><strong>Effacer les données de l'appareil</strong> : déconnectez-vous de One App.</li>
+        </ul>
+        <p>One App ne conservant aucune donnée sur un serveur, les données vous concernant se trouvent dans votre Google Drive et sur vos appareils, où vous en gardez le contrôle.</p>
+
+        <h2>8. Contact</h2>
+        <p>Pour toute question sur ces règles : <a href="https://github.com/BigbangX6/One-App/issues">github.com/BigbangX6/One-App/issues</a>.</p>
+
+        <h2>9. Modifications</h2>
+        <p>Ces règles peuvent évoluer avec One App. La date de dernière mise à jour figure en haut de cette page.</p>
+
+        <a class="back" href="./">← Retour à One App</a>
+    </article>
+</main>
+</body>
+</html>
