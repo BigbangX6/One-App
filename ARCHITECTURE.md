@@ -288,6 +288,20 @@ partagé) → dossier de l'app retrouvé par son nom → dossier « One App » e
   qu'il n'a pas été ouvert avec le lien : pas encore de bouton « Ajouter depuis Drive ».
 - Une app partagée rendue privée par son auteur ne peut plus être lue par la clé API.
 
+### Ouvrir un fichier Drive dans l'app Google Drive (testé en octobre 2026)
+
+Depuis une app, dans la PWA, fichier rendu « disponible hors connexion » dans Drive :
+
+| Lien | Android | iOS |
+|---|---|---|
+| `https://drive.google.com/file/d/ID/view` (`target="_blank"`) | ✅ ouvre l'app Drive, même hors connexion | ⚠️ s'ouvre dans une page web intégrée à la PWA, pas dans l'app |
+| `intent://drive.google.com/…#Intent;scheme=https;package=com.google.android.apps.docs;end` | ✅ | — |
+| `googledrive://https://drive.google.com/file/d/ID/view` | — | ✅ ouvre l'app Drive, même hors connexion |
+
+→ Pour ouvrir un document Drive : lien normal sur Android, **`googledrive://` + lien sur iOS**.
+La copie hors connexion de Drive appartient à l'app Drive : One App ne peut pas la lire,
+seulement passer la main à l'app Drive.
+
 ## 10. Travailler avec une IA sur ce projet
 
 - Donner ce fichier en contexte, puis seulement la ou les sections concernées.
