@@ -130,7 +130,7 @@ Dans l'ordre du fichier :
 ### Ouvrir un document
 `openAppEnvironment` → `flushSync` (enregistre le document précédent) → en parallèle :
 `loadAppHtml` (code de l'app) et métadonnées du document (`headRevisionId`, droits) →
-`mountApp` : `injectBridge` puis iframe `sandbox="allow-scripts allow-modals allow-forms"`
+`mountApp` : `injectBridge` puis iframe avec `APP_SANDBOX` / `APP_PERMISSIONS` (droits d'une app : impression, téléchargement, nouvel onglet ; jamais `allow-same-origin`)
 → `startPolling`.
 
 **Rien n'est retéléchargé s'il n'a pas changé** :

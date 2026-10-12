@@ -3131,7 +3131,9 @@ OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
 
 6. ENVIRONNEMENT
 - L'app s'affiche en plein écran sous la barre One App : mise en page responsive, du mobile (320 px) au grand écran.
-- Les nouvelles fenêtres (window.open, target="_blank") et les téléchargements sont bloqués.
+- Permis : imprimer ou créer un PDF avec window.print(), télécharger un fichier (export) avec <a download> et un Blob, ouvrir un lien dans un nouvel onglet (target="_blank"), copier dans le presse-papiers, plein écran.
+- Bloqués : localStorage, sessionStorage, IndexedDB, cookies, caméra, micro, position, notifications. Les données passent uniquement par OneAppAPI.
+- Hors-ligne, seules les bibliothèques externes déjà chargées par le navigateur restent disponibles : préfère du code sans dépendance quand c'est simple.
 - Formulaires : dans l'événement "submit", appelle toujours event.preventDefault() (sinon la page de l'app se recharge).
 
 7. MÉMOIRE POUR LES FUTURES MODIFICATIONS
@@ -3164,6 +3166,19 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 loader.innerText = "Recherche de vos One Apps...";
             }
         }
+
+        // --- DROITS D'UNE APP DANS SON IFRAME ---
+        // Sans allow-same-origin : l'app n'a pas d'origine propre, elle ne peut lire
+        // ni le jeton Google ni les données de One App (ni localStorage, cookies...).
+        //  - allow-forms : sinon l'événement submit des formulaires n'est jamais déclenché
+        //  - allow-modals : alert/confirm et window.print() (PDF par l'impression)
+        //  - allow-downloads : exporter ses données (<a download> + Blob)
+        //  - allow-popups(-to-escape-sandbox) : liens target="_blank" et fenêtre
+        //    d'impression (window.open) ; le nouvel onglet ne peut pas toucher One App
+        const APP_SANDBOX = "allow-scripts allow-modals allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox";
+        // Fonctions du navigateur déléguées à l'app (pas caméra, micro ni position :
+        // le navigateur demanderait l'accord au nom de One App, pas de l'app)
+        const APP_PERMISSIONS = "clipboard-write; fullscreen; web-share";
 
         // --- LE PONT DE COMMUNICATION ET LE SANDBOX (ABSTRACTION OS) ---
         // Cette fonction n'est pas exécutée ici : son code source est injecté en
@@ -3820,9 +3835,9 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             let fullHTML = injectBridge(appHtml);
 
             const iframe = document.createElement('iframe');
-            // allow-forms : sans lui, l'événement submit des formulaires n'est jamais
-            // déclenché (les apps générées par IA en utilisent très souvent)
-            iframe.sandbox = "allow-scripts allow-modals allow-forms";
+            // Droits de l'app (voir APP_SANDBOX)
+            iframe.sandbox = APP_SANDBOX;
+            iframe.allow = APP_PERMISSIONS;
             iframe.srcdoc = fullHTML;
             iframe.style.width = "100%"; iframe.style.height = "100%"; iframe.style.border = "none";
 

@@ -1031,6 +1031,26 @@ await test("Bandeau de reconnexion : bouton officiel, puis message « Connexion 
   if (!(await page.textContent('.toast')).includes('Connexion renouvelée')) throw new Error('pas de message de renouvellement');
 });
 
+// --- Droits d'une app dans son iframe ---
+await test("App : téléchargement d'un export et fenêtre d'impression autorisés, stockage du navigateur bloqué", async (page) => {
+  const frame = await openDoc(page);
+  const dl = page.waitForEvent('download', { timeout: 3000 });
+  await frame.evaluate(() => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['nom;score'], { type: 'text/csv' }));
+    a.download = 'export.csv'; document.body.append(a); a.click();
+  });
+  eq((await dl).suggestedFilename(), 'export.csv', 'fichier téléchargé');
+  const popup = page.context().waitForEvent('page', { timeout: 3000 });
+  eq(await frame.evaluate(() => {
+    const w = window.open('', '_blank'); w.document.write('<p>Récapitulatif</p>'); w.document.close();
+    return w.document.body.textContent;
+  }), 'Récapitulatif', "fenêtre d'impression remplie");
+  await (await popup).close();
+  eq(await frame.evaluate(() => { try { localStorage.setItem('a', '1'); return 'ok'; } catch (e) { return 'bloqué'; } }), 'bloqué', 'localStorage');
+  eq(await frame.evaluate(() => { try { return String(parent.document.title); } catch (e) { return 'bloqué'; } }), 'bloqué', 'accès à One App');
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
