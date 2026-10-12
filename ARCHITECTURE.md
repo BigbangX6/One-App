@@ -35,7 +35,7 @@ Choix assumés :
 | `sw.js` | Service worker : garde One App sur l'appareil pour l'ouvrir sans réseau |
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : liens pour ouvrir One App depuis Drive, et `?download` qui ouvre la fenêtre d'installation |
 | `confidentialite.html` | Règles de confidentialité (lien discret dans One App, URL à donner à Google) |
-| `maquettes/connexion.html` | Pistes pour l'écran de connexion : première visite expliquée (exigence Google) et retour simple |
+| `maquettes/connexion.html` | Écran de connexion retenu (vitrine), reconnexion toutes les heures, bandeau pendant l'utilisation |
 | `maquettes/accueil-cartes.html` | Accueil retenu en cartes façon iCloud (compte, apps, récents) ; « Créer une app » fonctionnel |
 | `maquettes/accueil-creatif.html` | Pistes d'accueil moins classiques (bureau, bulles, commande, étagère, générateur aléatoire) |
 | `maquettes/accueil-approches.html` | Quatre pistes de page d'accueil à comparer (lanceur, façon Docs, apps-dossiers, rail d'apps) |

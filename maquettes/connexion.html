@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Connexion One App</title>
 <style>
-/* Page de connexion de One App : première visite (on explique ce que fait One App,
-   comme Google l'exige) et retour (la carte simple d'aujourd'hui).
+/* Page de connexion de One App, piste « vitrine » retenue : première visite (on explique
+   ce que fait One App, comme Google l'exige), retour après l'heure de connexion,
+   bandeau pendant l'utilisation, et carte simple après une déconnexion.
    Fichier autonome, aucune ressource externe. Reprend les couleurs et les cartes de index.html.
    Mise en page : barre de maquette en haut, puis l'écran choisi. */
 :root {
@@ -99,13 +100,11 @@ a { color: var(--accent-strong); }
 .legal a { color: var(--muted); text-decoration: none; }
 .legal a:hover { color: var(--fg); text-decoration: underline; }
 
-/* Bouton de connexion : style Google (charte « Se connecter avec Google ») ou style One App */
+/* Bouton de connexion officiel Google (charte « Se connecter avec Google ») */
 .signin { width: 100%; height: 48px; border-radius: 24px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-size: 16px; font-weight: 600; border: none; }
 .signin.google { background: var(--g-bg); color: var(--g-fg); border: 1px solid var(--g-border); font-family: var(--font-google); font-weight: 500; font-size: 15px; }
 .signin.google:hover { box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3); }
 .signin.google svg { width: 20px; height: 20px; }
-.signin.brandcol { background: var(--accent); color: var(--on-accent); }
-.signin.brandcol:hover { background: var(--accent-hover); }
 .install { border: none; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 12px; }
 .install:hover { background: var(--hover); color: var(--fg); }
 .install.strong { color: var(--accent-strong); }
@@ -208,65 +207,6 @@ a { color: var(--accent-strong); }
 .pa-end .signin { max-width: 380px; }
 
 /* =========================================================
-   B · LA VISITE GUIDÉE (dans la carte)
-   ========================================================= */
-.pb { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 28px 16px; }
-.pb-card { width: min(440px, 100%); padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 14px; text-align: center; }
-.pb-top { display: flex; align-items: center; justify-content: center; }
-.slides { position: relative; overflow: hidden; }
-.track { display: flex; transition: transform 0.45s cubic-bezier(.2, .8, .2, 1); touch-action: pan-y; }
-.slide { flex: 0 0 100%; display: flex; flex-direction: column; gap: 14px; padding: 0 2px; }
-.slide h2 { font-family: var(--font-display); font-size: 22px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
-.slide p { margin: 0; color: var(--muted); min-height: 3em; text-wrap: pretty; }
-.slide .vis { height: 176px; }
-.slide.intro .vis { background: transparent; flex-direction: column; gap: 10px; }
-.slide.intro .logo { width: 84px; height: 84px; }
-.dots-nav { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.dots-nav .nav { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--field); color: var(--muted); display: grid; place-items: center; }
-.dots-nav .nav:disabled { opacity: 0.35; cursor: default; }
-.dots-nav .nav .i { width: 18px; height: 18px; }
-.dots { display: flex; gap: 6px; }
-.dots button { width: 7px; height: 7px; border-radius: 4px; border: none; padding: 0; background: var(--dim); transition: width 0.3s, background 0.3s; }
-.dots button[aria-current="true"] { width: 22px; background: var(--accent); }
-.pb-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
-.pb-actions .signin { margin-top: 12px; }
-
-/* =========================================================
-   C · L'APERÇU ANNOTÉ
-   ========================================================= */
-.pc { max-width: 1080px; margin: 0 auto; padding: 22px 20px 40px; display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 20px; align-items: start; }
-.pc-left { padding: 30px 26px 20px; display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center; position: sticky; top: 16px; }
-.pc-left h1 { font-size: 27px; line-height: 1.15; }
-.pc-left .lead { margin-bottom: 8px; }
-.pc-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.preview { padding: 18px; position: relative; }
-.preview-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px 4px; }
-.mini { background: var(--field); border-radius: 18px; padding: 14px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; position: relative; }
-.mini .mc { background: var(--card); border-radius: 14px; padding: 12px; box-shadow: var(--card-shadow); position: relative; }
-.mini .acc { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: 12px; }
-.mini .acc b { font-size: 13px; }
-.mini .acc .ins { margin-top: 6px; width: 100%; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
-.mini .apps-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.mini .apps-row .a { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500; width: 52px; text-align: center; }
-.mini .apps-row .icon { width: 40px; height: 40px; border-radius: 11px; font-size: 20px; }
-.mini .apps-row .a.add .icon { background: var(--field); box-shadow: inset 0 0 0 1.5px var(--line); color: var(--accent); }
-.mini .recents { grid-column: 1 / -1; }
-.mini .search { height: 26px; border-radius: 8px; background: var(--field); margin-bottom: 8px; }
-.mini .doc { display: flex; align-items: center; gap: 10px; padding: 5px 2px; font-size: 12.5px; }
-.mini .doc span:not(.icon) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mini .doc em { font-style: normal; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.pin { position: absolute; z-index: 2; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; box-shadow: 0 0 0 4px var(--accent-ring); border: none; transition: transform 0.2s; }
-.pin:hover, .pin[aria-pressed="true"] { transform: scale(1.12); }
-.callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-.callout { border: none; text-align: left; background: transparent; border-radius: 16px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; transition: background 0.2s; }
-.callout:hover, .callout[aria-pressed="true"] { background: var(--accent-soft); }
-.callout .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; flex: none; }
-.callout b { display: block; font-size: 14.5px; margin-bottom: 2px; }
-.callout span { color: var(--muted); font-size: 13px; line-height: 1.4; }
-.mc.lit { box-shadow: 0 0 0 2px var(--accent), var(--card-shadow); }
-.pc .trust { padding: 22px 24px; }
-
-/* =========================================================
    RETOUR (déjà venu) : la carte simple d'aujourd'hui
    ========================================================= */
 .pr { min-height: 100%; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 32px; }
@@ -275,6 +215,51 @@ a { color: var(--accent-strong); }
 .pr-card .lead { margin: 0 0 20px; }
 .pr-card .install { margin-top: 6px; }
 .pr-card .legal { margin-top: 10px; }
+
+/* --- Reconnexion : tout dit « 1 heure » --- */
+.hour { width: 76px; height: 76px; position: relative; display: grid; place-items: center; margin-bottom: 4px; }
+.hour svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hour b { position: relative; font-family: var(--font-display); font-size: 21px; color: var(--accent-strong); letter-spacing: -0.02em; }
+.pr-card.ended h1 { font-size: 23px; line-height: 1.2; text-wrap: balance; }
+.pr-card.ended .lead { margin-bottom: 18px; }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.why { width: 100%; margin-top: 12px; border-radius: 14px; background: var(--field); text-align: left; font-size: 13.5px; }
+.why summary { cursor: pointer; list-style: none; padding: 10px 14px; font-weight: 600; color: var(--accent-strong); display: flex; align-items: center; gap: 8px; }
+.why summary::-webkit-details-marker { display: none; }
+.why summary .i { width: 18px; height: 18px; color: var(--accent-strong); }
+.why summary .i:last-child { margin-left: auto; color: var(--muted); transition: transform 0.2s; }
+.why[open] summary .i:last-child { transform: rotate(180deg); }
+.why p { margin: 0; padding: 0 14px 12px; color: var(--muted); line-height: 1.5; }
+.signin.compact { width: auto; height: 38px; padding: 0 16px 0 12px; font-size: 14px; gap: 10px; border-radius: 19px; flex: none; }
+.signin.compact svg { width: 18px; height: 18px; }
+
+/* Accueil (pendant l'utilisation), en version réduite */
+.uh { max-width: 1000px; margin: 0 auto; padding: 14px 20px 40px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; }
+.uh .brand { grid-column: 1 / -1; padding: 2px 4px; }
+.uh .card { padding: 20px; }
+.u-acc { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.u-acc b { font-family: var(--font-display); font-size: 18px; }
+.u-acc .mail { color: var(--muted); font-size: 13px; }
+.u-status { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); padding: 5px 10px; border-radius: 999px; background: var(--field); }
+.u-status .i { width: 16px; height: 16px; color: var(--ok); }
+.u-status.soon { background: var(--accent-soft); color: var(--accent-strong); }
+.u-status.soon .i { color: var(--accent-strong); }
+.u-status.off .i { color: var(--muted); }
+.u-renew { border: none; background: none; color: var(--accent-strong); font-weight: 700; font-size: 12.5px; padding: 0 0 0 4px; text-decoration: underline; text-underline-offset: 2px; }
+.u-apps { display: flex; gap: 14px; flex-wrap: wrap; align-content: flex-start; }
+.u-apps .a { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; width: 64px; }
+.u-docs { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; }
+.u-docs .d { display: flex; align-items: center; gap: 12px; padding: 7px 4px; font-weight: 500; }
+.u-docs .d span:not(.icon) { flex: 1; min-width: 0; }
+.u-docs .d em { font-style: normal; color: var(--muted); font-size: 13px; font-weight: 400; }
+.sbanner { position: sticky; top: 0; z-index: 5; margin: 10px auto 0; max-width: 1000px; width: calc(100% - 40px); background: var(--card); border-radius: 18px; box-shadow: var(--pop-shadow); padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; animation: pop 0.25s ease-out; }
+.sbanner .clock { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; flex: none; }
+.sbanner .clock .i { width: 20px; height: 20px; }
+.sbanner .txt { flex: 1; min-width: 220px; font-size: 14px; line-height: 1.4; }
+.sbanner .txt b { display: block; }
+.sbanner .txt span { color: var(--muted); }
+.sbanner .why { flex-basis: 100%; margin: 2px 0 0; }
+.sbanner .why summary { padding: 8px 12px; }
 
 /* --- Fenêtre d'installation (résumé) --- */
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade 0.15s; }
@@ -300,13 +285,10 @@ a { color: var(--accent-strong); }
     .features { grid-template-columns: 1fr; gap: 12px; }
     .trust { grid-template-columns: 1fr; padding: 20px 18px; }
     .trust .vis { order: -1; }
-    .pc { grid-template-columns: 1fr; padding: 12px 12px 28px; gap: 12px; }
-    .pc-left { position: static; padding: 24px 20px 16px; }
-    .mini { grid-template-columns: 1fr; }
-    .mini .acc { flex-direction: row; text-align: left; gap: 8px; }
-    .mini .acc .ins { width: auto; padding: 0 10px; margin: 0 0 0 auto; }
-    .callouts { grid-template-columns: 1fr; gap: 4px; }
     .pr { padding-top: 8vh; }
+    .uh { grid-template-columns: 1fr; padding: 10px 12px 28px; gap: 12px; }
+    .sbanner { width: calc(100% - 24px); }
+    .sbanner .signin.compact { width: 100%; justify-content: center; }
     .scrim { align-items: flex-end; padding: 0; }
     .dialog { border-radius: 24px 24px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }
@@ -330,6 +312,7 @@ a { color: var(--accent-strong); }
     <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M21 11 23 9a15.9 15.9 0 0 0-12.43-4.47l2.58 2.58c2.89.27 5.7 1.55 7.85 3.89zm-2 2a9.86 9.86 0 0 0-4.11-2.62l3.2 3.2zM9 17l3 3 3-3a4.24 4.24 0 0 0-6 0zM3.41 1.64 2 3.05 5.05 6.1C3.59 6.83 2.22 7.79 1 9l2 2c1.24-1.24 2.65-2.21 4.17-2.9l2.24 2.24A9.86 9.86 0 0 0 5 13l2 2a7.03 7.03 0 0 1 4.89-2.06L19.95 21l1.41-1.41L3.41 1.64z"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3 2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></symbol>
     <symbol id="i-spark" viewBox="0 0 24 24"><path d="m19 9 1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
 </defs></svg>
 
@@ -337,7 +320,6 @@ a { color: var(--accent-strong); }
     <strong>MAQUETTE · CONNEXION</strong>
     <div class="pv-tabs" role="tablist" id="pv-tabs"></div>
     <span class="sp"></span>
-    <label for="pv-btn">Bouton <select id="pv-btn"><option value="google">Charte Google</option><option value="brand">Violet One App</option></select></label>
     <label for="pv-theme">Thème <select id="pv-theme"><option value="auto">Auto</option><option value="light">Clair</option><option value="dark">Sombre</option></select></label>
 </div>
 <div id="stage"></div>
@@ -346,12 +328,16 @@ a { color: var(--accent-strong); }
 (function () {
     const I = (id) => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
     const G = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`;
-    const S = { view: 'a', btn: 'google', slide: 0, pin: 1, expired: false };
+    const S = { view: 'a', loggedOut: false, use: 'soon', renewedAt: null };
     const stage = document.getElementById('stage');
 
-    const signin = (label) => S.btn === 'google'
-        ? `<button class="signin google" data-act="signin">${G}${label || 'Se connecter avec Google'}</button>`
-        : `<button class="signin brandcol" data-act="signin">${label || 'Se connecter avec Google Drive'}</button>`;
+    // Bouton officiel « Se connecter avec Google » (charte Google : seuls ces libellés sont permis)
+    const signin = (label, act = 'signin', extra = '') => `<button class="signin google ${extra}" data-act="${act}">${G}${label || 'Se connecter avec Google'}</button>`;
+    const hhmm = (d) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const inMin = (m) => hhmm(new Date(Date.now() + m * 60000));
+    const WHY = (open) => `<details class="why" ${open ? 'open' : ''}><summary>${I('clock')}Pourquoi toutes les heures ?${I('down')}</summary>
+        <p>One App n'a pas de serveur : vos données vont directement de votre appareil à votre Google Drive. Dans ce cas, Google ne donne accès à votre Drive que pour une heure à la fois. C'est une protection de votre compte, pas une panne.</p></details>`;
+    const HOUR = `<div class="hour" aria-hidden="true"><svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="33" fill="var(--accent-soft)"/><path d="M38 9a29 29 0 1 1-27.6 20" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/><path d="M5.5 25.5 10.6 30l4.7-5.8" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>1 h</b></div>`;
     const installBtn = (strong) => `<button class="install ${strong ? 'strong' : ''}" data-act="install">${I('install')}Installer l'application</button>`;
     const legal = `<div class="legal"><a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></div>`;
 
@@ -393,6 +379,7 @@ a { color: var(--accent-strong); }
                 <li>${I('check-c')}<span>One App voit seulement les fichiers qu'il crée, ou ceux que vous choisissez d'ouvrir avec lui.</span></li>
                 <li>${I('check-c')}<span>Le reste de votre Drive reste invisible pour One App.</span></li>
                 <li>${I('check-c')}<span>Vos données ne sont ni vendues, ni utilisées pour de la publicité.</span></li>
+                <li>${I('clock')}<span>Par sécurité, chaque connexion dure <b>1 heure</b>. Ensuite, un clic suffit pour la renouveler.</span></li>
             </ul>
             <a href="../confidentialite.html" target="_blank" rel="noopener">Lire les règles de confidentialité</a></div>
         ${VIS.consent}`;
@@ -416,80 +403,62 @@ a { color: var(--accent-strong); }
         </div>`;
     }
 
-    // ---------- B · La visite guidée ----------
-    function viewB() {
-        const slides = [
-            `<div class="slide intro"><div class="vis" aria-hidden="true"><svg class="i logo"><use href="#i-cloud"/></svg></div>
-                <h2>Bienvenue dans One App</h2><p>Vos propres applications, créées avec une IA et rangées dans votre Google Drive.</p></div>`,
-            ...FEATS.map(([v, t, d]) => `<div class="slide">${VIS[v]}<h2>${t}</h2><p>${d}</p></div>`),
-            `<div class="slide">${VIS.consent}<h2>Votre Drive reste privé</h2>
-                <p>One App voit seulement les fichiers qu'il crée ou que vous ouvrez avec lui. <a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></p></div>`
-        ];
-        const n = slides.length;
-        return `<div class="pb"><section class="card pb-card" aria-roledescription="carrousel" aria-label="Présentation de One App">
-            <div class="slides"><div class="track" id="track" style="transform:translateX(-${S.slide * 100}%)">${slides.join('')}</div></div>
-            <div class="dots-nav">
-                <button class="nav" data-act="prev" aria-label="Précédent" ${S.slide === 0 ? 'disabled' : ''}>${I('back')}</button>
-                <div class="dots">${slides.map((_, k) => `<button data-slide="${k}" aria-label="Étape ${k + 1} sur ${n}" aria-current="${k === S.slide}"></button>`).join('')}</div>
-                <button class="nav" data-act="next" aria-label="Suivant" ${S.slide === n - 1 ? 'disabled' : ''}>${I('arrow')}</button>
-            </div>
-            <div class="pb-actions">${signin()}${installBtn()}${legal}</div>
-        </section></div>`;
-    }
-
-    // ---------- C · L'aperçu annoté ----------
-    function viewC() {
-        const lit = (k) => S.pin === k ? 'lit' : '';
-        const calls = [
-            ['Vos apps', "Créées en décrivant votre besoin à une IA. Touchez « Créer » et suivez les 3 étapes."],
-            ['Vos documents', "Chaque document est un fichier de votre Google Drive. Partagez-le par un simple lien."],
-            ['Sur votre téléphone', "Installez One App sur l'écran d'accueil. Elle marche même sans Internet."]
-        ];
-        return `<div class="pc">
-            <section class="card pc-left">
-                <svg class="i logo"><use href="#i-cloud"/></svg>
-                <h1 class="h-display">Vos propres apps, dans votre Google&nbsp;Drive</h1>
-                <p class="lead">Une IA les fabrique, One App les fait tourner et range vos données dans votre Drive. Gratuit, sans serveur.</p>
-                ${signin()}${installBtn()}${legal}
-            </section>
-            <div class="pc-right">
-                <section class="card preview" aria-label="Aperçu de One App">
-                    <div class="preview-label">${I('spark')}Voici ce qui vous attend</div>
-                    <div class="mini" aria-hidden="true">
-                        <div class="mc acc ${lit(3)}"><b>Alex Martin</b><span class="muted" style="color:var(--muted)">alex@gmail.com</span><span class="ins">Installer</span>
-                            <button class="pin" data-pin="3" style="right:-10px;top:-10px" aria-pressed="${S.pin === 3}">3</button></div>
-                        <div class="mc ${lit(1)}"><div class="apps-row">
-                            <div class="a"><span class="icon" style="--h:145">💰</span>Budget</div><div class="a"><span class="icon" style="--h:215">📅</span>Agenda</div>
-                            <div class="a"><span class="icon" style="--h:30">🍳</span>Recettes</div><div class="a"><span class="icon" style="--h:180">🛒</span>Courses</div>
-                            <div class="a add"><span class="icon">+</span>Créer</div></div>
-                            <button class="pin" data-pin="1" style="right:-10px;top:-10px" aria-pressed="${S.pin === 1}">1</button></div>
-                        <div class="mc recents ${lit(2)}"><div class="search"></div>
-                            <div class="doc"><span class="icon sm" style="--h:145">💰</span><span>Budget 2026</span><em>10:42</em></div>
-                            <div class="doc"><span class="icon sm" style="--h:215">📅</span><span>Planning octobre</span><em>09:15</em></div>
-                            <div class="doc"><span class="icon sm" style="--h:30">🍳</span><span>Gratin dauphinois</span><em>Hier</em></div>
-                            <button class="pin" data-pin="2" style="right:-10px;top:-10px" aria-pressed="${S.pin === 2}">2</button></div>
-                    </div>
-                    <div class="callouts">${calls.map(([t, d], k) => `<button class="callout" data-pin="${k + 1}" aria-pressed="${S.pin === k + 1}"><span class="n">${k + 1}</span><span><b>${t}</b><span>${d}</span></span></button>`).join('')}</div>
-                </section>
-                <section class="card trust">${TRUST}</section>
-            </div>
-        </div>`;
-    }
-
-    // ---------- Retour : la carte simple ----------
+    // ---------- Retour : déconnecté volontairement (la carte simple) ----------
     function viewR() {
         return `<div class="pr"><section class="card pr-card">
             <svg class="i logo"><use href="#i-cloud"/></svg>
             <h1>One App</h1>
-            <p class="lead">${S.expired ? 'Votre session a expiré. Vos modifications sont gardées sur cet appareil.' : 'Vos propres applications, dans votre Google Drive'}</p>
-            ${signin(S.expired ? (S.btn === 'google' ? 'Continuer avec Google' : 'Renouveler la session en 1 clic') : '')}
+            <p class="lead">Vos propres applications, dans votre Google Drive</p>
+            ${signin()}
             ${installBtn()}
             <div class="legal"><a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><span aria-hidden="true">·</span><button class="discover" data-act="discover">Qu'est-ce que One App ?</button></div>
-            <label style="margin-top:14px;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center"><input type="checkbox" id="pv-expired" ${S.expired ? 'checked' : ''}>Maquette : session expirée</label>
         </section></div>`;
     }
 
-    const VIEWS = { a: ['A · Vitrine', viewA], b: ['B · Visite guidée', viewB], c: ['C · Aperçu annoté', viewC], r: ['Retour (déjà venu)', viewR] };
+    // ---------- Retour après plus d'une heure : on renouvelle ----------
+    function viewX() {
+        return `<div class="pr"><section class="card pr-card ended">
+            ${HOUR}
+            <h1>Votre heure de connexion est terminée</h1>
+            <p class="lead">Google limite chaque connexion à <b>1 heure</b>. Continuez pour la renouveler une heure de plus : vos apps et vos modifications vous attendent.</p>
+            ${signin('Continuer avec Google', 'renew-screen')}
+            <p class="note">Vous n'avez rien à autoriser de nouveau : en général, un clic suffit.</p>
+            ${WHY()}
+            ${installBtn()}
+            <div class="legal"><a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><span aria-hidden="true">·</span><button class="discover" data-act="other-account">Changer de compte</button></div>
+        </section></div>`;
+    }
+
+    // ---------- Pendant l'utilisation : prévenir avant, renouveler sans rien perdre ----------
+    function viewU() {
+        const until = S.renewedAt || inMin(5);
+        const status = S.use === 'ended'
+            ? `<span class="u-status off">${I('clock')}Connexion à renouveler</span>`
+            : S.use === 'soon'
+                ? `<span class="u-status soon">${I('clock')}Encore 5 min<button class="u-renew" data-act="renew-early">Prolonger d'1 h</button></span>`
+                : `<span class="u-status">${I('check-c')}Connecté jusqu'à ${until}</span>`;
+        const banner = S.use === 'ended' ? `<div class="sbanner" role="alert">
+                <span class="clock">${I('clock')}</span>
+                <div class="txt"><b>Votre heure de connexion Google est terminée.</b><span>Vos modifications sont gardées sur cet appareil. Continuez pour la renouveler une heure.</span></div>
+                ${signin('Continuer avec Google', 'renew-banner', 'compact')}
+                ${WHY()}
+            </div>` : '';
+        const apps = [['Budget', '💰', 145], ['Agenda', '📅', 215], ['Recettes', '🍳', 30], ['Courses', '🛒', 180]];
+        return `${banner}<div class="uh">
+            <div class="brand"><svg class="i logo"><use href="#i-cloud"/></svg><b>One App</b></div>
+            <section class="card u-acc"><b>Alex Martin</b><span class="mail">alex.martin@gmail.com</span>${status}</section>
+            <section class="card u-apps">${apps.map(([n, e, h]) => `<div class="a"><span class="icon" style="--h:${h}">${e}</span>${n}</div>`).join('')}</section>
+            <section class="card u-docs">
+                <div class="d"><span class="icon sm" style="--h:145">💰</span><span>Budget 2026</span><em>À l'instant</em></div>
+                <div class="d"><span class="icon sm" style="--h:215">📅</span><span>Planning octobre</span><em>09:15</em></div>
+                <div class="d"><span class="icon sm" style="--h:30">🍳</span><span>Gratin dauphinois</span><em>Hier</em></div>
+            </section>
+            <label style="grid-column:1/-1;justify-self:center;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center">Maquette :
+                <select id="pv-use"><option value="soon" ${S.use === 'soon' ? 'selected' : ''}>Il reste 5 min</option><option value="ended" ${S.use === 'ended' ? 'selected' : ''}>Heure terminée</option><option value="ok" ${S.use === 'ok' ? 'selected' : ''}>Connexion active</option></select></label>
+        </div>`;
+    }
+
+    const VIEWS = { a: ['Première visite', viewA], x: ['Retour après 1 h', viewX], u: ["Pendant l'utilisation", viewU], r: ['Après déconnexion', viewR] };
     function render(keep) {
         const top = stage.scrollTop;
         document.getElementById('pv-tabs').innerHTML = Object.entries(VIEWS).map(([k, [n]]) => `<button role="tab" aria-selected="${S.view === k}" data-view="${k}">${n}</button>`).join('');
@@ -517,38 +486,26 @@ a { color: var(--accent-strong); }
         document.body.appendChild(t); clearTimeout(tt); tt = setTimeout(() => t.remove(), 2600);
     }
 
-    function goSlide(k) {
-        const n = document.querySelectorAll('.slide').length;
-        S.slide = Math.max(0, Math.min(n - 1, k));
-        render(true);
-    }
-
     document.addEventListener('click', (e) => {
-        const t = e.target.closest('[data-view],[data-act],[data-slide],[data-pin]');
+        const t = e.target.closest('[data-view],[data-act]');
         if (!t) return;
-        if (t.dataset.view) { S.view = t.dataset.view; S.slide = 0; return render(); }
-        if (t.dataset.slide) return goSlide(+t.dataset.slide);
-        if (t.dataset.pin) { S.pin = +t.dataset.pin; return render(true); }
+        if (t.dataset.view) { S.view = t.dataset.view; return render(); }
         switch (t.dataset.act) {
             case 'signin': return toast('Ouvre la fenêtre Google de connexion');
             case 'install': return installDialog();
-            case 'next': return goSlide(S.slide + 1);
-            case 'prev': return goSlide(S.slide - 1);
+            case 'renew-screen': S.view = 'u'; S.use = 'ok'; S.renewedAt = inMin(60); render(); return toast(`Connexion renouvelée jusqu'à ${S.renewedAt}`);
+            case 'renew-banner':
+            case 'renew-early': S.use = 'ok'; S.renewedAt = inMin(60); render(true); return toast(`Connexion renouvelée jusqu'à ${S.renewedAt}. Vos modifications sont envoyées dans Drive.`);
+            case 'other-account': return toast('Ouvre la fenêtre Google pour choisir un autre compte');
             case 'scroll': return document.getElementById('how').scrollIntoView({ behavior: 'smooth', block: 'start' });
             case 'discover': S.view = 'a'; return render();
         }
     });
-    document.addEventListener('change', (e) => { if (e.target.id === 'pv-expired') { S.expired = e.target.checked; render(true); } });
+    document.addEventListener('change', (e) => { if (e.target.id === 'pv-use') { S.use = e.target.value; S.renewedAt = null; render(true); } });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') document.querySelector('.scrim')?.remove();
-        if (S.view === 'b' && !document.querySelector('.scrim')) { if (e.key === 'ArrowRight') goSlide(S.slide + 1); if (e.key === 'ArrowLeft') goSlide(S.slide - 1); }
     });
-    // Glisser du doigt dans la visite guidée
-    let sx = null;
-    document.addEventListener('pointerdown', (e) => { if (e.target.closest('.slides')) sx = e.clientX; });
-    document.addEventListener('pointerup', (e) => { if (sx === null) return; const dx = e.clientX - sx; sx = null; if (Math.abs(dx) > 40) goSlide(S.slide + (dx < 0 ? 1 : -1)); });
 
-    document.getElementById('pv-btn').addEventListener('change', (e) => { S.btn = e.target.value; render(true); });
     document.getElementById('pv-theme').addEventListener('change', (e) => {
         if (e.target.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', e.target.value);
     });
