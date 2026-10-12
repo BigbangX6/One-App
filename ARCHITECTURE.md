@@ -75,7 +75,7 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 
 | `id` | Écran |
 |---|---|
-| `unauthenticated-view` | Connexion Google |
+| `unauthenticated-view` | Connexion Google, trois écrans (`showLoginScreen`) : `lp-showcase` première visite (ce que fait One App, exigé par Google), `lp-ended` heure de connexion terminée (jeton expiré), `lp-return` après déconnexion |
 | `shared-invite-view` | Lien partagé ouvert sans être connecté |
 | `authenticated-view` | Accueil en cartes (façon iCloud) : compte (`#drive-status`), apps (`#app-grid`), documents (`#doc-search`, `#rec-head`, `#doc-list`) |
 | `execution-view` | App en cours : bandeau (titre, annuler, synchro, mode, partage, menu) + `readonly-banner` + `iframe-container` |
@@ -83,7 +83,7 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 | `history-sidebar` | Panneau latéral de l'historique des versions |
 | `share-modal-overlay` | Fenêtre de partage |
 | `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
-| `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
+| `session-banner` | Bandeau « Votre heure de connexion Google est terminée » (au-dessus de tout) |
 | `network-banner` | Pastille « Hors-ligne » en bas de l'écran : 6 s au passage hors-ligne, puis à chaque clic sur l'icône hors-ligne du bandeau (`showNetworkBanner`) |
 | `install-overlay` | Fenêtre d'installation PWA, adaptée à l'appareil (CSS limité à `#install-overlay`) |
 

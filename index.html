@@ -14,6 +14,11 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="One App">
     
+    <!-- Roboto Medium : uniquement pour le bouton officiel « Se connecter avec Google » (police système en secours) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap">
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="config.js"></script>
@@ -429,8 +434,168 @@
             font-weight: 600; box-shadow: var(--pop-shadow); align-items: center; gap: 8px;
         }
 
-        /* Bandeau « session expirée » */
-        #session-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 4000; display: none; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--warn-bg); color: var(--warn-fg); font-size: 14px; font-weight: 600; box-shadow: var(--card-shadow); }
+        /* --- BOUTON OFFICIEL « SE CONNECTER AVEC GOOGLE » ---
+           Charte Google (developers.google.com/identity/branding-guidelines) : logo G
+           multicolore 20 px, Roboto Medium 14/20, 12 px de marge, 10 px entre logo et
+           texte, forme pilule. Pas de violet One App ici. Contenu créé par gsiButtonHtml(). */
+        .gsi-btn {
+            --gsi-bg: #ffffff; --gsi-border: #747775; --gsi-fg: #1f1f1f;
+            height: 40px; border-radius: 20px; padding: 0 12px; margin: 0;
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            background: var(--gsi-bg); color: var(--gsi-fg); border: 1px solid var(--gsi-border);
+            font-family: Roboto, Arial, sans-serif; font-weight: 500; font-size: 14px; line-height: 20px;
+            letter-spacing: 0.25px; white-space: nowrap; cursor: pointer; flex: none;
+            transition: box-shadow 0.15s;
+        }
+        .gsi-btn svg { width: 20px; height: 20px; flex: none; display: block; }
+        .gsi-btn:hover { box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3); }
+        .gsi-btn:focus-visible { outline: 2px solid #0b57d0; outline-offset: 2px; }
+        .gsi-btn:disabled { opacity: 0.38; cursor: default; box-shadow: none; }
+        .gsi-btn.wide { width: 100%; max-width: 320px; }
+        @media (prefers-color-scheme: dark) {
+            .gsi-btn { --gsi-bg: #131314; --gsi-border: #8e918f; --gsi-fg: #e3e3e3; }
+        }
+
+        /* Bandeau « heure de connexion terminée » (pendant l'utilisation) */
+        #session-banner {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 4000; display: none;
+            width: min(760px, calc(100% - 24px)); background: var(--card); color: var(--fg); border-radius: 18px;
+            box-shadow: var(--pop-shadow); padding: 12px 12px 12px 16px; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        #session-banner .sb-clock { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; flex: none; }
+        #session-banner .sb-txt { flex: 1; min-width: 200px; font-size: 14px; line-height: 1.4; }
+        #session-banner .sb-txt b { display: block; }
+        #session-banner .sb-txt span { color: var(--muted); }
+        #session-banner .why { flex-basis: 100%; margin: 0; }
+        #session-banner .why summary { padding: 8px 12px; }
+
+        /* Volet « Pourquoi toutes les heures ? » */
+        .why { width: 100%; margin-top: 12px; border-radius: 14px; background: var(--field); text-align: left; font-size: 13.5px; }
+        .why summary { cursor: pointer; list-style: none; padding: 10px 14px; font-weight: 600; color: var(--accent-strong); display: flex; align-items: center; gap: 8px; }
+        .why summary::-webkit-details-marker { display: none; }
+        .why summary .i { width: 18px; height: 18px; }
+        .why summary .i:last-child { margin-left: auto; color: var(--muted); transition: transform 0.2s; }
+        .why[open] summary .i:last-child { transform: rotate(180deg); }
+        .why p { margin: 0; padding: 0 14px 12px; color: var(--muted); line-height: 1.5; }
+
+        /* --- ÉCRANS DE CONNEXION ---
+           lp-showcase : première visite (ce que fait One App, exigé par Google)
+           lp-ended    : jeton expiré (retour après l'heure de connexion)
+           lp-return   : après une déconnexion volontaire (carte simple) */
+        #unauthenticated-view { font-size: 15px; line-height: 1.45; }
+        .lp-card { background: var(--card); border-radius: 24px; box-shadow: var(--card-shadow); }
+        .lp-logo { width: 64px; height: 64px; color: var(--accent); }
+        .lp-display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+        .lp-lead { color: var(--muted); margin: 0; text-wrap: pretty; }
+        .lp-legal { align-items: center; font-size: 12.5px; color: var(--muted); display: flex; gap: 6px 14px; justify-content: center; flex-wrap: wrap; }
+        .lp-legal a { color: var(--muted); text-decoration: none; }
+        .lp-legal a:hover { color: var(--fg); text-decoration: underline; }
+        .lp-link { border: none; background: none; color: var(--accent-strong); font-weight: 600; font-size: 12.5px; padding: 0; line-height: inherit; }
+        .lp-link:hover { text-decoration: underline; }
+        .lp-install { border: none; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 12px; }
+        .lp-install:hover { background: var(--hover); color: var(--fg); }
+
+        .lp-showcase { max-width: 980px; margin: 0 auto; padding: 22px 20px 40px; display: flex; flex-direction: column; gap: 18px; }
+        .lp-hero { max-width: 560px; width: 100%; margin: 6px auto 0; padding: 36px 36px 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .lp-hero .lp-name { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--muted); margin-top: -4px; }
+        .lp-hero h1 { font-size: clamp(27px, 4.4vw, 36px); line-height: 1.12; }
+        .lp-hero .lp-lead { font-size: 16px; max-width: 42ch; margin-bottom: 8px; }
+        .lp-scroll { border: none; background: none; color: var(--muted); font-size: 13px; display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; padding: 4px 8px; border-radius: 10px; }
+        .lp-scroll .i { animation: lp-hint 1.6s ease-in-out infinite; }
+        @keyframes lp-hint { 50% { transform: translateY(3px); } }
+        .lp-sec-title { text-align: center; margin: 22px 0 2px; }
+        .lp-sec-title h2 { font-family: var(--font-display); font-size: 24px; letter-spacing: -0.01em; margin: 0; }
+        .lp-sec-title p { margin: 4px 0 0; color: var(--muted); }
+        .lp-features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .lp-feature { padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 12px; }
+        .lp-feature .lp-txt { padding: 0 8px; }
+        .lp-feature h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+        .lp-feature h3 .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+        .lp-feature p { margin: 0; color: var(--muted); }
+        .lp-trust { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; padding: 26px 28px; align-items: center; }
+        .lp-trust h2 { font-family: var(--font-display); font-size: 22px; margin: 0 0 8px; letter-spacing: -0.01em; }
+        .lp-trust p { margin: 0 0 10px; color: var(--muted); }
+        .lp-trust ul { list-style: none; padding: 0; margin: 12px 0 14px; display: flex; flex-direction: column; gap: 8px; }
+        .lp-trust li { display: flex; gap: 10px; align-items: flex-start; }
+        .lp-trust li .i { width: 18px; height: 18px; color: var(--ok); margin-top: 1px; }
+        .lp-trust a { color: var(--accent-strong); }
+        .lp-trust .lp-vis { height: auto; min-height: 200px; }
+        .lp-end { text-align: center; padding: 24px 20px 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .lp-end h2 { font-family: var(--font-display); font-size: 22px; margin: 0; }
+
+        .lp-single { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 32px; }
+        .lp-single .lp-card { width: min(420px, 100%); padding: 38px 28px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .lp-single h1 { font-family: var(--font-display); font-size: 26px; margin: 8px 0 0; }
+        .lp-single .lp-lead { margin: 0 0 20px; }
+        .lp-single .lp-legal { margin-top: 10px; }
+        .lp-hour { width: 76px; height: 76px; position: relative; display: grid; place-items: center; margin-bottom: 4px; }
+        .lp-hour svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .lp-hour b { position: relative; font-family: var(--font-display); font-size: 21px; color: var(--accent-strong); letter-spacing: -0.02em; }
+        #lp-ended h1 { font-size: 23px; line-height: 1.2; text-wrap: balance; }
+        #lp-ended .lp-lead { margin-bottom: 18px; }
+        .lp-note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+
+        /* Illustrations de la vitrine (dessinées en HTML) */
+        .lp-vis { position: relative; height: 168px; border-radius: 18px; background: var(--field); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 14px; }
+        .lp-icon { --h: 265; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; line-height: 1; flex: none;
+            background: linear-gradient(180deg, hsl(var(--h) var(--icon-sat) var(--icon-top)), hsl(var(--h) var(--icon-sat) var(--icon-bottom)));
+            box-shadow: inset 0 1px 0 var(--icon-gloss), 0 1px 2px hsl(var(--h) 40% 30% / var(--icon-drop)), 0 4px 10px hsl(var(--h) 40% 40% / calc(var(--icon-drop) * 0.6)); }
+        .lp-icon.xs { width: 22px; height: 22px; border-radius: 6px; font-size: 12px; }
+        .lp-ai { display: flex; align-items: center; gap: 12px; }
+        .lp-bubble { background: var(--card); border-radius: 16px 16px 16px 4px; padding: 10px 12px; font-size: 12.5px; max-width: 150px; box-shadow: var(--card-shadow); line-height: 1.35; }
+        .lp-bubble small { display: block; color: var(--muted); font-size: 10.5px; font-weight: 600; margin-bottom: 3px; }
+        .lp-arrow { color: var(--accent); }
+        .lp-arrow .i { width: 26px; height: 26px; }
+        .lp-made { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; animation: lp-popin 2.6s ease-in-out infinite; }
+        @keyframes lp-popin { 0%, 15% { transform: scale(0.6); opacity: 0; } 30%, 85% { transform: scale(1); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+        .lp-tree { background: var(--card); border-radius: 14px; padding: 8px 10px; font-size: 12.5px; width: min(250px, 100%); box-shadow: var(--card-shadow); }
+        .lp-tree .r { display: flex; align-items: center; gap: 7px; padding: 3px 0; white-space: nowrap; }
+        .lp-tree .r .i { width: 16px; height: 16px; color: var(--muted); }
+        .lp-tree .d1 { padding-left: 16px; } .lp-tree .d2 { padding-left: 32px; } .lp-tree .d3 { padding-left: 48px; }
+        .lp-tree .off, .lp-tree .off .i { color: var(--muted); opacity: 0.6; }
+        .lp-tree .on { font-weight: 600; }
+        .lp-tree .on .i { color: var(--accent); }
+        .lp-tree .tag { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--accent-strong); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; }
+        .lp-tree .tag.no { color: var(--muted); background: transparent; border: 1px solid var(--line); }
+        .lp-consent { background: var(--card); border-radius: 14px; padding: 12px 14px; width: min(290px, 100%); box-shadow: var(--card-shadow); font-size: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .lp-consent .top { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; }
+        .lp-consent .top svg { width: 16px; height: 16px; flex: none; }
+        .lp-consent .ask { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--field); line-height: 1.35; }
+        .lp-consent .ask .i { width: 18px; height: 18px; color: var(--accent); margin-top: 1px; }
+        .lp-consent .btns { display: flex; justify-content: flex-end; gap: 8px; font-weight: 600; }
+        .lp-consent .btns span { padding: 4px 10px; border-radius: 999px; color: var(--muted); }
+        .lp-consent .btns span.go { background: #0b57d0; color: #fff; }
+        .lp-share { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .lp-linkpill { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 999px; padding: 7px 14px 7px 10px; font-size: 12px; box-shadow: var(--card-shadow); max-width: 100%; }
+        .lp-linkpill .i { width: 16px; height: 16px; color: var(--accent); }
+        .lp-linkpill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+        .lp-people { display: flex; align-items: center; }
+        .lp-person { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 14px; border: 2px solid var(--field); margin-left: -8px; }
+        .lp-person:first-child { margin-left: 0; }
+        .lp-seg { display: flex; background: var(--card); border-radius: 10px; padding: 3px; font-size: 11.5px; font-weight: 600; box-shadow: var(--card-shadow); }
+        .lp-seg span { padding: 4px 10px; border-radius: 8px; color: var(--muted); }
+        .lp-seg span.on { background: var(--accent-soft); color: var(--accent-strong); }
+        .lp-phone { width: 84px; height: 138px; border-radius: 18px; border: 3px solid var(--fg); background: var(--card); padding: 18px 9px 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; align-content: start; position: relative; margin-right: 70px; }
+        .lp-phone::before { content: ""; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 24px; height: 4px; border-radius: 2px; background: var(--fg); }
+        .lp-phone .t { width: 100%; aspect-ratio: 1; border-radius: 6px; background: var(--line); }
+        .lp-phone .me { width: 100%; aspect-ratio: 1; border-radius: 6px; background: linear-gradient(180deg, #9a70fa, var(--accent)); color: #fff; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); animation: lp-bob 2s ease-in-out infinite; }
+        .lp-phone .me .i { width: 70%; height: 70%; }
+        @keyframes lp-bob { 50% { transform: translateY(-2px); } }
+        .lp-offline { position: absolute; left: calc(100% + 10px); top: 46px; background: var(--card); border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 600; display: flex; gap: 5px; align-items: center; box-shadow: var(--card-shadow); white-space: nowrap; }
+        .lp-offline .i { width: 14px; height: 14px; color: var(--ok); }
+
+        @media (max-width: 760px) {
+            .lp-showcase { padding: 12px 12px 28px; gap: 12px; }
+            .lp-hero { padding: 26px 20px 18px; border-radius: 22px; }
+            .lp-features { grid-template-columns: 1fr; gap: 12px; }
+            .lp-trust { grid-template-columns: 1fr; padding: 20px 18px; }
+            .lp-trust .lp-vis { order: -1; }
+            .lp-single { padding-top: 8vh; }
+            #session-banner .gsi-btn { width: 100%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .lp-scroll .i, .lp-made, .lp-phone .me { animation: none; }
+        }
 
         /* --- TABLETTE --- */
         @media (max-width: 900px) {
@@ -709,6 +874,8 @@
 
     <!-- Icônes de l'interface (préfixe u-), utilisées via <use href="#u-..."> ou icon('...') -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+        <!-- Logo « G » officiel de Google (couleurs d'origine, ne pas recolorer) -->
+        <symbol id="g-logo" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></symbol>
         <symbol id="u-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
         <symbol id="u-cloud-done" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95A5.47 5.47 0 0 1 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11A2.98 2.98 0 0 1 22 15c0 1.65-1.35 3-3 3zm-9-3.82-2.09-2.09L6.5 13.5 10 17l6.01-6.01-1.41-1.41z"/></symbol>
         <symbol id="u-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
@@ -738,31 +905,122 @@
         <symbol id="u-send" viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></symbol>
         <symbol id="u-save" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></symbol>
         <symbol id="u-doc" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></symbol>
+        <symbol id="u-arrow" viewBox="0 0 24 24"><path d="m12 4-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></symbol>
+        <symbol id="u-down" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></symbol>
+        <symbol id="u-drive" viewBox="0 0 24 24"><path d="M7.71 3.5 1.15 15l3.43 6 6.55-11.5L7.71 3.5zm1.47 0 6.56 11.5h6.86L16.04 3.5H9.18zM9.71 16 6.29 22h13.12l3.43-6H9.71z"/></symbol>
+        <symbol id="u-link" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></symbol>
+        <symbol id="u-clock" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></symbol>
         <symbol id="u-file" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></symbol>
     </defs></svg>
 
-    <div id="session-banner">
-        <span>Votre session Google a expiré. Vos modifications sont conservées en attente.</span>
-        <button class="btn fill" onclick="reconnectFromBanner()" style="height:34px;">Se reconnecter</button>
+    <div id="session-banner" role="alert">
+        <span class="sb-clock"><svg class="i"><use href="#u-clock"/></svg></span>
+        <div class="sb-txt"><b>Votre heure de connexion Google est terminée.</b><span>Vos modifications sont gardées sur cet appareil. Continuez pour la renouveler une heure.</span></div>
+        <button type="button" class="gsi-btn" data-gsi-label="Continuer avec Google" onclick="reconnectFromBanner()"></button>
+        <details class="why"><summary><svg class="i"><use href="#u-clock"/></svg>Pourquoi toutes les heures ?<svg class="i"><use href="#u-down"/></svg></summary>
+            <p>One App n'a pas de serveur : vos données vont directement de votre appareil à votre Google Drive. Dans ce cas, Google ne donne accès à votre Drive que pour une heure à la fois. C'est une protection de votre compte, pas une panne.</p></details>
     </div>
 
     <div id="network-banner" role="status">Hors-ligne — vos modifications sont gardées sur cet appareil et partiront au retour du réseau.</div>
     <div id="loading-apps" class="loader">Recherche de vos One Apps...</div>
 
-    <div id="unauthenticated-view" class="app-container">
-        <svg class="logo-svg"><use href="#u-cloud"/></svg>
-        <h1>One App</h1>
-        <p class="subtitle">Votre Personal Cloud décentralisé</p>
-        <button class="btn fill" onclick="authorizeAndConnect()">Se connecter avec Google Drive</button>
-        <button class="btn ghost install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button>
-        <div><a class="legal-link" href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></div>
+    <!-- Écrans de connexion : un seul est visible (showLoginScreen) -->
+    <div id="unauthenticated-view">
+        <!-- Première visite : ce que fait One App, avant toute connexion (exigé par Google) -->
+        <div class="lp-showcase" id="lp-showcase">
+            <section class="lp-card lp-hero">
+                <svg class="i lp-logo"><use href="#u-cloud"/></svg>
+                <div class="lp-name">One App</div>
+                <h1 class="lp-display">Vos propres applications, rangées dans votre Google&nbsp;Drive</h1>
+                <p class="lp-lead">Décrivez l'outil dont vous avez besoin à une IA, collez sa réponse : One App en fait une application. Vos données restent chez vous.</p>
+                <button type="button" class="gsi-btn wide" data-gsi-label="Se connecter avec Google" onclick="authorizeAndConnect()"></button>
+                <button type="button" class="lp-install install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button>
+                <button type="button" class="lp-scroll" onclick="document.getElementById('lp-how').scrollIntoView({ behavior: 'smooth', block: 'start' })">Comment ça marche ?<svg class="i"><use href="#u-down"/></svg></button>
+            </section>
+            <div class="lp-sec-title" id="lp-how"><h2>Comment ça marche</h2><p>Quatre idées, pas de jargon.</p></div>
+            <div class="lp-features">
+                <article class="lp-card lp-feature">
+                    <div class="lp-vis" aria-hidden="true"><div class="lp-ai">
+                        <div class="lp-bubble"><small>Vous, à une IA</small>« Une app pour suivre mon budget du mois »</div>
+                        <span class="lp-arrow"><svg class="i"><use href="#u-arrow"/></svg></span>
+                        <div class="lp-made"><span class="lp-icon" style="--h:145">💰</span>Budget</div></div></div>
+                    <div class="lp-txt"><h3><span class="n">1</span>Créez vos apps avec une IA</h3><p>Demandez à ChatGPT, Claude ou Gemini l'outil dont vous avez besoin : un budget, un agenda, une liste de courses. Collez sa réponse dans One App, l'app est prête.</p></div>
+                </article>
+                <article class="lp-card lp-feature">
+                    <div class="lp-vis" aria-hidden="true"><div class="lp-tree">
+                        <div class="r"><svg class="i"><use href="#u-drive"/></svg><b>Mon Drive</b></div>
+                        <div class="r d1 off"><svg class="i"><use href="#u-folder"/></svg>Photos<span class="tag no">invisible</span></div>
+                        <div class="r d1 off"><svg class="i"><use href="#u-folder"/></svg>Factures<span class="tag no">invisible</span></div>
+                        <div class="r d1 on"><svg class="i"><use href="#u-folder"/></svg>One App<span class="tag">One App</span></div>
+                        <div class="r d2 on"><span class="lp-icon xs" style="--h:145">💰</span>Budget</div>
+                        <div class="r d3"><svg class="i"><use href="#u-file"/></svg>Budget 2026</div></div></div>
+                    <div class="lp-txt"><h3><span class="n">2</span>Tout est rangé dans votre Drive</h3><p>Chaque app et chaque document sont des fichiers dans un dossier « One App » de votre Google Drive. One App n'a pas de serveur : rien n'est stocké ailleurs.</p></div>
+                </article>
+                <article class="lp-card lp-feature">
+                    <div class="lp-vis" aria-hidden="true"><div class="lp-share">
+                        <div class="lp-linkpill"><svg class="i"><use href="#u-link"/></svg><span>bigbangx6.github.io/One-App/?file=…</span></div>
+                        <div class="lp-people"><span class="lp-person" style="background:#7b5e3b">A</span><span class="lp-person" style="background:#1a73e8">C</span><span class="lp-person" style="background:#0f9d58">L</span></div>
+                        <div class="lp-seg"><span class="on">Lecture</span><span>Modification</span></div></div></div>
+                    <div class="lp-txt"><h3><span class="n">3</span>Partagez comme un fichier Drive</h3><p>Envoyez un lien : vos proches consultent ou modifient le même document, toujours à jour.</p></div>
+                </article>
+                <article class="lp-card lp-feature">
+                    <div class="lp-vis" aria-hidden="true"><div class="lp-phone">
+                        <span class="t"></span><span class="t"></span><span class="t"></span><span class="t"></span><span class="me"><svg class="i"><use href="#u-cloud"/></svg></span><span class="t"></span>
+                        <span class="lp-offline"><svg class="i"><use href="#u-wifi-off"/></svg>Sans Internet</span></div></div>
+                    <div class="lp-txt"><h3><span class="n">4</span>Sur votre téléphone, même sans Internet</h3><p>Installez One App sur l'écran d'accueil. Vos modifications sont gardées sur l'appareil et partent dans Drive au retour du réseau.</p></div>
+                </article>
+            </div>
+            <section class="lp-card lp-trust">
+                <div><h2>Pourquoi se connecter avec Google ?</h2>
+                    <p>One App enregistre vos apps et vos documents dans <b>votre</b> Google Drive. Google vous demandera une autorisation limitée :</p>
+                    <ul>
+                        <li><svg class="i"><use href="#u-check-c"/></svg><span>One App voit seulement les fichiers qu'il crée, ou ceux que vous choisissez d'ouvrir avec lui.</span></li>
+                        <li><svg class="i"><use href="#u-check-c"/></svg><span>Le reste de votre Drive reste invisible pour One App.</span></li>
+                        <li><svg class="i"><use href="#u-check-c"/></svg><span>Vos données ne sont ni vendues, ni utilisées pour de la publicité.</span></li>
+                        <li><svg class="i"><use href="#u-clock"/></svg><span>Par sécurité, chaque connexion dure <b>1 heure</b>. Ensuite, un clic suffit pour la renouveler.</span></li>
+                    </ul>
+                    <a href="confidentialite.html" target="_blank" rel="noopener">Lire les règles de confidentialité</a></div>
+                <div class="lp-vis" aria-hidden="true"><div class="lp-consent">
+                    <div class="top"><svg viewBox="0 0 48 48"><use href="#g-logo"/></svg>One App souhaite accéder à votre compte Google</div>
+                    <div class="ask"><svg class="i"><use href="#u-folder"/></svg><span>Consulter, modifier, créer et supprimer <b>uniquement</b> les fichiers Google Drive que vous utilisez avec cette application</span></div>
+                    <div class="btns"><span>Annuler</span><span class="go">Continuer</span></div></div></div>
+            </section>
+            <section class="lp-card lp-end"><h2>Prêt à essayer ?</h2><p class="lp-lead">Gratuit, avec votre compte Google.</p><button type="button" class="gsi-btn wide" data-gsi-label="Se connecter avec Google" onclick="authorizeAndConnect()"></button><button type="button" class="lp-install install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button><div class="lp-legal"><a href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></div></section>
+        </div>
+
+        <!-- Retour après l'heure de connexion : on renouvelle -->
+        <div class="lp-single" id="lp-ended" hidden>
+            <section class="lp-card">
+                <div class="lp-hour" aria-hidden="true"><svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="33" fill="var(--accent-soft)"/><path d="M38 9a29 29 0 1 1-27.6 20" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/><path d="M5.5 25.5 10.6 30l4.7-5.8" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><b>1 h</b></div>
+                <h1>Votre heure de connexion est terminée</h1>
+                <p class="lp-lead">Google limite chaque connexion à <b>1 heure</b>. Continuez pour la renouveler une heure de plus : vos apps et vos modifications vous attendent.</p>
+                <button type="button" class="gsi-btn wide" data-gsi-label="Continuer avec Google" onclick="authorizeAndConnect()"></button>
+                <p class="lp-note">Vous n'avez rien à autoriser de nouveau : en général, un clic suffit.</p>
+                <details class="why"><summary><svg class="i"><use href="#u-clock"/></svg>Pourquoi toutes les heures ?<svg class="i"><use href="#u-down"/></svg></summary>
+            <p>One App n'a pas de serveur : vos données vont directement de votre appareil à votre Google Drive. Dans ce cas, Google ne donne accès à votre Drive que pour une heure à la fois. C'est une protection de votre compte, pas une panne.</p></details>
+                <button type="button" class="lp-install install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button>
+                <div class="lp-legal"><a href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><span aria-hidden="true">·</span><button type="button" class="lp-link" onclick="switchGoogleAccount()">Changer de compte</button></div>
+            </section>
+        </div>
+
+        <!-- Après une déconnexion volontaire (ou sans réseau) : la carte simple -->
+        <div class="lp-single" id="lp-return" hidden>
+            <section class="lp-card">
+                <svg class="i lp-logo"><use href="#u-cloud"/></svg>
+                <h1>One App</h1>
+                <p class="lp-lead" id="lp-return-lead">Vos propres applications, dans votre Google Drive</p>
+                <button type="button" class="gsi-btn wide" data-gsi-label="Se connecter avec Google" onclick="authorizeAndConnect()"></button>
+                <button type="button" class="lp-install install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Installer l'application</button>
+                <div class="lp-legal"><a href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><span aria-hidden="true">·</span><button type="button" class="lp-link" onclick="showLoginScreen('showcase')">Qu'est-ce que One App ?</button></div>
+            </section>
+        </div>
     </div>
 
     <div id="shared-invite-view" class="app-container">
         <svg class="logo-svg"><use href="#u-file"/></svg>
         <h1 id="invite-title">Fichier partagé</h1>
         <p class="subtitle">Ouvrez ce fichier dans votre espace One App.</p>
-        <button class="btn fill" onclick="authorizeAndConnect()">Se connecter pour ouvrir</button>
+        <button type="button" class="gsi-btn wide" data-gsi-label="Continuer avec Google" onclick="authorizeAndConnect()"></button>
         <button class="btn ghost" onclick="openInstallSheet()">Vous n'avez pas l'application ? Installer.</button>
         <div><a class="legal-link" href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></div>
     </div>
@@ -1008,6 +1266,44 @@
     <div id="install-toast" hidden></div>
 
     <script>
+        // --- BOUTON OFFICIEL GOOGLE ET ÉCRANS DE CONNEXION ---
+        // Contenu du bouton « Se connecter avec Google » (charte Google) : logo G
+        // d'origine + libellé. Seuls libellés utilisés : « Se connecter avec Google »
+        // et « Continuer avec Google ». Le style est porté par la classe .gsi-btn.
+        function gsiButtonHtml(label) {
+            return '<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#g-logo"/></svg><span>' + label + '</span>';
+        }
+        document.querySelectorAll('.gsi-btn[data-gsi-label]').forEach((btn) => {
+            btn.innerHTML = gsiButtonHtml(btn.dataset.gsiLabel);
+        });
+
+        // Un seul écran de connexion visible : 'showcase' (première visite),
+        // 'ended' (heure de connexion terminée) ou 'return' (après déconnexion)
+        function showLoginScreen(kind) {
+            document.getElementById('unauthenticated-view').style.display = 'block';
+            document.getElementById('lp-showcase').hidden = kind !== 'showcase';
+            document.getElementById('lp-ended').hidden = kind !== 'ended';
+            document.getElementById('lp-return').hidden = kind !== 'return';
+            window.scrollTo(0, 0);
+        }
+
+        // Écran de départ choisi tout de suite (sans attendre window.onload) :
+        // jeton expiré → renouveler ; déjà venu → carte simple ; sinon la vitrine
+        (function () {
+            const token = localStorage.getItem('oneapp_gdrive_token');
+            const expire = parseInt(localStorage.getItem('oneapp_gdrive_expire') || '0', 10);
+            const sharedLink = new URLSearchParams(window.location.search).get('file');
+            if (token && Date.now() < expire) {
+                document.getElementById('unauthenticated-view').style.display = 'none'; // accueil au démarrage
+            } else if (token) {
+                showLoginScreen('ended');
+            } else if (sharedLink) {
+                document.getElementById('unauthenticated-view').style.display = 'none'; // écran d'invitation
+            } else {
+                showLoginScreen(localStorage.getItem('oneapp_known_user') ? 'return' : 'showcase');
+            }
+        })();
+
         // --- FENÊTRE D'INSTALLATION (PWA) ---
         // Contenu adapté à l'appareil : bouton d'installation directe (Android,
         // ordinateur) ou étapes illustrées (iPhone, iPad). Seul point d'entrée :
@@ -1366,6 +1662,23 @@
             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
+            localStorage.setItem('oneapp_known_user', '1'); // la prochaine fois : carte simple, pas la vitrine
+        }
+
+        // Après un renouvellement demandé à l'utilisateur (bandeau ou écran « heure terminée »)
+        function announceRenewal() {
+            showToast(isDirty ? "Connexion renouvelée. Vos modifications sont envoyées dans Drive." : "Connexion renouvelée.");
+        }
+
+        // « Changer de compte » : les modifications en attente de l'ancien compte
+        // seraient effacées de l'appareil (ensureAccount), on prévient d'abord
+        async function switchGoogleAccount() {
+            try {
+                const pending = (await localStore.getAll('docs')).filter(d => d.dirty);
+                if (pending.length > 0 && !confirm(`${pending.length} document(s) ont des modifications pas encore envoyées sur Google Drive. Avec un autre compte, elles seront effacées de cet appareil.\n\nChanger de compte quand même ?`)) return;
+            } catch (e) {}
+            if (!CLIENT_ID || typeof google === 'undefined' || !google.accounts) return authorizeAndConnect();
+            getTokenClient().requestAccessToken({ prompt: 'select_account' });
         }
 
         function getTokenClient() {
@@ -1385,6 +1698,7 @@
 
                     if (tokenRenewalResolve) {
                         // Renouvellement en cours de session : on débloque les requêtes en attente
+                        if (document.getElementById('session-banner').style.display === 'flex') announceRenewal();
                         hideSessionBanner();
                         const resolve = tokenRenewalResolve;
                         tokenRenewalResolve = null;
@@ -1393,7 +1707,8 @@
                         return;
                     }
 
-                    // Première connexion
+                    // Première connexion (ou retour après l'heure de connexion)
+                    if (!document.getElementById('lp-ended').hidden) announceRenewal();
                     document.getElementById('unauthenticated-view').style.display = 'none';
                     document.getElementById('shared-invite-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
@@ -1907,9 +2222,8 @@
                     // Hors-ligne : pas besoin de Google pour travailler sur l'appareil
                     enterOfflineMode();
                 } else {
-                    console.log("Jeton expiré. Changement de l'interface.");
-                    document.querySelector('#unauthenticated-view .subtitle').innerText = "Votre session de sécurité (1h) a expiré.";
-                    document.querySelector('#unauthenticated-view button').innerHTML = "Renouveler la session en 1 clic";
+                    console.log("Jeton expiré : écran « heure de connexion terminée ».");
+                    showLoginScreen('ended');
                 }
             }
 
@@ -3410,8 +3724,8 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             if (!account) {
                 // Jamais utilisé sur cet appareil : rien à afficher sans Internet
                 document.getElementById('authenticated-view').style.display = 'none';
-                document.getElementById('unauthenticated-view').style.display = 'block';
-                document.querySelector('#unauthenticated-view .subtitle').innerText =
+                showLoginScreen('return');
+                document.getElementById('lp-return-lead').innerText =
                     "Pas de connexion Internet. Connectez-vous une première fois avec Internet pour utiliser One App hors-ligne.";
                 return;
             }

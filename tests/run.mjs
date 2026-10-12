@@ -149,7 +149,13 @@ async function test(name, fn, contextOptions = {}) {
   await context.exposeFunction('__grantAccess', (id) => { if (files[id]) delete files[id].noAccess; });
   await context.addInitScript(() => {
     if (window !== window.top) return; // pas dans l'iframe de l'app (sandbox)
-    if (location.search.includes('notoken')) { localStorage.clear(); }
+    if (location.search.includes('notoken')) {
+      localStorage.clear();
+      if (location.search.includes('known')) localStorage.setItem('oneapp_known_user', '1');
+    } else if (location.search.includes('expired')) {
+      localStorage.setItem('oneapp_gdrive_token', 'old');
+      localStorage.setItem('oneapp_gdrive_expire', String(Date.now() - 60e3));
+    }
     else {
       localStorage.setItem('oneapp_gdrive_token', 'tok1');
       // sessionStorage.__expired : simule un jeton expiré (survit au rechargement)
@@ -965,6 +971,64 @@ await test("QR code du partage : généré sur l'appareil, sans service extérie
   });
   eq(r, [21, 69, true, true, true], 'matrice du QR code');
   eq(outside, [], 'aucune requête vers un service extérieur');
+});
+
+// --- Écrans de connexion et bouton officiel Google ---
+const gsiLabels = (page, sel) => page.$$eval(sel + ' .gsi-btn', els => els.filter(e => e.offsetParent).map(e => ({
+  text: e.textContent.trim(), logo: !!e.querySelector('svg use[href="#g-logo"]'), type: e.type })));
+
+await test("Connexion : première visite → vitrine, bouton officiel « Se connecter avec Google »", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?notoken=1`);
+  eq(await page.isVisible('#lp-showcase'), true, 'vitrine visible');
+  eq(await page.isVisible('#lp-ended'), false, 'écran heure terminée');
+  const btns = await gsiLabels(page, '#lp-showcase');
+  eq(btns.length, 2, 'boutons Google');
+  for (const b of btns) eq(b, { text: 'Se connecter avec Google', logo: true, type: 'button' }, 'bouton');
+  if (!(await page.textContent('#lp-showcase')).includes('chaque connexion dure')) throw new Error('mention de la durée de connexion absente');
+});
+
+await test("Connexion : déjà venu puis déconnecté → carte simple, retour possible à la vitrine", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?notoken=1&known=1`);
+  eq(await page.isVisible('#lp-return'), true, 'carte simple');
+  eq(await page.isVisible('#lp-showcase'), false, 'vitrine masquée');
+  eq((await gsiLabels(page, '#lp-return')).map(b => b.text), ['Se connecter avec Google'], 'bouton');
+  await page.click('#lp-return .lp-link');
+  eq(await page.isVisible('#lp-showcase'), true, 'vitrine après « Qu\'est-ce que One App ? »');
+});
+
+await test("Connexion : jeton expiré → « Votre heure de connexion est terminée » puis renouvellement", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?expired=1`);
+  await page.waitForLoadState('load');
+  eq(await page.isVisible('#lp-ended'), true, 'écran heure terminée');
+  eq(await page.textContent('#lp-ended h1'), 'Votre heure de connexion est terminée', 'titre');
+  eq((await gsiLabels(page, '#lp-ended')).map(b => b.text), ['Continuer avec Google'], 'bouton');
+  await page.click('#lp-ended .why summary');
+  if (!(await page.isVisible('#lp-ended .why p'))) throw new Error('volet « Pourquoi » fermé');
+  ctl.validToken = 'tok2';                 // jeton renvoyé par la fausse fenêtre Google
+  await page.click('#lp-ended .gsi-btn');
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
+  eq(await page.isVisible('#unauthenticated-view'), false, 'écran de connexion masqué');
+  if (!(await page.textContent('.toast')).includes('Connexion renouvelée')) throw new Error('pas de message de renouvellement');
+});
+
+await test("Connexion : lien partagé sans être connecté → « Continuer avec Google »", async (page) => {
+  await page.goto(`http://localhost:${PORT}/index.html?file=doc1&notoken=1`);
+  await page.waitForLoadState('load');
+  eq((await gsiLabels(page, '#shared-invite-view')).map(b => b.text), ['Continuer avec Google'], 'bouton');
+});
+
+await test("Bandeau de reconnexion : bouton officiel, puis message « Connexion renouvelée »", async (page) => {
+  const frame = await openDoc(page);
+  ctl.validToken = 'tok2';
+  await page.evaluate(() => { window.__gisMode = 'fail'; });
+  await save(frame, ['attente']);
+  await page.waitForFunction(() => document.getElementById('session-banner').style.display === 'flex', null, { timeout: 8000 });
+  eq((await gsiLabels(page, '#session-banner')).map(b => b.text), ['Continuer avec Google'], 'bouton');
+  eq(await page.textContent('#session-banner .sb-txt b'), 'Votre heure de connexion Google est terminée.', 'titre');
+  await page.evaluate(() => { window.__gisMode = 'ok'; });
+  await page.click('#session-banner .gsi-btn');
+  await page.waitForFunction(() => document.querySelector('.toast'));
+  if (!(await page.textContent('.toast')).includes('Connexion renouvelée')) throw new Error('pas de message de renouvellement');
 });
 
 await browser.close();
