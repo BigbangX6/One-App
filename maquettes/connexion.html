@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Connexion One App</title>
+<style>
+/* Page de connexion de One App : première visite (on explique ce que fait One App,
+   comme Google l'exige) et retour (la carte simple d'aujourd'hui).
+   Fichier autonome, aucune ressource externe. Reprend les couleurs et les cartes de index.html.
+   Mise en page : barre de maquette en haut, puis l'écran choisi. */
+:root {
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-google: Roboto, "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+
+    --bg: #f3f5f9;
+    --page-bg: linear-gradient(180deg, #d9e7fd 0%, #e9f0fb 32%, #f3f5f9 70%);
+    --card: #ffffff;
+    --field: #f2f2f6;
+    --fg: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #e5e5ea;
+    --hover: rgba(29, 29, 31, 0.05);
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-strong: #6d28d9;
+    --accent-soft: #efe9fe;
+    --accent-ring: rgba(139, 92, 246, 0.35);
+    --on-accent: #ffffff;
+    --ok: #16a34a;
+    --ok-soft: #e3f6e9;
+    --scrim: rgba(20, 16, 30, 0.38);
+    --card-shadow: 0 0.5px 1px rgba(20, 30, 60, 0.06), 0 6px 22px rgba(20, 30, 60, 0.07);
+    --pop-shadow: 0 10px 40px rgba(20, 30, 60, 0.2), 0 1px 3px rgba(20, 30, 60, 0.1);
+    --icon-top: 96%;
+    --icon-bottom: 86%;
+    --icon-sat: 80%;
+    --icon-gloss: rgba(255, 255, 255, 0.75);
+    --icon-drop: 0.22;
+    --dim: #c7c7cc;
+    --g-bg: #ffffff;
+    --g-border: #747775;
+    --g-fg: #1f1f1f;
+    --inverse: #2a2830;
+    --on-inverse: #f5f4f8;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #000000; --page-bg: linear-gradient(180deg, #0c1a30 0%, #060c18 34%, #000000 72%); --card: #1c1c1e; --field: #2a2a2e;
+        --fg: #f5f5f7; --muted: #a1a1a6; --line: #333338; --hover: rgba(245, 245, 247, 0.07); --accent-strong: #c4b5fd; --accent-soft: #2e2445;
+        --accent-ring: rgba(167, 139, 250, 0.45); --ok: #4ade80; --ok-soft: #12301d; --scrim: rgba(0, 0, 0, 0.6);
+        --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 6px 22px rgba(0, 0, 0, 0.5); --pop-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.07);
+        --icon-top: 36%; --icon-bottom: 24%; --icon-sat: 35%; --icon-gloss: rgba(255, 255, 255, 0.12); --icon-drop: 0.5; --dim: #48484d;
+        --g-bg: #131314; --g-border: #8e918f; --g-fg: #e3e3e3; --inverse: #f5f4f8; --on-inverse: #1d1d1f;
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #000000; --page-bg: linear-gradient(180deg, #0c1a30 0%, #060c18 34%, #000000 72%); --card: #1c1c1e; --field: #2a2a2e;
+    --fg: #f5f5f7; --muted: #a1a1a6; --line: #333338; --hover: rgba(245, 245, 247, 0.07); --accent-strong: #c4b5fd; --accent-soft: #2e2445;
+    --accent-ring: rgba(167, 139, 250, 0.45); --ok: #4ade80; --ok-soft: #12301d; --scrim: rgba(0, 0, 0, 0.6);
+    --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 6px 22px rgba(0, 0, 0, 0.5); --pop-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.07);
+    --icon-top: 36%; --icon-bottom: 24%; --icon-sat: 35%; --icon-gloss: rgba(255, 255, 255, 0.12); --icon-drop: 0.5; --dim: #48484d;
+    --g-bg: #131314; --g-border: #8e918f; --g-fg: #e3e3e3; --inverse: #f5f4f8; --on-inverse: #1d1d1f;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { isolation: isolate; margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.45; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--page-bg); }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--accent-strong); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.i { width: 20px; height: 20px; fill: currentColor; flex: none; display: block; }
+
+/* --- Barre de maquette --- */
+.pv { flex: none; display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 8px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px dashed var(--line); background: var(--card); }
+.pv strong { font-size: 10px; letter-spacing: 0.08em; }
+.pv-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.pv-tabs button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.pv-tabs button[aria-selected="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.pv label { display: inline-flex; gap: 6px; align-items: center; }
+.pv select { font-size: 12px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); }
+.pv .sp { flex: 1; }
+#stage { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* --- Commun --- */
+.card { background: var(--card); border-radius: 24px; box-shadow: var(--card-shadow); }
+.logo { width: 64px; height: 64px; color: var(--accent); }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand .logo { width: 30px; height: 30px; }
+.brand b { font-family: var(--font-display); font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+.h-display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+.lead { color: var(--muted); margin: 0; text-wrap: pretty; }
+.legal { align-items: center; font-size: 12.5px; color: var(--muted); display: flex; gap: 6px 14px; justify-content: center; flex-wrap: wrap; }
+.legal a { color: var(--muted); text-decoration: none; }
+.legal a:hover { color: var(--fg); text-decoration: underline; }
+
+/* Bouton de connexion : style Google (charte « Se connecter avec Google ») ou style One App */
+.signin { width: 100%; height: 48px; border-radius: 24px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-size: 16px; font-weight: 600; border: none; }
+.signin.google { background: var(--g-bg); color: var(--g-fg); border: 1px solid var(--g-border); font-family: var(--font-google); font-weight: 500; font-size: 15px; }
+.signin.google:hover { box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3); }
+.signin.google svg { width: 20px; height: 20px; }
+.signin.brandcol { background: var(--accent); color: var(--on-accent); }
+.signin.brandcol:hover { background: var(--accent-hover); }
+.install { border: none; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 12px; }
+.install:hover { background: var(--hover); color: var(--fg); }
+.install.strong { color: var(--accent-strong); }
+.discover { border: none; background: none; color: var(--accent-strong); font-weight: 600; font-size: 12.5px; padding: 0; line-height: inherit; }
+.discover:hover { text-decoration: underline; }
+
+
+/* Icône d'app (même rendu que l'accueil en cartes) */
+.icon {
+    --h: 265; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; line-height: 1; flex: none;
+    background: linear-gradient(180deg, hsl(var(--h) var(--icon-sat) var(--icon-top)), hsl(var(--h) var(--icon-sat) var(--icon-bottom)));
+    box-shadow: inset 0 1px 0 var(--icon-gloss), 0 1px 2px hsl(var(--h) 40% 30% / var(--icon-drop)), 0 4px 10px hsl(var(--h) 40% 40% / calc(var(--icon-drop) * 0.6));
+}
+.icon.sm { width: 28px; height: 28px; border-radius: 8px; font-size: 15px; }
+.icon.xs { width: 22px; height: 22px; border-radius: 6px; font-size: 12px; }
+.appicon { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(180deg, #9a70fa, var(--accent)); color: var(--on-accent); display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 16px var(--accent-ring); flex: none; }
+.appicon .i { width: 62%; height: 62%; }
+
+/* --- Illustrations (dessinées en HTML) --- */
+.vis { position: relative; height: 168px; border-radius: 18px; background: var(--field); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 14px; }
+/* 1. Une IA fabrique l'app */
+.v-ai { display: flex; align-items: center; gap: 12px; }
+.bubble { background: var(--card); border-radius: 16px 16px 16px 4px; padding: 10px 12px; font-size: 12.5px; max-width: 150px; box-shadow: var(--card-shadow); line-height: 1.35; }
+.bubble small { display: block; color: var(--muted); font-size: 10.5px; font-weight: 600; margin-bottom: 3px; }
+.arrow { color: var(--accent); }
+.arrow .i { width: 26px; height: 26px; }
+.v-ai .made { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; animation: popin 2.6s ease-in-out infinite; }
+@keyframes popin { 0%, 15% { transform: scale(0.6); opacity: 0; } 30%, 85% { transform: scale(1); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+/* 2. Rangé dans Drive */
+.tree { background: var(--card); border-radius: 14px; padding: 8px 10px; font-size: 12.5px; width: min(250px, 100%); box-shadow: var(--card-shadow); }
+.tree .r { display: flex; align-items: center; gap: 7px; padding: 3px 0; white-space: nowrap; }
+.tree .r .i { width: 16px; height: 16px; color: var(--muted); }
+.tree .r.d1 { padding-left: 16px; } .tree .r.d2 { padding-left: 32px; } .tree .r.d3 { padding-left: 48px; }
+.tree .r.off { color: var(--dim); }
+.tree .r.off .i { color: var(--dim); }
+.tree .r.on { color: var(--fg); font-weight: 600; }
+.tree .r.on .i { color: var(--accent); }
+.tree .r .tag { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--accent-strong); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; }
+.tree .r .tag.no { color: var(--muted); background: transparent; border: 1px solid var(--line); }
+/* Autorisation Google (ce que la fenêtre de Google affichera) */
+.consent { background: var(--card); border-radius: 14px; padding: 12px 14px; width: min(290px, 100%); box-shadow: var(--card-shadow); font-size: 12px; display: flex; flex-direction: column; gap: 10px; }
+.consent .top { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; }
+.consent .top svg { width: 16px; height: 16px; }
+.consent .ask { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--field); line-height: 1.35; }
+.consent .ask .i { width: 18px; height: 18px; color: var(--accent); margin-top: 1px; }
+.consent .btns { display: flex; justify-content: flex-end; gap: 8px; font-weight: 600; }
+.consent .btns span { padding: 4px 10px; border-radius: 999px; color: var(--muted); }
+.consent .btns span.go { background: #0b57d0; color: #fff; }
+/* 3. Partage */
+.v-share { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.linkpill { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 999px; padding: 7px 14px 7px 10px; font-size: 12px; box-shadow: var(--card-shadow); max-width: 100%; }
+.linkpill .i { width: 16px; height: 16px; color: var(--accent); }
+.linkpill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.people { display: flex; align-items: center; }
+.person { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 14px; border: 2px solid var(--field); margin-left: -8px; }
+.person:first-child { margin-left: 0; }
+.seg2 { display: flex; background: var(--card); border-radius: 10px; padding: 3px; font-size: 11.5px; font-weight: 600; box-shadow: var(--card-shadow); }
+.seg2 span { padding: 4px 10px; border-radius: 8px; color: var(--muted); }
+.seg2 span.on { background: var(--accent-soft); color: var(--accent-strong); }
+/* 4. Téléphone */
+.phone { width: 84px; height: 138px; border-radius: 18px; border: 3px solid var(--fg); background: var(--card); padding: 18px 9px 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; align-content: start; position: relative; margin-right: 70px; }
+.phone::before { content: ""; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 24px; height: 4px; border-radius: 2px; background: var(--fg); }
+.phone .t { width: 100%; aspect-ratio: 1; border-radius: 6px; background: var(--dim); opacity: 0.6; }
+.phone .me { width: 100%; aspect-ratio: 1; border-radius: 6px; background: linear-gradient(180deg, #9a70fa, var(--accent)); color: #fff; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); animation: bob 2s ease-in-out infinite; }
+.phone .me .i { width: 70%; height: 70%; }
+@keyframes bob { 50% { transform: translateY(-2px); } }
+.offline-badge { position: absolute; left: calc(100% + 10px); top: 46px; background: var(--card); border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 600; display: flex; gap: 5px; align-items: center; box-shadow: var(--card-shadow); white-space: nowrap; }
+.offline-badge .i { width: 14px; height: 14px; color: var(--ok); }
+
+/* =========================================================
+   A · LA VITRINE
+   ========================================================= */
+.pa { max-width: 980px; margin: 0 auto; padding: 22px 20px 40px; display: flex; flex-direction: column; gap: 18px; }
+.pa-hero { max-width: 560px; width: 100%; margin: 6px auto 0; padding: 36px 36px 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pa-hero .name { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--muted); display: flex; align-items: center; gap: 8px; margin-top: -4px; }
+.pa-hero h1 { font-size: clamp(27px, 4.4vw, 36px); line-height: 1.12; }
+.pa-hero .lead { font-size: 16px; max-width: 42ch; margin-bottom: 8px; }
+.pa-hero .signin { max-width: 380px; }
+.scroll-hint { border: none; background: none; color: var(--muted); font-size: 13px; display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; padding: 4px 8px; border-radius: 10px; }
+.scroll-hint .i { animation: hint 1.6s ease-in-out infinite; }
+@keyframes hint { 50% { transform: translateY(3px); } }
+.sec-title { text-align: center; margin: 22px 0 2px; }
+.sec-title h2 { font-family: var(--font-display); font-size: 24px; letter-spacing: -0.01em; margin: 0; }
+.sec-title p { margin: 4px 0 0; color: var(--muted); }
+.features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.feature { padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 12px; }
+.feature .txt { padding: 0 8px; }
+.feature h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+.feature h3 .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+.feature p { margin: 0; color: var(--muted); }
+.trust { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; padding: 26px 28px; align-items: center; }
+.trust h2 { font-family: var(--font-display); font-size: 22px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.trust p { margin: 0 0 10px; color: var(--muted); }
+.trust ul { list-style: none; padding: 0; margin: 12px 0 14px; display: flex; flex-direction: column; gap: 8px; }
+.trust li { display: flex; gap: 10px; align-items: flex-start; }
+.trust li .i { width: 18px; height: 18px; color: var(--ok); margin-top: 1px; }
+.trust .vis { height: auto; min-height: 200px; }
+.pa-end { text-align: center; padding: 24px 20px 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pa-end h2 { font-family: var(--font-display); font-size: 22px; margin: 0; }
+.pa-end .signin { max-width: 380px; }
+
+/* =========================================================
+   B · LA VISITE GUIDÉE (dans la carte)
+   ========================================================= */
+.pb { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 28px 16px; }
+.pb-card { width: min(440px, 100%); padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 14px; text-align: center; }
+.pb-top { display: flex; align-items: center; justify-content: center; }
+.slides { position: relative; overflow: hidden; }
+.track { display: flex; transition: transform 0.45s cubic-bezier(.2, .8, .2, 1); touch-action: pan-y; }
+.slide { flex: 0 0 100%; display: flex; flex-direction: column; gap: 14px; padding: 0 2px; }
+.slide h2 { font-family: var(--font-display); font-size: 22px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.slide p { margin: 0; color: var(--muted); min-height: 3em; text-wrap: pretty; }
+.slide .vis { height: 176px; }
+.slide.intro .vis { background: transparent; flex-direction: column; gap: 10px; }
+.slide.intro .logo { width: 84px; height: 84px; }
+.dots-nav { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.dots-nav .nav { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--field); color: var(--muted); display: grid; place-items: center; }
+.dots-nav .nav:disabled { opacity: 0.35; cursor: default; }
+.dots-nav .nav .i { width: 18px; height: 18px; }
+.dots { display: flex; gap: 6px; }
+.dots button { width: 7px; height: 7px; border-radius: 4px; border: none; padding: 0; background: var(--dim); transition: width 0.3s, background 0.3s; }
+.dots button[aria-current="true"] { width: 22px; background: var(--accent); }
+.pb-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.pb-actions .signin { margin-top: 12px; }
+
+/* =========================================================
+   C · L'APERÇU ANNOTÉ
+   ========================================================= */
+.pc { max-width: 1080px; margin: 0 auto; padding: 22px 20px 40px; display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 20px; align-items: start; }
+.pc-left { padding: 30px 26px 20px; display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center; position: sticky; top: 16px; }
+.pc-left h1 { font-size: 27px; line-height: 1.15; }
+.pc-left .lead { margin-bottom: 8px; }
+.pc-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.preview { padding: 18px; position: relative; }
+.preview-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px 4px; }
+.mini { background: var(--field); border-radius: 18px; padding: 14px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; position: relative; }
+.mini .mc { background: var(--card); border-radius: 14px; padding: 12px; box-shadow: var(--card-shadow); position: relative; }
+.mini .acc { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: 12px; }
+.mini .acc b { font-size: 13px; }
+.mini .acc .ins { margin-top: 6px; width: 100%; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.mini .apps-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.mini .apps-row .a { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500; width: 52px; text-align: center; }
+.mini .apps-row .icon { width: 40px; height: 40px; border-radius: 11px; font-size: 20px; }
+.mini .apps-row .a.add .icon { background: var(--field); box-shadow: inset 0 0 0 1.5px var(--line); color: var(--accent); }
+.mini .recents { grid-column: 1 / -1; }
+.mini .search { height: 26px; border-radius: 8px; background: var(--field); margin-bottom: 8px; }
+.mini .doc { display: flex; align-items: center; gap: 10px; padding: 5px 2px; font-size: 12.5px; }
+.mini .doc span:not(.icon) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini .doc em { font-style: normal; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.pin { position: absolute; z-index: 2; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; box-shadow: 0 0 0 4px var(--accent-ring); border: none; transition: transform 0.2s; }
+.pin:hover, .pin[aria-pressed="true"] { transform: scale(1.12); }
+.callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.callout { border: none; text-align: left; background: transparent; border-radius: 16px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; transition: background 0.2s; }
+.callout:hover, .callout[aria-pressed="true"] { background: var(--accent-soft); }
+.callout .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.callout b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+.callout span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.mc.lit { box-shadow: 0 0 0 2px var(--accent), var(--card-shadow); }
+.pc .trust { padding: 22px 24px; }
+
+/* =========================================================
+   RETOUR (déjà venu) : la carte simple d'aujourd'hui
+   ========================================================= */
+.pr { min-height: 100%; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 32px; }
+.pr-card { width: min(420px, 100%); padding: 38px 28px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pr-card h1 { font-family: var(--font-display); font-size: 26px; margin: 8px 0 0; }
+.pr-card .lead { margin: 0 0 20px; }
+.pr-card .install { margin-top: 6px; }
+.pr-card .legal { margin-top: 10px; }
+
+/* --- Fenêtre d'installation (résumé) --- */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade 0.15s; }
+.dialog { width: min(440px, 100%); background: var(--card); border-radius: 24px; padding: 22px 20px 16px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; gap: 16px; animation: pop 0.22s cubic-bezier(.2, .9, .3, 1.1); }
+.dialog .head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; }
+.dialog h2 { margin: 2px 0 4px; font-size: 21px; }
+.dialog p { margin: 0; color: var(--muted); }
+.x-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--field); color: var(--muted); display: grid; place-items: center; }
+.x-btn .i { width: 16px; height: 16px; }
+.perks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.perks li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 13px; font-weight: 600; }
+.perks .i { width: 16px; height: 16px; }
+.big { height: 50px; border: none; border-radius: 14px; background: linear-gradient(180deg, #9a70fa, var(--accent)); color: #fff; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 14px var(--accent-ring); }
+.later { align-self: center; border: none; background: none; color: var(--muted); padding: 6px 12px; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--inverse); color: var(--on-inverse); border-radius: 14px; padding: 10px 16px; font-size: 14px; box-shadow: var(--pop-shadow); max-width: calc(100vw - 32px); animation: fade 0.15s; }
+@keyframes pop { from { opacity: 0; transform: scale(0.97); } }
+@keyframes fade { from { opacity: 0; } }
+
+/* --- Téléphone --- */
+@media (max-width: 760px) {
+    .pa { padding: 12px 12px 28px; gap: 12px; }
+    .pa-hero { padding: 26px 20px 18px; border-radius: 22px; }
+    .features { grid-template-columns: 1fr; gap: 12px; }
+    .trust { grid-template-columns: 1fr; padding: 20px 18px; }
+    .trust .vis { order: -1; }
+    .pc { grid-template-columns: 1fr; padding: 12px 12px 28px; gap: 12px; }
+    .pc-left { position: static; padding: 24px 20px 16px; }
+    .mini { grid-template-columns: 1fr; }
+    .mini .acc { flex-direction: row; text-align: left; gap: 8px; }
+    .mini .acc .ins { width: auto; padding: 0 10px; margin: 0 0 0 auto; }
+    .callouts { grid-template-columns: 1fr; gap: 4px; }
+    .pr { padding-top: 8vh; }
+    .scrim { align-items: flex-end; padding: 0; }
+    .dialog { border-radius: 24px 24px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+    <symbol id="i-install" viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m12 4-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
+    <symbol id="i-drive" viewBox="0 0 24 24"><path d="M7.71 3.5 1.15 15l3.43 6 6.55-11.5L7.71 3.5zm1.47 0 6.56 11.5h6.86L16.04 3.5H9.18zM9.71 16 6.29 22h13.12l3.43-6H9.71z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M8 16h8v2H8zm0-4h8v2H8zm6-10H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></symbol>
+    <symbol id="i-check-c" viewBox="0 0 24 24"><path d="M16.59 7.58 10 14.17l-3.59-3.58L5 12l5 5 8-8zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M12 6a9.77 9.77 0 0 1 8.82 5.5 9.65 9.65 0 0 1-2.41 3.12l1.41 1.41c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l1.65 1.65C10.66 6.09 11.32 6 12 6zm-1.07 1.14L13 9.21c.57.25 1.03.71 1.28 1.28l2.07 2.07c.08-.34.14-.7.14-1.07C16.5 9.01 14.48 7 12 7c-.37 0-.72.05-1.07.14zM2.01 3.87l2.68 2.68A11.74 11.74 0 0 0 1 11.5C2.73 15.89 7 19 12 19c1.52 0 2.98-.29 4.32-.82l3.42 3.42 1.41-1.41L3.42 2.45 2.01 3.87zm7.5 7.5 2.61 2.61c-.04.01-.08.02-.12.02a2.5 2.5 0 0 1-2.5-2.5c0-.05.01-.08.01-.13zm-3.4-3.4 1.75 1.75a4.6 4.6 0 0 0-.36 1.78 4.5 4.5 0 0 0 6.27 4.14l.98.98c-.88.24-1.8.38-2.75.38a9.77 9.77 0 0 1-8.82-5.5c.7-1.43 1.72-2.61 2.93-3.53z"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M21 11 23 9a15.9 15.9 0 0 0-12.43-4.47l2.58 2.58c2.89.27 5.7 1.55 7.85 3.89zm-2 2a9.86 9.86 0 0 0-4.11-2.62l3.2 3.2zM9 17l3 3 3-3a4.24 4.24 0 0 0-6 0zM3.41 1.64 2 3.05 5.05 6.1C3.59 6.83 2.22 7.79 1 9l2 2c1.24-1.24 2.65-2.21 4.17-2.9l2.24 2.24A9.86 9.86 0 0 0 5 13l2 2a7.03 7.03 0 0 1 4.89-2.06L19.95 21l1.41-1.41L3.41 1.64z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3 2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m19 9 1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
+</defs></svg>
+
+<div class="pv">
+    <strong>MAQUETTE · CONNEXION</strong>
+    <div class="pv-tabs" role="tablist" id="pv-tabs"></div>
+    <span class="sp"></span>
+    <label for="pv-btn">Bouton <select id="pv-btn"><option value="google">Charte Google</option><option value="brand">Violet One App</option></select></label>
+    <label for="pv-theme">Thème <select id="pv-theme"><option value="auto">Auto</option><option value="light">Clair</option><option value="dark">Sombre</option></select></label>
+</div>
+<div id="stage"></div>
+
+<script>
+(function () {
+    const I = (id) => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+    const G = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`;
+    const S = { view: 'a', btn: 'google', slide: 0, pin: 1, expired: false };
+    const stage = document.getElementById('stage');
+
+    const signin = (label) => S.btn === 'google'
+        ? `<button class="signin google" data-act="signin">${G}${label || 'Se connecter avec Google'}</button>`
+        : `<button class="signin brandcol" data-act="signin">${label || 'Se connecter avec Google Drive'}</button>`;
+    const installBtn = (strong) => `<button class="install ${strong ? 'strong' : ''}" data-act="install">${I('install')}Installer l'application</button>`;
+    const legal = `<div class="legal"><a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></div>`;
+
+    // ---------- Les 4 illustrations ----------
+    const VIS = {
+        ai: `<div class="vis" aria-hidden="true"><div class="v-ai">
+                <div class="bubble"><small>Vous, à une IA</small>« Une app pour suivre mon budget du mois »</div>
+                <span class="arrow">${I('arrow')}</span>
+                <div class="made"><span class="icon" style="--h:145">💰</span>Budget</div></div></div>`,
+        drive: `<div class="vis" aria-hidden="true"><div class="tree">
+                <div class="r">${I('drive')}<b>Mon Drive</b></div>
+                <div class="r d1 off">${I('folder')}Photos<span class="tag no">invisible</span></div>
+                <div class="r d1 off">${I('folder')}Factures<span class="tag no">invisible</span></div>
+                <div class="r d1 on">${I('folder')}One App<span class="tag">One App</span></div>
+                <div class="r d2 on"><span class="icon xs" style="--h:145">💰</span>Budget</div>
+                <div class="r d3">${I('doc')}Budget 2026</div></div></div>`,
+        share: `<div class="vis" aria-hidden="true"><div class="v-share">
+                <div class="linkpill">${I('link')}<span>bigbangx6.github.io/One-App/?file=…</span></div>
+                <div class="people"><span class="person" style="background:#7b5e3b">A</span><span class="person" style="background:#1a73e8">C</span><span class="person" style="background:#0f9d58">L</span></div>
+                <div class="seg2"><span class="on">Lecture</span><span>Modification</span></div></div></div>`,
+        consent: `<div class="vis" aria-hidden="true"><div class="consent">
+                <div class="top">${G}One App souhaite accéder à votre compte Google</div>
+                <div class="ask">${I('folder')}<span>Consulter, modifier, créer et supprimer <b>uniquement</b> les fichiers Google Drive que vous utilisez avec cette application</span></div>
+                <div class="btns"><span>Annuler</span><span class="go">Continuer</span></div></div></div>`,
+        phone: `<div class="vis" aria-hidden="true"><div class="phone">
+                <span class="t"></span><span class="t"></span><span class="t"></span><span class="t"></span><span class="me">${I('cloud')}</span><span class="t"></span>
+                <span class="offline-badge">${I('wifi-off')}Sans Internet</span></div></div>`
+    };
+    const FEATS = [
+        ['ai', 'Créez vos apps avec une IA', "Demandez à ChatGPT, Claude ou Gemini l'outil dont vous avez besoin : un budget, un agenda, une liste de courses. Collez sa réponse dans One App, l'app est prête."],
+        ['drive', 'Tout est rangé dans votre Drive', "Chaque app et chaque document sont des fichiers dans un dossier « One App » de votre Google Drive. One App n'a pas de serveur : rien n'est stocké ailleurs."],
+        ['share', 'Partagez comme un fichier Drive', 'Envoyez un lien : vos proches consultent ou modifient le même document, toujours à jour.'],
+        ['phone', 'Sur votre téléphone, même sans Internet', "Installez One App sur l'écran d'accueil. Vos modifications sont gardées sur l'appareil et partent dans Drive au retour du réseau."]
+    ];
+    const TRUST = `
+        <div><h2>Pourquoi se connecter avec Google ?</h2>
+            <p>One App enregistre vos apps et vos documents dans <b>votre</b> Google Drive. Google vous demandera une autorisation limitée :</p>
+            <ul>
+                <li>${I('check-c')}<span>One App voit seulement les fichiers qu'il crée, ou ceux que vous choisissez d'ouvrir avec lui.</span></li>
+                <li>${I('check-c')}<span>Le reste de votre Drive reste invisible pour One App.</span></li>
+                <li>${I('check-c')}<span>Vos données ne sont ni vendues, ni utilisées pour de la publicité.</span></li>
+            </ul>
+            <a href="../confidentialite.html" target="_blank" rel="noopener">Lire les règles de confidentialité</a></div>
+        ${VIS.consent}`;
+
+    // ---------- A · La vitrine ----------
+    function viewA() {
+        return `<div class="pa">
+            <section class="card pa-hero">
+                <svg class="i logo"><use href="#i-cloud"/></svg>
+                <div class="name">One App</div>
+                <h1 class="h-display">Vos propres applications, rangées dans votre Google&nbsp;Drive</h1>
+                <p class="lead">Décrivez l'outil dont vous avez besoin à une IA, collez sa réponse : One App en fait une application. Vos données restent chez vous.</p>
+                ${signin()}
+                ${installBtn()}
+                <button class="scroll-hint" data-act="scroll">Comment ça marche ?${I('down')}</button>
+            </section>
+            <div class="sec-title" id="how"><h2>Comment ça marche</h2><p>Quatre idées, pas de jargon.</p></div>
+            <div class="features">${FEATS.map(([v, t, d], k) => `<article class="card feature">${VIS[v]}<div class="txt"><h3><span class="n">${k + 1}</span>${t}</h3><p>${d}</p></div></article>`).join('')}</div>
+            <section class="card trust">${TRUST}</section>
+            <section class="card pa-end"><h2>Prêt à essayer ?</h2><p class="lead">Gratuit, avec votre compte Google.</p>${signin()}${installBtn()}${legal}</section>
+        </div>`;
+    }
+
+    // ---------- B · La visite guidée ----------
+    function viewB() {
+        const slides = [
+            `<div class="slide intro"><div class="vis" aria-hidden="true"><svg class="i logo"><use href="#i-cloud"/></svg></div>
+                <h2>Bienvenue dans One App</h2><p>Vos propres applications, créées avec une IA et rangées dans votre Google Drive.</p></div>`,
+            ...FEATS.map(([v, t, d]) => `<div class="slide">${VIS[v]}<h2>${t}</h2><p>${d}</p></div>`),
+            `<div class="slide">${VIS.consent}<h2>Votre Drive reste privé</h2>
+                <p>One App voit seulement les fichiers qu'il crée ou que vous ouvrez avec lui. <a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></p></div>`
+        ];
+        const n = slides.length;
+        return `<div class="pb"><section class="card pb-card" aria-roledescription="carrousel" aria-label="Présentation de One App">
+            <div class="slides"><div class="track" id="track" style="transform:translateX(-${S.slide * 100}%)">${slides.join('')}</div></div>
+            <div class="dots-nav">
+                <button class="nav" data-act="prev" aria-label="Précédent" ${S.slide === 0 ? 'disabled' : ''}>${I('back')}</button>
+                <div class="dots">${slides.map((_, k) => `<button data-slide="${k}" aria-label="Étape ${k + 1} sur ${n}" aria-current="${k === S.slide}"></button>`).join('')}</div>
+                <button class="nav" data-act="next" aria-label="Suivant" ${S.slide === n - 1 ? 'disabled' : ''}>${I('arrow')}</button>
+            </div>
+            <div class="pb-actions">${signin()}${installBtn()}${legal}</div>
+        </section></div>`;
+    }
+
+    // ---------- C · L'aperçu annoté ----------
+    function viewC() {
+        const lit = (k) => S.pin === k ? 'lit' : '';
+        const calls = [
+            ['Vos apps', "Créées en décrivant votre besoin à une IA. Touchez « Créer » et suivez les 3 étapes."],
+            ['Vos documents', "Chaque document est un fichier de votre Google Drive. Partagez-le par un simple lien."],
+            ['Sur votre téléphone', "Installez One App sur l'écran d'accueil. Elle marche même sans Internet."]
+        ];
+        return `<div class="pc">
+            <section class="card pc-left">
+                <svg class="i logo"><use href="#i-cloud"/></svg>
+                <h1 class="h-display">Vos propres apps, dans votre Google&nbsp;Drive</h1>
+                <p class="lead">Une IA les fabrique, One App les fait tourner et range vos données dans votre Drive. Gratuit, sans serveur.</p>
+                ${signin()}${installBtn()}${legal}
+            </section>
+            <div class="pc-right">
+                <section class="card preview" aria-label="Aperçu de One App">
+                    <div class="preview-label">${I('spark')}Voici ce qui vous attend</div>
+                    <div class="mini" aria-hidden="true">
+                        <div class="mc acc ${lit(3)}"><b>Alex Martin</b><span class="muted" style="color:var(--muted)">alex@gmail.com</span><span class="ins">Installer</span>
+                            <button class="pin" data-pin="3" style="right:-10px;top:-10px" aria-pressed="${S.pin === 3}">3</button></div>
+                        <div class="mc ${lit(1)}"><div class="apps-row">
+                            <div class="a"><span class="icon" style="--h:145">💰</span>Budget</div><div class="a"><span class="icon" style="--h:215">📅</span>Agenda</div>
+                            <div class="a"><span class="icon" style="--h:30">🍳</span>Recettes</div><div class="a"><span class="icon" style="--h:180">🛒</span>Courses</div>
+                            <div class="a add"><span class="icon">+</span>Créer</div></div>
+                            <button class="pin" data-pin="1" style="right:-10px;top:-10px" aria-pressed="${S.pin === 1}">1</button></div>
+                        <div class="mc recents ${lit(2)}"><div class="search"></div>
+                            <div class="doc"><span class="icon sm" style="--h:145">💰</span><span>Budget 2026</span><em>10:42</em></div>
+                            <div class="doc"><span class="icon sm" style="--h:215">📅</span><span>Planning octobre</span><em>09:15</em></div>
+                            <div class="doc"><span class="icon sm" style="--h:30">🍳</span><span>Gratin dauphinois</span><em>Hier</em></div>
+                            <button class="pin" data-pin="2" style="right:-10px;top:-10px" aria-pressed="${S.pin === 2}">2</button></div>
+                    </div>
+                    <div class="callouts">${calls.map(([t, d], k) => `<button class="callout" data-pin="${k + 1}" aria-pressed="${S.pin === k + 1}"><span class="n">${k + 1}</span><span><b>${t}</b><span>${d}</span></span></button>`).join('')}</div>
+                </section>
+                <section class="card trust">${TRUST}</section>
+            </div>
+        </div>`;
+    }
+
+    // ---------- Retour : la carte simple ----------
+    function viewR() {
+        return `<div class="pr"><section class="card pr-card">
+            <svg class="i logo"><use href="#i-cloud"/></svg>
+            <h1>One App</h1>
+            <p class="lead">${S.expired ? 'Votre session a expiré. Vos modifications sont gardées sur cet appareil.' : 'Vos propres applications, dans votre Google Drive'}</p>
+            ${signin(S.expired ? (S.btn === 'google' ? 'Continuer avec Google' : 'Renouveler la session en 1 clic') : '')}
+            ${installBtn()}
+            <div class="legal"><a href="../confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><span aria-hidden="true">·</span><button class="discover" data-act="discover">Qu'est-ce que One App ?</button></div>
+            <label style="margin-top:14px;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center"><input type="checkbox" id="pv-expired" ${S.expired ? 'checked' : ''}>Maquette : session expirée</label>
+        </section></div>`;
+    }
+
+    const VIEWS = { a: ['A · Vitrine', viewA], b: ['B · Visite guidée', viewB], c: ['C · Aperçu annoté', viewC], r: ['Retour (déjà venu)', viewR] };
+    function render(keep) {
+        const top = stage.scrollTop;
+        document.getElementById('pv-tabs').innerHTML = Object.entries(VIEWS).map(([k, [n]]) => `<button role="tab" aria-selected="${S.view === k}" data-view="${k}">${n}</button>`).join('');
+        stage.innerHTML = VIEWS[S.view][1]();
+        stage.scrollTop = keep ? top : 0;
+    }
+
+    function installDialog() {
+        const el = document.createElement('div');
+        el.className = 'scrim';
+        el.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ins-t">
+            <div class="head"><span class="appicon">${I('cloud')}</span><div><h2 id="ins-t">Installer One App</h2><p>Ajoutez One App à votre écran d'accueil pour l'ouvrir d'un seul geste, comme une application.</p></div>
+            <button class="x-btn" data-close aria-label="Fermer">${I('close')}</button></div>
+            <ul class="perks"><li>${I('home')}Sur l'écran d'accueil</li><li>${I('wifi-off')}Marche sans Internet</li><li>${I('check-c')}Gratuit</li></ul>
+            <button class="big" data-close>${I('install')}Installer One App</button>
+            <button class="later" data-close>Plus tard</button></div>`;
+        el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-close]')) el.remove(); });
+        document.body.appendChild(el);
+        el.querySelector('.big').focus();
+    }
+    let tt;
+    function toast(msg) {
+        document.querySelector('.toast')?.remove();
+        const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+        document.body.appendChild(t); clearTimeout(tt); tt = setTimeout(() => t.remove(), 2600);
+    }
+
+    function goSlide(k) {
+        const n = document.querySelectorAll('.slide').length;
+        S.slide = Math.max(0, Math.min(n - 1, k));
+        render(true);
+    }
+
+    document.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-view],[data-act],[data-slide],[data-pin]');
+        if (!t) return;
+        if (t.dataset.view) { S.view = t.dataset.view; S.slide = 0; return render(); }
+        if (t.dataset.slide) return goSlide(+t.dataset.slide);
+        if (t.dataset.pin) { S.pin = +t.dataset.pin; return render(true); }
+        switch (t.dataset.act) {
+            case 'signin': return toast('Ouvre la fenêtre Google de connexion');
+            case 'install': return installDialog();
+            case 'next': return goSlide(S.slide + 1);
+            case 'prev': return goSlide(S.slide - 1);
+            case 'scroll': return document.getElementById('how').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            case 'discover': S.view = 'a'; return render();
+        }
+    });
+    document.addEventListener('change', (e) => { if (e.target.id === 'pv-expired') { S.expired = e.target.checked; render(true); } });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') document.querySelector('.scrim')?.remove();
+        if (S.view === 'b' && !document.querySelector('.scrim')) { if (e.key === 'ArrowRight') goSlide(S.slide + 1); if (e.key === 'ArrowLeft') goSlide(S.slide - 1); }
+    });
+    // Glisser du doigt dans la visite guidée
+    let sx = null;
+    document.addEventListener('pointerdown', (e) => { if (e.target.closest('.slides')) sx = e.clientX; });
+    document.addEventListener('pointerup', (e) => { if (sx === null) return; const dx = e.clientX - sx; sx = null; if (Math.abs(dx) > 40) goSlide(S.slide + (dx < 0 ? 1 : -1)); });
+
+    document.getElementById('pv-btn').addEventListener('change', (e) => { S.btn = e.target.value; render(true); });
+    document.getElementById('pv-theme').addEventListener('change', (e) => {
+        if (e.target.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', e.target.value);
+    });
+    render();
+})();
+</script>
+</body>
+</html>
