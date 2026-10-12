@@ -20,7 +20,7 @@ appareils, lecture seule.
 Choix assumés :
 
 - **Un seul fichier `index.html`** (HTML + CSS + JS) : versions simples à suivre, et une
-  seule ressource à mettre en cache pour la future PWA hors-ligne.
+  seule ressource à mettre en cache pour la PWA hors-ligne.
 - **Pas de serveur, pas d'outil de build** : hébergé tel quel sur GitHub Pages.
 - **Les apps sont publiques par lien** (lecture seule) : nécessaire pour que le destinataire
   d'un document partagé puisse charger l'app. Les données privées sont dans les `.onefile`.
@@ -30,9 +30,11 @@ Choix assumés :
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Toute l'application One App |
-| `config.js` | Client ID Google OAuth (public) |
-| `manifest.json`, `sw.js`, `icon-512.png` | PWA. **Pas encore branchés** dans `index.html` |
-| `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : lien pour ouvrir One App depuis Drive |
+| `config.js` | Client ID Google OAuth et clé API (publics) |
+| `manifest.json`, `icon-512.png` | PWA : installation sur l'écran d'accueil |
+| `sw.js` | Service worker : garde One App sur l'appareil pour l'ouvrir sans réseau |
+| `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : liens pour ouvrir One App depuis Drive, et `?download` qui ouvre la fenêtre d'installation |
+| `confidentialite.html` | Règles de confidentialité (lien discret dans One App, URL à donner à Google) |
 | `maquettes/accueil-cartes.html` | Accueil retenu en cartes façon iCloud (compte, apps, récents) ; « Créer une app » fonctionnel |
 | `maquettes/accueil-creatif.html` | Pistes d'accueil moins classiques (bureau, bulles, commande, étagère, générateur aléatoire) |
 | `maquettes/accueil-approches.html` | Quatre pistes de page d'accueil à comparer (lanceur, façon Docs, apps-dossiers, rail d'apps) |
@@ -80,12 +82,21 @@ Un seul écran est visible à la fois ; on bascule en changeant `style.display`.
 |---|---|
 | `unauthenticated-view` | Connexion Google |
 | `shared-invite-view` | Lien partagé ouvert sans être connecté |
-| `authenticated-view` | Accueil : grille des apps, sous-menu fichiers, installation |
-| `execution-view` | App en cours : bandeau (titre, annuler, synchro, partage) + `iframe-container` |
-| `edit-app-view` | Éditeur du code d'une app |
+| `authenticated-view` | Accueil en cartes (façon iCloud) : compte (`#drive-status`), apps (`#app-grid`), documents (`#doc-search`, `#rec-head`, `#doc-list`) |
+| `execution-view` | App en cours : bandeau (titre, annuler, synchro, mode, partage, menu) + `readonly-banner` + `iframe-container` |
+| `edit-app-view` | Éditeur du code d'une app (3 étapes + code ; menu : copie, téléchargement, versions, suppression de l'app) |
 | `history-sidebar` | Panneau latéral de l'historique des versions |
 | `share-modal-overlay` | Fenêtre de partage |
+| `access-modal-overlay` | « Ajouter à One App » : autoriser un document partagé (puis Picker) |
 | `session-banner` | Bandeau « session expirée, se reconnecter » (au-dessus de tout) |
+| `network-banner` | Pastille « Hors-ligne » en bas de l'écran : 6 s au passage hors-ligne, puis à chaque clic sur l'icône hors-ligne du bandeau (`showNetworkBanner`) |
+| `install-overlay` | Fenêtre d'installation PWA, adaptée à l'appareil (CSS limité à `#install-overlay`) |
+
+**Style** : variables CSS en tête du `<style>` (`--card`, `--fg`, `--muted`, `--accent`...),
+redéfinies pour le thème sombre de l'appareil ; fond en léger dégradé bleu vertical
+(`--page-bg`). Classes communes : `.card`, `.btn` (`fill`/`soft`/`ghost`), `.pill`, `.icon-btn`,
+`.menu`, `.scrim` + `.dialog`, `.toast`. Icônes : symboles `#u-...` (interface) et `#i-...`
+(fenêtre d'installation).
 
 ## 5. Le JavaScript, section par section
 
@@ -93,33 +104,46 @@ Dans l'ordre du fichier :
 
 | Section (`// --- … ---`) | Contenu | Fonctions clés |
 |---|---|---|
+| FENÊTRE D'INSTALLATION (PWA) | Parcours par appareil : bouton natif (Android, ordinateur) ou étapes illustrées (iPhone, iPad) | `openInstallSheet` (seul point d'entrée) |
 | CONSTANTES SVG / CONFIGURATION | Icônes de synchro, URLs Drive, scope OAuth | |
 | CERVEAU LOCAL | État global du fichier ouvert | `isDirty`, `localContent`, `currentFileVersion` |
 | **ACCÈS DRIVE CENTRALISÉ** | Point d'entrée unique vers Google | `driveFetch`, `driveJson`, `renewToken`, `driveCreateFile`, `createOneFile`, `escapeDriveQuery` |
+| **ACCÈS AUX FICHIERS DES AUTRES (SCOPE drive.file)** | Apps publiques lues par clé API, documents partagés autorisés via le Picker | `readDriveFile`, `publicDriveFetch`, `getFileMetaWithAccess`, `requestFileAccess`, `pickFile`, `waitForFileAccess` (l'accès est vérifié auprès de Drive après le Picker, sans se fier à sa réponse) |
 | **STOCKAGE LOCAL (LOCAL D'ABORD)** | Copie des documents et des apps sur l'appareil (IndexedDB) | `localStore`, `persistOpenDoc`, `prepareLocalStore` |
 | REPRISE DES ENVOIS EN ATTENTE | Envoie les modifications restées sur l'appareil | `syncPendingDocs`, `syncPendingDoc` |
-| LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers, accueil | `initializeAppSystem`, `getOrCreateFolder`, `listInstalledApps`, `buildAppIcon`, `toggleAppMenu` |
-| GESTION DU BANDEAU D'EXÉCUTION | Renommer, dupliquer, liste de fichiers | `renameActiveFile`, `duplicateActiveFile`, `loadAppFiles`, `renameFile`, `deleteFile` |
+| LOGIQUE DU MOTEUR (Système de Fichiers) | Démarrage, dossiers | `initializeAppSystem`, `getOrCreateFolder` |
+| **ACCUEIL EN CARTES** | État `home`, chargement des apps et de tous les documents, cartes, menu ⋯ (renommer, copie, partage, versions, Drive, supprimer + Annuler), fenêtres « Créer une app » et « Toutes les apps », notifications | `h`, `icon`, `listInstalledApps`, `loadHomeDocs`, `renderHome`, `openDocMenu`, `openCreateDialog`, `showToast` |
+| GESTION DU BANDEAU D'EXÉCUTION | Renommer, dupliquer le document ouvert | `renameActiveFile`, `duplicateActiveFile` |
 | **CONTRAT ONE APP** | Règles de création données aux IA | `ONEAPP_RULES`, `copyAppGenerationPrompt`, `createNewFile` |
 | **LE PONT DE COMMUNICATION** | API injectée dans chaque app + réception des messages | `oneAppBridge`, `injectBridge`, écouteur `message` |
-| COMMANDES DU MOTEUR VERS L'IFRAME | Annuler/Rétablir des données, lecture seule | `appUndo`, `appRedo`, `toggleAppMode` |
+| COMMANDES DU MOTEUR VERS L'IFRAME | Annuler/Rétablir des données ; mode lecture choisi et bandeau « lecture seule » (seulement si le document n'est pas modifiable, refermable) | `appUndo`, `appRedo`, `toggleAppMode`, `renderModeButton`, `dismissReadonlyBanner` |
 | **LE BOUCLIER DE SAUVEGARDE** | File de synchronisation et conflits | `markDirty`, `syncToDrive`, `performSync`, `resolveConflict`, `flushSync` |
 | LE RADAR SILENCIEUX (POLLING) | Vérifie le Cloud toutes les 15 s | `checkCloudVersion`, `startPolling` |
 | (liens partagés) | `?file=ID` | `checkSharedLink`, `createShortcutIfNeeded` |
-| LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `closeApp` |
+| **MODE HORS-LIGNE** | Accueil, listes et documents servis depuis l'appareil | `isOffline`, `enterOfflineMode`, `leaveOfflineMode`, `openFromDevice`, `requireOnline` |
+| LE CHARGEUR D'APPLICATION | Ouvrir/fermer un document | `openAppEnvironment`, `mountApp`, `closeApp` |
 | (partage) | Droits Drive, lien, QR code | `openShareModal`, `validatePermissionChange` |
-| LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `confirmAppHtml`, `installAppFromHtml` |
+| QR CODE | QR code généré sur l'appareil (aucun service extérieur) | `qrMatrix`, `qrSvgDataUrl` |
+| LOGIQUE D'INSTALLATION | Coller le HTML d'une IA | `extractAppHtml`, `checkAppHtml`, `readAppMeta`, `installApp` |
 | LOGIQUE DE L'ÉDITEUR | Modifier le code d'une app | `openAppEditor`, `copyCodeForAI`, `saveEditorCode`, `saveAppToDrive` |
 | MACHINE À REMONTER LE TEMPS | Révisions Drive | `showDataHistory`, `renderRevisions`, `restoreDataVersion`, `copyDataVersion` |
 | RACCOURCIS CLAVIER | Ctrl+Z / Ctrl+Y dans One App | |
+| PWA : SERVICE WORKER | Enregistrement de `sw.js` | |
 
 ## 6. Les flux principaux
 
 ### Ouvrir un document
-`openAppEnvironment` → `flushSync` (enregistre le document précédent) → lit les
-métadonnées (`headRevisionId`, droits) → télécharge l'app et les données →
-`injectBridge` → crée l'iframe `sandbox="allow-scripts allow-modals allow-forms"` →
-`startPolling`.
+`openAppEnvironment` → `flushSync` (enregistre le document précédent) → en parallèle :
+`loadAppHtml` (code de l'app) et métadonnées du document (`headRevisionId`, droits) →
+`mountApp` : `injectBridge` puis iframe `sandbox="allow-scripts allow-modals allow-forms"`
+→ `startPolling`.
+
+**Rien n'est retéléchargé s'il n'a pas changé** :
+- l'app : `loadAppHtml` lit seulement sa version sur Drive (`md5Checksum`, sinon
+  `headRevisionId`) et réutilise la copie de l'appareil (store `apps`) si elle est identique.
+  La clé est toujours l'id du vrai `.oneapp`, jamais celui d'un raccourci ;
+- le document : si la copie de l'appareil n'a pas de modification en attente et que sa
+  `base.rev` égale le `headRevisionId` de Drive, elle est utilisée telle quelle.
 
 ### Sauvegarder (le cœur du système)
 1. L'app appelle `OneAppAPI.saveData(state)` → message `SAVE_DATA_REQUEST`.
@@ -145,8 +169,8 @@ Base IndexedDB `OneAppLocal` :
 | Store | Contenu |
 |---|---|
 | `docs` | Dernier état connu de chaque document ouvert : `data`, `metadata`, `dirty` (modifications pas encore sur Drive), `base` (version Drive sur laquelle reposent les données), `lastOpened` |
-| `apps` | Code HTML des apps ouvertes (pour le futur mode hors-ligne) |
-| `meta` | `account` : e-mail du compte Google propriétaire de ce stockage |
+| `apps` | Code HTML des apps ouvertes + `version` Drive (cache vérifié à chaque ouverture, utilisé hors-ligne) |
+| `meta` | `account` : e-mail du compte Google propriétaire de ce stockage ; `appList` : dernière liste des apps (accueil hors-ligne) |
 
 - **Reprise** : au démarrage, au retour du réseau, après la fermeture d'un document et
   toutes les minutes, `syncPendingDocs` envoie les documents `dirty`. Si le document a
@@ -158,13 +182,43 @@ Base IndexedDB `OneAppLocal` :
 - **Espace** : pas de limite fixe. Si le navigateur manque de place, les copies déjà
   synchronisées les plus anciennes sont retirées (`freeSpace`), jamais un document `dirty`.
 
+### Hors-ligne (PWA)
+- **`sw.js`** garde la page sur l'appareil : réseau d'abord (toujours la dernière
+  version), cache si pas de réseau ou s'il ne répond pas en 4 s. Les autres fichiers de
+  One App : cache immédiat, mise à jour en arrière-plan. Google n'y passe jamais.
+- **Sans réseau** (`isOffline()` : `navigator.onLine` faux, ou réseau constaté injoignable),
+  `enterOfflineMode` construit l'accueil depuis l'appareil : liste `appList`, apps
+  jamais ouvertes ici grisées, documents de `docs`. Le jeton n'est pas nécessaire.
+- **`openAppEnvironment`** ouvre la copie locale (`openFromDevice`) hors-ligne, ou si le
+  réseau tombe pendant le chargement. Les modifications suivent le flux « local d'abord ».
+- **Actions qui demandent Internet** (créer, installer, modifier une app, partager,
+  renommer, supprimer, historique) : bloquées par `requireOnline`, avec un message.
+- **Retour du réseau** : `leaveOfflineMode` recharge les scripts Google si besoin,
+  recharge l'accueil depuis Drive ; les envois en attente partent.
+
 ### Jeton Google expiré
 `driveFetch` reçoit 401 (ou voit le jeton périmé) → `renewToken` tente un renouvellement
 silencieux. Si le navigateur bloque la popup, `session-banner` demande un clic. Pendant ce
 temps, les requêtes **attendent** : rien n'est perdu.
 
+### Scope `drive.file`
+One App ne demande que `drive.file` (scope « non sensible » : pas d'audit Google).
+Elle ne voit donc que les fichiers **qu'elle a créés** ou que l'utilisateur **lui a
+ouverts** via le Google Picker. Pour un fichier d'un autre utilisateur, Drive répond 404 :
+
+- **app (`.oneapp`)** : publique par lien, elle est lue sans jeton avec la clé API
+  (`readDriveFile` essaie le jeton, puis `publicDriveFetch`) ;
+- **document (`.onefile`)** : il doit pouvoir être modifié, l'utilisateur l'autorise
+  donc une fois (`getFileMetaWithAccess` → écran `access-modal-overlay` → `pickFile`,
+  Picker positionné sur ce seul fichier avec `setFileIds`). L'accès vaut pour le compte
+  Google, sur tous ses appareils.
+
+`include_granted_scopes: false` : le jeton ne reprend pas un ancien scope `drive` complet.
+L'e-mail du compte vient de `drive/v3/about` (disponible avec `drive.file`).
+
 ### Partage
 Le lien est `index.html?file=<id du .onefile>`. Chez le destinataire, `checkSharedLink`
+propose d'ajouter le document à One App s'il n'y a pas encore accès (voir ci-dessus),
 crée des raccourcis vers l'app et le document (sauf s'ils lui appartiennent), puis ouvre
 le document. Les droits (lecture / édition) sont ceux du fichier Drive.
 
@@ -191,6 +245,13 @@ Messages `postMessage` entre l'app et One App :
 Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` et
 `window.OneAppInternal_OnModeChange`. Le pont les appelle toujours.
 
+### Dossier des copies
+Copie de secours, « Créer une copie », copie d'une ancienne version : rangées par
+`getDocFolderId` dans le dossier de l'app, choisi dans cet ordre : dossier du sous-menu
+d'où le document a été ouvert (`currentDocInfo.folderId`, gardé aussi sur l'appareil) →
+parent indiqué par Drive (souvent masqué en `drive.file`, toujours pour un document
+partagé) → dossier de l'app retrouvé par son nom → dossier « One App » en dernier recours.
+
 ## 8. Règles à ne pas casser
 
 1. **Tout accès à Google passe par `driveFetch` / `driveJson`.** Jamais de `fetch` direct
@@ -201,25 +262,36 @@ Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` 
    `dirty` n'est retiré de l'appareil qu'après confirmation de Drive (ou à la déconnexion,
    après avertissement).
 4. **Ne jamais insérer un nom, une icône ou une donnée Drive avec `innerHTML`** ou dans un
-   `onclick="..."` généré. Utiliser `textContent`, `addEventListener`, `makeButton`.
+   `onclick="..."` généré. Construire avec `h(tag, props, ...enfants)` (textes en nœuds texte)
+   et `icon(nom)` pour les icônes `#u-...`.
    (Un fichier partagé porte un nom choisi par quelqu'un d'autre.)
-5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.**
+5. **Valeurs insérées dans une requête Drive (`q=`) : `escapeDriveQuery`.** Et **ne pas élargir le scope au-delà de `drive.file`** (un scope restreint impose un
+   audit de sécurité Google). Lire un fichier qui peut appartenir à un autre :
+   `readDriveFile` ; ouvrir un document partagé : `getFileMetaWithAccess`.
 6. **Le contrat app ↔ One App ne change qu'en restant compatible** : les apps déjà
    installées doivent continuer à fonctionner. Mettre `ONEAPP_RULES` à jour en même temps.
 7. **Garder le fichier unique**, sans dépendance ni étape de build.
 8. **Lancer les tests (`tests/`) avant de publier sur `main`**, et ajouter un test pour
    chaque bug corrigé.
+9. **Toute nouvelle action qui a besoin du réseau commence par `requireOnline(...)`**, et
+   tout nouveau fichier indispensable à One App est ajouté à `CORE_FILES` dans `sw.js`.
 
 ## 9. Limites connues / pistes
 
-- PWA et mode hors-ligne : `sw.js` et `manifest.json` existent mais ne sont pas branchés.
-  Le stockage local (étape 1) est en place ; reste l'ouverture sans réseau (étape 2).
+- Hors-ligne, seuls les documents déjà ouverts sur l'appareil sont disponibles ; on ne
+  peut pas créer de document.
+- Une app qui charge une bibliothèque externe (`<script src="https://...">`) ne
+  fonctionne pas hors-ligne.
+- iPhone : la connexion Google depuis One App installée sur l'écran d'accueil reste à
+  vérifier sur un vrai appareil.
 - Un document en attente dont on a perdu l'accès en écriture est retenté indéfiniment.
 - Deux apps avec le même `<title>` partagent le même dossier (leurs documents se mélangent).
 - Renommer une app ne renomme ni son dossier ni `app_name` dans ses documents.
-- La liste des apps et des fichiers n'est pas paginée (100 éléments maximum).
-- Le QR code est généré par un service externe (api.qrserver.com).
+- Les listes ne sont pas paginées (100 apps, 200 documents au maximum).
 - Les messages passent encore par `alert()` / `confirm()`.
+- Un `.onefile` partagé par Drive directement (sans le lien One App) n'apparaît pas tant
+  qu'il n'a pas été ouvert avec le lien : pas encore de bouton « Ajouter depuis Drive ».
+- Une app partagée rendue privée par son auteur ne peut plus être lue par la clé API.
 
 ## 10. Travailler avec une IA sur ce projet
 
