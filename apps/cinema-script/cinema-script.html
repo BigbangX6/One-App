@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cinema Script</title>
+<meta name="oneapp-icon" content="🎬">
+<style>
+    /* --- Couleurs : sombre par défaut, clair selon l'appareil --- */
+    :root {
+        --bg-body: #121212; --text-main: #ffffff; --bg-panel: #1a1a1a; --bg-input: #2a2a2a;
+        --border-color: #333; --border-input: #555; --take-list-bg: #1e1e1e; --take-item-border: #333;
+        --text-muted: #888; --accent: #50e3c2; --blue: #4a90e2; --orange: #f5a623; --green: #7ed321; --red: #d0021b;
+    }
+    @media (prefers-color-scheme: light) {
+        :root {
+            --bg-body: #f0f2f5; --text-main: #121212; --bg-panel: #ffffff; --bg-input: #f9f9f9;
+            --border-color: #ddd; --border-input: #ccc; --take-list-bg: #f8f9fa; --take-item-border: #eee; --text-muted: #666;
+        }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; }
+    button { font-family: inherit; }
+    [hidden] { display: none !important; }
+
+    .app-container { display: flex; flex-direction: column; padding: 15px; gap: 20px; }
+    .left-panel { display: flex; flex-direction: column; gap: 15px; }
+    .right-panel { display: flex; flex-direction: column; padding-bottom: 100px; }
+    @media (min-width: 900px) {
+        .app-container { flex-direction: row; align-items: flex-start; max-width: 1600px; margin: 0 auto; height: 100vh; overflow: hidden; }
+        .left-panel { width: 32%; height: calc(100vh - 30px); overflow-y: auto; padding-right: 10px; }
+        .right-panel { width: 68%; height: calc(100vh - 30px); overflow-y: auto; padding-right: 10px; }
+    }
+
+    .project-title { background: var(--bg-panel); border: 1px solid var(--border-color); color: var(--accent); padding: 15px; font-size: 1.2rem; font-weight: bold; border-radius: 12px; overflow-wrap: anywhere; }
+
+    /* Tableau de bord (plan actif) */
+    .dashboard { background: var(--bg-panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+    .status-board { font-size: 1.5rem; text-align: center; margin-bottom: 15px; background: var(--bg-input); padding: 15px; border-radius: 10px; font-weight: bold; border: 2px solid var(--accent); color: var(--accent); }
+    .status-board.inactive { border-color: var(--border-color); color: var(--text-muted); margin-bottom: 0; }
+    .status-board .take-num { color: var(--text-main); }
+    .controls { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .btn-save { background: var(--green); color: black; font-size: 1.3rem; padding: 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-clap { background: var(--blue); color: white; font-size: 1.1rem; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-save:active, .btn-clap:active { transform: scale(0.98); }
+    input, select { padding: 15px; font-size: 1.1rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-input); border-radius: 8px; width: 100%; }
+
+    .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+    .btn-action { padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; color: black; }
+    .btn-pdf { background: var(--orange); }
+    .btn-pdf-decoupage { background: var(--accent); }
+
+    .mode-toggle { display: flex; flex-direction: column; background: var(--border-color); border-radius: 8px; overflow: hidden; }
+    .mode-btn { flex: 1; padding: 12px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+    .mode-btn.active { background: var(--blue); color: white; }
+
+    /* Découpage : accordéon séquences > plans > prises */
+    .acc-header { display: flex; flex-direction: column; padding: 12px 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid; color: white; }
+    .acc-seq { background: #34495e; border-left-color: var(--blue); }
+    .acc-plan { background: #2c3e50; border-left-color: var(--accent); margin-left: 15px; }
+    .acc-plan.impro { border-left-color: var(--orange); }
+    .acc-plan.active { outline: 2px solid var(--accent); background: #1f2d3d; }
+    .acc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .acc-title { display: flex; align-items: center; cursor: pointer; flex-grow: 1; user-select: none; background: none; border: none; color: inherit; padding: 0; text-align: left; }
+    .header-label { font-weight: bold; font-size: 1.2rem; margin-right: 10px; display: flex; align-items: center; gap: 8px; }
+    .chevron { font-size: 0.9rem; opacity: 0.7; }
+    .header-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 10px; font-size: 1rem; border-radius: 5px; width: 100%; resize: none; overflow: hidden; line-height: 1.4; font-family: inherit; margin: 0; }
+    .header-input:focus { outline: 1px solid var(--accent); background: rgba(0,0,0,0.4); }
+    .header-input[readonly] { border-color: transparent; background: transparent; }
+    .inline-actions { display: flex; gap: 5px; align-items: center; }
+    .btn-icon { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px; opacity: 0.6; border-radius: 5px; color: inherit; }
+    .btn-icon:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+    .acc-content { display: none; margin-bottom: 15px; }
+    .acc-content.open { display: block; }
+
+    .take-list { margin-left: 30px; margin-top: 5px; background: var(--take-list-bg); border-radius: 8px; padding: 10px; border-left: 2px solid var(--border-input); }
+    .take-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px; border-bottom: 1px solid var(--take-item-border); align-items: center; }
+    .take-item:last-child { border-bottom: none; }
+    .take-com { color: var(--text-muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .empty { color: var(--text-muted); padding: 10px; font-style: italic; }
+    .btn-delete { background: var(--red); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; flex: none; }
+
+    .add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-left: 15px; margin-top: 10px; }
+    .btn-add { background: var(--bg-input); color: var(--text-main); border: 1px dashed var(--text-muted); padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    .btn-add.impro { color: var(--orange); border-color: var(--orange); }
+    .btn-add.seq { width: 100%; border-color: var(--blue); color: var(--blue); margin-top: 15px; }
+
+    /* Plan de travail : liste dans l'ordre de tournage */
+    .tournage-list { display: flex; flex-direction: column; gap: 8px; }
+    .tournage-item { background: #2c3e50; color: white; border-radius: 8px; }
+    .tournage-item.active { outline: 2px solid var(--accent); background: #1f2d3d; }
+    .tournage-item.impro { box-shadow: inset 4px 0 0 var(--orange); }
+    .tournage-row { display: flex; align-items: center; gap: 10px; padding: 10px 15px; }
+    .tournage-sep { background: #5a3c20; border-left: 4px solid var(--orange); }
+    .t-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: none; color: inherit; padding: 0; cursor: pointer; text-align: left; font-size: 1rem; }
+    .t-code { font-weight: bold; color: var(--blue); flex: none; }
+    .tournage-item.active .t-code { color: var(--accent); }
+    .t-info { flex: 1; min-width: 0; opacity: 0.8; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-temps { width: 90px; flex: none; }
+    .take-badge { background: var(--green); color: black; font-size: 0.8rem; font-weight: bold; padding: 3px 8px; border-radius: 12px; flex: none; }
+    .sep-label { font-weight: bold; color: var(--orange); flex: none; }
+    /* Prise directement depuis le plan de travail */
+    .shoot-panel { display: grid; gap: 10px; padding: 0 15px 15px; }
+    .shoot-panel .take-list { margin-left: 0; }
+    .shoot-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .shoot-panel .btn-save, .shoot-panel .btn-clap { padding: 14px; font-size: 1.1rem; }
+    @media (max-width: 560px) { .t-temps { width: 70px; } .shoot-row { grid-template-columns: 1fr; } }
+
+    /* Glisser-déposer */
+    .drag-handle { cursor: grab; font-size: 1.8rem; padding-right: 5px; color: var(--text-muted); touch-action: none; user-select: none; flex: none; }
+    .tournage-item.dragging { opacity: 0.5; }
+    .tournage-item.drag-over { border-top: 3px solid var(--accent); }
+    .placeholder { border: 2px dashed var(--border-input); background: transparent; border-radius: 8px; }
+
+    /* Impression (PDF) */
+    #printArea { display: none; }
+    @media print {
+        body { background: white !important; color: black !important; }
+        .app-container { display: none !important; }
+        #printArea { display: block !important; padding: 20px; }
+        .print-title { color: #d0021b; text-align: center; font-size: 28px; margin-bottom: 5px; text-transform: uppercase; }
+        .print-subtitle { text-align: center; color: #555; margin-bottom: 30px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        tr { page-break-inside: avoid; }
+        th { background-color: #222 !important; color: white !important; padding: 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        td { border: 1px solid #ccc; padding: 10px; vertical-align: top; white-space: pre-wrap; }
+        .print-seq-row { background-color: #e3f2fd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .print-seq-num { font-size: 16px; font-weight: bold; color: #4a90e2; }
+        .print-seq-info { font-size: 14px; font-weight: bold; color: #333; }
+        .print-sep-row { background-color: #fff3e0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; text-align: center; font-weight: bold; color: #e65100; font-size: 14px; }
+    }
+</style>
+</head>
+<body>
+<!--
+CINEMA SCRIPT (version One App) — outil de scripte pour le tournage.
+But : préparer le découpage technique (séquences > plans), organiser le plan de travail
+(ordre de tournage, séparateurs, temps), noter les prises sur le tournage (avis, commentaire,
+heure) et jouer le clap audio qui encode « séquence / plan / prise » ; l'extension Premiere Pro
+lit ce document (.onefile synchronisé par Google Drive) et range / synchronise les rushs.
+
+Structure exacte de state (CONTRAT avec l'extension Premiere : ne pas renommer ces champs) :
+{
+  v: 1,
+  sequences:    [ { id: 1, info: "Lieu, personnages..." } ],
+  plans:        [ { seqId: 1, id: 1, impro: 0|1, info: "Découpage technique", temps: "" } ],
+  takes:        [ { uid: "id unique", seqId: 1, planId: 1, prise: 1, avis: "✅ OK (Bonne)", com: "", timestamp: "ISO" } ],
+  tournageList: [ { type: "plan", seqId: 1, planId: 1 } | { type: "sep", text: "Lundi matin" } ]
+}
+- Le nom du projet est le nom du document (OneAppAPI.getFileName()), il n'est pas dans state.
+- Les libellés de "avis" sont lus par l'extension (MASTER, OK, Moyen, Bof, KO, vérifier) : ne pas les changer.
+- Les numéros de prise ne sont JAMAIS renumérotés (le clap les a déjà joués) : prise suivante = max + 1.
+- La classe DigitalClapper est une copie exacte de l'original : ne pas la modifier (fréquences ~10-12 kHz
+  choisies pour ne pas se superposer à la voix ; décodée par analyze.py de l'extension).
+- Les textes saisis sont enregistrés après une courte pause (pas à chaque lettre) ; une mise à jour
+  venue d'ailleurs n'écrase jamais le champ en cours de saisie (appliquée à la sortie du champ).
+-->
+<div class="app-container">
+    <div class="left-panel">
+        <div class="project-title">🎬 <span id="projName">Projet</span></div>
+
+        <div class="dashboard">
+            <div id="statusBoard" class="status-board inactive">SÉLECTIONNEZ UN PLAN<br>POUR TOURNER</div>
+            <div id="takeControls" class="controls" hidden>
+                <select id="avis" aria-label="Avis sur la prise"></select>
+                <input type="text" id="com" placeholder="Commentaire / Raccord (ex: point flou)" autocomplete="off">
+                <button class="btn-save" id="btnSave" type="button">ENREGISTRER LA PRISE</button>
+                <button class="btn-clap" id="btnClap" type="button">🎬 Clap audio</button>
+            </div>
+        </div>
+
+        <div class="action-row">
+            <button class="btn-action btn-pdf" type="button" id="btnPdfTournage">📄 PDF (Tournage)</button>
+            <button class="btn-action btn-pdf-decoupage" type="button" id="btnPdfDecoupage">📄 PDF (Découpage)</button>
+        </div>
+
+        <div class="mode-toggle">
+            <button id="btnModeDecoupage" class="mode-btn active" type="button">📖 Mode Découpage (Scénario)</button>
+            <button id="btnModeTournage" class="mode-btn" type="button">🎥 Mode Plan de Travail (Tournage)</button>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div id="accordionContainer"></div>
+        <button id="btnAddSeq" class="btn-add seq" type="button">+ NOUVELLE SÉQUENCE</button>
+    </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+window.OneAppAPI = window.OneAppAPI || {
+  loadData: async () => ({ app_data: [], readOnly: false }),
+  saveData: (data) => console.log("[Test] saveData", data),
+  onDataChange: () => {},
+  onModeChange: () => {},
+  getFileName: () => "Projet de test",
+  onNameChange: () => {}
+};
+
+// --- CLAP AUDIO (copie exacte de l'original, ne pas modifier) ---
+class DigitalClapper {
+    constructor() {
+        this.audioCtx = null;
+        this.dtmfFreqs = {
+            //'1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+            //'4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+            //'7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+            //'*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+
+            '1': [10697, 12209], '2': [10697, 12336], '3': [10697, 12477],
+            '4': [10770, 12209], '5': [10770, 12336], '6': [10770, 12477],
+            '7': [10852, 12209], '8': [10852, 12336], '9': [10852, 12477],
+            '*': [10941, 12209], '0': [10941, 12336], '#': [10941, 12477]
+        };
+    }
+    play(scene, shot, take) {
+        if (!this.audioCtx) {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+        const payload = `*${scene}*${shot}*${take}#*`;
+        const now = this.audioCtx.currentTime;
+        
+        //this._playTransient(now);
+        
+        let timeCursor = now + 0.065;
+        const toneDuration = 0.080;
+        const pauseDuration = 0.120;
+        for (let i = 0; i < payload.length; i++) {
+            const char = payload[i];
+            if (this.dtmfFreqs[char]) {
+                this._playDTMF(this.dtmfFreqs[char][0], this.dtmfFreqs[char][1], timeCursor, toneDuration);
+                timeCursor += toneDuration + pauseDuration;
+            }
+        }
+        
+    }
+    _playTransient(startTime) {
+        const clickOsc = this.audioCtx.createOscillator();
+        const clickGain = this.audioCtx.createGain();
+        clickOsc.type = 'square';
+        clickOsc.frequency.value = 1000;
+        clickGain.gain.setValueAtTime(0, startTime);
+        clickGain.gain.linearRampToValueAtTime(1, startTime + 0.001);
+        clickGain.gain.setValueAtTime(1, startTime + 0.010);
+        clickGain.gain.linearRampToValueAtTime(0, startTime + 0.015);
+        clickOsc.connect(clickGain);
+        clickGain.connect(this.audioCtx.destination);
+        clickOsc.start(startTime);
+        clickOsc.stop(startTime + 0.020);
+    }
+    _playDTMF(f1, f2, startTime, duration) {
+        const osc1 = this.audioCtx.createOscillator();
+        const osc2 = this.audioCtx.createOscillator();
+        const gainNode = this.audioCtx.createGain();
+        osc1.frequency.value = f1;
+        osc2.frequency.value = f2;
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.75, startTime + 0.005);
+        gainNode.gain.setValueAtTime(0.75, startTime + duration - 0.005);
+        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(this.audioCtx.destination);
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + duration);
+        osc2.stop(startTime + duration);
+    }
+}
+const clapper = new DigitalClapper();
+
+// --- DONNÉES ---
+const AVIS = ["❓ À vérifier", "✅ OK (Bonne)", "⭐ MASTER (Parfaite)", "😐 Moyen", "😕 Bof", "❌ KO (Ratée)"];
+const DEFAULT_STATE = {
+  v: 1,
+  sequences: [{ id: 1, info: "" }],
+  plans: [{ seqId: 1, id: 1, impro: 0, info: "", temps: "" }],
+  takes: [],
+  tournageList: [{ type: "plan", seqId: 1, planId: 1 }]
+};
+let state = structuredClone(DEFAULT_STATE);
+let readOnly = false;
+
+// Accepte un nouveau document ([]) ou des données incomplètes
+function normalize(data) {
+  if (!data || Array.isArray(data) || typeof data !== "object") return structuredClone(DEFAULT_STATE);
+  const s = { ...structuredClone(DEFAULT_STATE), ...data };
+  ["sequences", "plans", "takes", "tournageList"].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
+  s.takes.forEach((t) => { if (!t.uid) t.uid = newUid(); });
+  s.v = 1;
+  return s;
+}
+
+function newUid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// --- ÉTAT DE L'ÉCRAN (non enregistré) ---
+let viewMode = "decoupage";       // 'decoupage' ou 'tournage'
+let openSeq = 1;
+let openPlan = null;
+let activeSeq = null;
+let activePlan = null;
+let lastAvis = AVIS[0];
+let pendingRemote = null;         // mise à jour reçue pendant une saisie
+
+// --- ENREGISTREMENT ---
+let saveTimer = null;
+
+// Action ponctuelle (ajout, suppression, prise...) : écran redessiné + enregistré tout de suite
+function commit() {
+  if (readOnly) return;
+  clearTimeout(saveTimer);
+  render();
+  OneAppAPI.saveData(state);
+}
+
+// Saisie de texte : enregistrée après une courte pause, sans redessiner l'écran
+function saveSoon() {
+  if (readOnly) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => OneAppAPI.saveData(state), 800);
+}
+function saveNow() {
+  if (!saveTimer) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (!readOnly) OneAppAPI.saveData(state);
+}
+
+// --- OUTILS ---
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "text") e.textContent = v;
+    else if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "value") e.value = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  children.flat().forEach((c) => { if (c !== null && c !== undefined && c !== false) e.append(c); });
+  return e;
+}
+
+function autoResize(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
+
+function findPlan(seqId, planId) { return state.plans.find((p) => p.seqId === seqId && p.id === planId); }
+function takesOf(seqId, planId) { return state.takes.filter((t) => t.seqId === seqId && t.planId === planId).sort((a, b) => a.prise - b.prise); }
+function nextTakeNum(seqId, planId) { return takesOf(seqId, planId).reduce((m, t) => Math.max(m, t.prise), 0) + 1; }
+function hasTakes(pred) { return state.takes.some(pred); }
+function projectName() { return (OneAppAPI.getFileName && OneAppAPI.getFileName()) || "Projet"; }
+
+// Le plan actif / ouvert existe-t-il encore (après annuler, mise à jour, suppression) ?
+function checkSelection() {
+  if (activeSeq !== null && !findPlan(activeSeq, activePlan)) { activeSeq = null; activePlan = null; }
+  if (openSeq !== null && !state.sequences.some((s) => s.id === openSeq)) openSeq = state.sequences.length ? state.sequences[0].id : null;
+}
+
+// Champ de texte lié à une propriété : enregistré après une pause, à la sortie du champ
+function textField(obj, key, placeholder, multiline) {
+  const f = el(multiline ? "textarea" : "input", {
+    class: "header-input", placeholder: readOnly ? "" : placeholder, value: obj[key] || "", readonly: readOnly, rows: multiline ? 1 : null,
+    oninput: (e) => { obj[key] = e.target.value; if (multiline) autoResize(e.target); saveSoon(); },
+    onchange: saveNow
+  });
+  if (!multiline) f.type = "text";
+  if (multiline) requestAnimationFrame(() => autoResize(f));
+  return f;
+}
+
+// --- RENDU ---
+function render() {
+  checkSelection();
+  document.getElementById("projName").textContent = projectName();
+  document.getElementById("btnModeDecoupage").classList.toggle("active", viewMode === "decoupage");
+  document.getElementById("btnModeTournage").classList.toggle("active", viewMode === "tournage");
+  document.getElementById("btnAddSeq").hidden = viewMode !== "decoupage" || readOnly;
+  const container = document.getElementById("accordionContainer");
+  container.replaceChildren(viewMode === "decoupage" ? renderDecoupage() : renderTournage());
+  updateDashboard();
+}
+
+function renderTakeList(seqId, planId) {
+  const list = el("div", { class: "take-list" });
+  const takes = takesOf(seqId, planId);
+  if (takes.length === 0) list.append(el("div", { class: "empty", text: "Prêt à tourner..." }));
+  takes.forEach((take) => {
+    list.append(el("div", { class: "take-item" },
+      el("div", {},
+        el("strong", { text: "Prise " + take.prise }), " | " + take.avis,
+        take.com ? el("div", { class: "take-com", text: take.com }) : null),
+      readOnly ? null : el("button", { class: "btn-delete", type: "button", text: "❌", title: "Supprimer la prise", "aria-label": "Supprimer la prise " + take.prise,
+        onclick: () => deleteTake(take) })));
+  });
+  return list;
+}
+
+function renderDecoupage() {
+  const frag = document.createDocumentFragment();
+  state.sequences.forEach((seq) => {
+    const open = openSeq === seq.id;
+    frag.append(el("div", { class: "acc-header acc-seq" },
+      el("div", { class: "acc-top" },
+        el("button", { class: "acc-title", type: "button", onclick: () => { openSeq = open ? null : seq.id; render(); } },
+          el("span", { class: "header-label", text: "SÉQ " + seq.id }),
+          el("span", { class: "chevron", text: open ? "▼" : "▶" })),
+        readOnly ? null : el("div", { class: "inline-actions" },
+          el("button", { class: "btn-icon", type: "button", title: "Modifier le numéro de séquence", text: "✏️", onclick: () => editSeqId(seq.id) }),
+          el("button", { class: "btn-icon", type: "button", title: "Insérer une séquence avant", text: "➕", onclick: () => insertSeqBefore(seq.id) }),
+          el("button", { class: "btn-icon", type: "button", title: "Supprimer la séquence", text: "❌", onclick: () => deleteSeq(seq.id) }))),
+      textField(seq, "info", "Infos Séquence (Lieu, personnages...)", true)));
+
+    const content = el("div", { class: "acc-content" + (open ? " open" : "") });
+    state.plans.filter((p) => p.seqId === seq.id).sort((a, b) => a.id - b.id).forEach((plan) => {
+      const isActive = activeSeq === seq.id && activePlan === plan.id;
+      const planOpen = isActive && openPlan === plan.id;
+      content.append(el("div", { class: "acc-header acc-plan" + (plan.impro ? " impro" : "") + (isActive ? " active" : "") },
+        el("div", { class: "acc-top" },
+          el("button", { class: "acc-title", type: "button", onclick: () => activatePlan(seq.id, plan.id) },
+            el("span", { class: "header-label", text: "PLAN " + plan.id + (plan.impro ? " (IMPRO)" : "") }),
+            el("span", { class: "chevron", text: planOpen ? "▼" : "▶" })),
+          readOnly ? null : el("div", { class: "inline-actions" },
+            el("button", { class: "btn-icon", type: "button", title: "Insérer un plan avant", text: "➕", onclick: () => insertPlanBefore(seq.id, plan.id) }),
+            el("button", { class: "btn-icon", type: "button", title: "Supprimer le plan", text: "❌", onclick: () => deletePlan(seq.id, plan.id) }))),
+        textField(plan, "info", "Découpage technique (Valeur, action...)", true)));
+      const takes = el("div", { class: "acc-content" + (planOpen ? " open" : "") }, renderTakeList(seq.id, plan.id));
+      content.append(takes);
+    });
+    if (!readOnly) {
+      content.append(el("div", { class: "add-row" },
+        el("button", { class: "btn-add", type: "button", text: "+ Plan Prévu (Fin)", onclick: () => addPlan(seq.id, 0) }),
+        el("button", { class: "btn-add impro", type: "button", text: "+ Plan Impro (Fin)", onclick: () => addPlan(seq.id, 1) })));
+    }
+    frag.append(content);
+  });
+  return frag;
+}
+
+function renderTournage() {
+  const list = el("div", { class: "tournage-list" });
+  state.tournageList.forEach((item, index) => {
+    const handle = readOnly ? null : el("div", { class: "drag-handle", title: "Glisser pour déplacer", text: "☰",
+      ontouchstart: (e) => handleTouchStart(e, index), ontouchmove: handleTouchMove, ontouchend: handleTouchEnd });
+    let node;
+    if (item.type === "plan") {
+      const p = findPlan(item.seqId, item.planId);
+      if (!p) return; // plan orphelin
+      const count = takesOf(p.seqId, p.id).length;
+      const isActive = activeSeq === p.seqId && activePlan === p.id;
+      node = el("div", { class: "tournage-item" + (isActive ? " active" : "") + (p.impro ? " impro" : ""), "data-index": index },
+        el("div", { class: "tournage-row" },
+          handle,
+          el("button", { class: "t-open", type: "button", title: "Tourner ce plan", onclick: () => activatePlan(p.seqId, p.id, true) },
+            el("span", { class: "t-code", text: "SÉQ " + p.seqId + " - P " + p.id }),
+            el("span", { class: "t-info", text: p.info || "..." })),
+          readOnly ? el("span", { class: "t-info t-temps", text: p.temps || "" })
+            : el("input", { class: "header-input t-temps", type: "text", placeholder: "Temps...", value: p.temps || "", "aria-label": "Temps",
+              oninput: (e) => { p.temps = e.target.value; saveSoon(); }, onchange: saveNow }),
+          count ? el("span", { class: "take-badge", text: "🎥 " + count }) : null),
+        isActive ? renderShootPanel(p) : null);
+    } else {
+      node = el("div", { class: "tournage-item tournage-sep", "data-index": index },
+        el("div", { class: "tournage-row" },
+          handle,
+          el("span", { class: "sep-label", text: "SÉPARATEUR" }),
+          readOnly ? el("span", { class: "t-info", text: item.text || "" })
+            : el("input", { class: "header-input", type: "text", placeholder: "Ex: Lundi Matin...", value: item.text || "",
+              oninput: (e) => { item.text = e.target.value; saveSoon(); }, onchange: saveNow }),
+          readOnly ? null : el("button", { class: "btn-icon", type: "button", title: "Supprimer le séparateur", text: "❌", onclick: () => deleteGlobalSep(index) })));
+    }
+    if (!readOnly) enableMouseDrag(node, index);
+    list.append(node);
+  });
+  if (!readOnly) list.append(el("button", { class: "btn-add", type: "button", text: "+ Ajouter un Séparateur (Planning)", onclick: addGlobalSeparator }));
+  return list;
+}
+
+// Sur le tournage : clap et prise directement depuis le plan de travail
+function renderShootPanel(p) {
+  const next = nextTakeNum(p.seqId, p.id);
+  const avis = el("select", { "aria-label": "Avis sur la prise", onchange: (e) => { lastAvis = e.target.value; } },
+    AVIS.map((a) => el("option", { value: a, text: a })));
+  avis.value = lastAvis;
+  const com = el("input", { type: "text", placeholder: "Commentaire / Raccord", autocomplete: "off" });
+  // Dans l'ordre du plateau : clap, puis avis et commentaire, puis enregistrer
+  return el("div", { class: "shoot-panel" },
+    el("button", { class: "btn-clap", type: "button", text: "🎬 Clap · prise " + next, onclick: () => playClap(p.seqId, p.id) }),
+    readOnly ? null : el("div", { class: "shoot-row" }, avis, com),
+    readOnly ? null : el("button", { class: "btn-save", type: "button", text: "ENREGISTRER PRISE " + next,
+      onclick: () => saveTake(p.seqId, p.id, avis.value, com.value) }),
+    renderTakeList(p.seqId, p.id));
+}
+
+function updateDashboard() {
+  const board = document.getElementById("statusBoard");
+  const controls = document.getElementById("takeControls");
+  if (activeSeq !== null && activePlan !== null) {
+    board.className = "status-board";
+    board.replaceChildren("SÉQ " + activeSeq + " | PLAN " + activePlan + " | ",
+      el("span", { class: "take-num", text: "PRISE " + nextTakeNum(activeSeq, activePlan) }));
+    controls.hidden = false;
+    document.getElementById("avis").value = lastAvis;
+    document.getElementById("avis").hidden = readOnly;
+    document.getElementById("com").hidden = readOnly;
+    document.getElementById("btnSave").hidden = readOnly;
+  } else {
+    board.className = "status-board inactive";
+    board.replaceChildren("SÉLECTIONNEZ UN PLAN", el("br"), "POUR TOURNER");
+    controls.hidden = true;
+  }
+}
+
+// --- NAVIGATION ---
+function activatePlan(seqId, planId, fromTournage) {
+  saveNow();
+  const same = activeSeq === seqId && activePlan === planId;
+  if (fromTournage) {
+    // Plan de travail : un appui ouvre le panneau de prise, un second le referme
+    activeSeq = same ? null : seqId;
+    activePlan = same ? null : planId;
+  } else {
+    openSeq = seqId;
+    openPlan = same && openPlan === planId ? null : planId;
+    activeSeq = seqId;
+    activePlan = planId;
+  }
+  render();
+}
+
+function setViewMode(mode) { saveNow(); viewMode = mode; render(); }
+
+// Renuméroter des plans ou séquences déjà tournés : le clap a joué les anciens numéros
+function confirmRenumber(affected) {
+  if (!affected) return true;
+  return confirm("⚠️ Des prises ont déjà été tournées sur les éléments renumérotés : leur clap audio garde l'ancien numéro, la synchronisation au montage ne les retrouvera plus.\n\nContinuer ?");
+}
+
+// --- SÉQUENCES ---
+function addSequence() {
+  if (readOnly) return;
+  const id = state.sequences.length ? Math.max(...state.sequences.map((s) => s.id)) + 1 : 1;
+  state.sequences.push({ id, info: "" });
+  openSeq = id;
+  commit();
+}
+
+function insertSeqBefore(target) {
+  if (readOnly || !confirmRenumber(hasTakes((t) => t.seqId >= target))) return;
+  state.sequences.filter((s) => s.id >= target).forEach((s) => s.id++);
+  state.plans.filter((p) => p.seqId >= target).forEach((p) => p.seqId++);
+  state.takes.filter((t) => t.seqId >= target).forEach((t) => t.seqId++);
+  state.tournageList.forEach((i) => { if (i.type === "plan" && i.seqId >= target) i.seqId++; });
+  state.sequences.push({ id: target, info: "" });
+  state.sequences.sort((a, b) => a.id - b.id);
+  if (activeSeq !== null && activeSeq >= target) activeSeq++;
+  openSeq = target;
+  commit();
+}
+
+function editSeqId(oldId) {
+  if (readOnly) return;
+  const str = prompt("Modifier le numéro de la Séquence " + oldId + " :", oldId);
+  if (!str) return;
+  const newId = parseInt(str, 10);
+  if (isNaN(newId) || newId <= 0) return alert("Numéro invalide.");
+  if (newId === oldId) return;
+  if (state.sequences.some((s) => s.id === newId)) return alert("Ce numéro de séquence existe déjà.");
+  if (!confirmRenumber(hasTakes((t) => t.seqId === oldId))) return;
+  state.sequences.find((s) => s.id === oldId).id = newId;
+  state.plans.filter((p) => p.seqId === oldId).forEach((p) => { p.seqId = newId; });
+  state.takes.filter((t) => t.seqId === oldId).forEach((t) => { t.seqId = newId; });
+  state.tournageList.filter((i) => i.type === "plan" && i.seqId === oldId).forEach((i) => { i.seqId = newId; });
+  state.sequences.sort((a, b) => a.id - b.id);
+  if (openSeq === oldId) openSeq = newId;
+  if (activeSeq === oldId) activeSeq = newId;
+  commit();
+}
+
+function deleteSeq(seqId) {
+  if (readOnly || !confirm("⚠️ SUPPRIMER LA SÉQUENCE " + seqId + " ? (Tous ses plans et leurs prises seront effacés)")) return;
+  state.sequences = state.sequences.filter((s) => s.id !== seqId);
+  state.plans = state.plans.filter((p) => p.seqId !== seqId);
+  state.takes = state.takes.filter((t) => t.seqId !== seqId);
+  state.tournageList = state.tournageList.filter((i) => !(i.type === "plan" && i.seqId === seqId));
+  commit();
+}
+
+// --- PLANS ---
+function addPlan(seqId, impro) {
+  if (readOnly) return;
+  const own = state.plans.filter((p) => p.seqId === seqId);
+  const id = own.length ? Math.max(...own.map((p) => p.id)) + 1 : 1;
+  state.plans.push({ seqId, id, impro, info: "", temps: "" });
+  state.tournageList.push({ type: "plan", seqId, planId: id });
+  openSeq = seqId; openPlan = id; activeSeq = seqId; activePlan = id;
+  commit();
+}
+
+function insertPlanBefore(seqId, target) {
+  if (readOnly || !confirmRenumber(hasTakes((t) => t.seqId === seqId && t.planId >= target))) return;
+  state.plans.filter((p) => p.seqId === seqId && p.id >= target).forEach((p) => p.id++);
+  state.takes.filter((t) => t.seqId === seqId && t.planId >= target).forEach((t) => t.planId++);
+  state.tournageList.forEach((i) => { if (i.type === "plan" && i.seqId === seqId && i.planId >= target) i.planId++; });
+  state.plans.push({ seqId, id: target, impro: 0, info: "", temps: "" });
+  state.plans.sort((a, b) => a.seqId - b.seqId || a.id - b.id);
+  // Dans le plan de travail, juste avant le plan qui suivait
+  const idx = state.tournageList.findIndex((i) => i.type === "plan" && i.seqId === seqId && i.planId === target + 1);
+  state.tournageList.splice(idx === -1 ? state.tournageList.length : idx, 0, { type: "plan", seqId, planId: target });
+  openSeq = seqId; openPlan = target; activeSeq = seqId; activePlan = target;
+  commit();
+}
+
+function deletePlan(seqId, planId) {
+  if (readOnly || !confirm("⚠️ SUPPRIMER LE PLAN " + planId + " ? (Ses prises seront effacées)")) return;
+  state.plans = state.plans.filter((p) => !(p.seqId === seqId && p.id === planId));
+  state.takes = state.takes.filter((t) => !(t.seqId === seqId && t.planId === planId));
+  state.tournageList = state.tournageList.filter((i) => !(i.type === "plan" && i.seqId === seqId && i.planId === planId));
+  commit();
+}
+
+// --- PLAN DE TRAVAIL ---
+function addGlobalSeparator() { if (readOnly) return; state.tournageList.push({ type: "sep", text: "" }); commit(); }
+function deleteGlobalSep(index) { if (readOnly) return; state.tournageList.splice(index, 1); commit(); }
+function moveTournageItem(from, to) {
+  if (readOnly || from === to || isNaN(from) || isNaN(to)) return;
+  const item = state.tournageList.splice(from, 1)[0];
+  state.tournageList.splice(to, 0, item);
+  commit();
+}
+
+// --- PRISES ---
+function playClap(seqId, planId) {
+  clapper.play(seqId, planId, nextTakeNum(seqId, planId));
+}
+
+function saveTake(seqId, planId, avis, com) {
+  if (readOnly || !findPlan(seqId, planId)) return;
+  saveNow();
+  lastAvis = avis;
+  state.takes.push({ uid: newUid(), seqId, planId, prise: nextTakeNum(seqId, planId), avis, com: com || "", timestamp: new Date().toISOString() });
+  if (viewMode === "decoupage") openPlan = planId;
+  commit();
+}
+
+function deleteTake(take) {
+  if (readOnly || !confirm("Supprimer la Prise " + take.prise + " ?")) return;
+  // Pas de renumérotation : le clap des prises suivantes a déjà été joué avec leur numéro
+  state.takes = state.takes.filter((t) => t !== take && t.uid !== take.uid);
+  commit();
+}
+
+// --- PDF (impression du navigateur) ---
+function exportPDF(mode) {
+  saveNow();
+  const area = document.getElementById("printArea");
+  const date = new Date().toLocaleDateString("fr-FR");
+  const head = (title) => [
+    el("div", { class: "print-title", text: title }),
+    el("div", { class: "print-subtitle" }, "PROJET : ", el("strong", { text: projectName() }), " | ÉDITÉ LE : " + date)];
+  const table = (cols) => {
+    const body = el("tbody");
+    return { body, node: el("table", {}, el("thead", {}, el("tr", {}, cols.map(([t, w]) => el("th", { text: t, style: w ? "width:" + w : null })))), body) };
+  };
+  if (mode === "tournage") {
+    const t = table([["SÉQ - PLAN", "12%"], ["DESCRIPTION / DÉCOUPAGE"], ["TEMPS", "12%"]]);
+    state.tournageList.forEach((i) => {
+      if (i.type === "sep") {
+        t.body.append(el("tr", {}, el("td", { colspan: 3, class: "print-sep-row", text: "--- " + (i.text || "SÉPARATEUR") + " ---" })));
+      } else {
+        const p = findPlan(i.seqId, i.planId);
+        if (p) t.body.append(el("tr", {},
+          el("td", {}, el("strong", { text: "S" + p.seqId + " - P" + p.id }), p.impro ? el("div", {}, el("i", { text: "(Impro)" })) : null),
+          el("td", { text: p.info || "" }), el("td", { text: p.temps || "" })));
+      }
+    });
+    area.replaceChildren(...head("Plan de tournage / Feuille de service"), t.node);
+  } else {
+    const t = table([["SÉQ", "6%"], ["PLAN", "6%"], ["DESCRIPTION / DÉCOUPAGE"]]);
+    state.sequences.forEach((seq) => {
+      t.body.append(el("tr", { class: "print-seq-row" },
+        el("td", {}, el("span", { class: "print-seq-num", text: String(seq.id) })), el("td"),
+        el("td", {}, el("span", { class: "print-seq-info", text: seq.info || "" }))));
+      state.plans.filter((p) => p.seqId === seq.id).sort((a, b) => a.id - b.id).forEach((p) => {
+        t.body.append(el("tr", {}, el("td"),
+          el("td", {}, el("strong", { text: String(p.id) }), p.impro ? el("div", {}, el("i", { text: "(Impro)" })) : null),
+          el("td", { text: p.info || "" })));
+      });
+    });
+    area.replaceChildren(...head("Découpage technique"), t.node);
+  }
+  window.print();
+}
+
+// --- GLISSER-DÉPOSER (plan de travail) ---
+function enableMouseDrag(node, index) {
+  node.draggable = true;
+  node.addEventListener("dragstart", (e) => {
+    if (e.target.closest && e.target.closest("input")) { e.preventDefault(); return; }
+    e.dataTransfer.setData("text/plain", String(index)); node.classList.add("dragging");
+  });
+  node.addEventListener("dragover", (e) => { e.preventDefault(); node.classList.add("drag-over"); });
+  node.addEventListener("dragleave", () => node.classList.remove("drag-over"));
+  node.addEventListener("drop", (e) => {
+    e.preventDefault(); node.classList.remove("drag-over");
+    moveTournageItem(parseInt(e.dataTransfer.getData("text/plain"), 10), index);
+  });
+  node.addEventListener("dragend", () => node.classList.remove("dragging"));
+}
+
+let draggedIndex = null, touchEl = null, placeholder = null;
+function handleTouchStart(e, index) {
+  draggedIndex = index;
+  touchEl = e.target.closest(".tournage-item");
+  const rect = touchEl.getBoundingClientRect();
+  placeholder = el("div", { class: "tournage-item placeholder" });
+  placeholder.style.height = rect.height + "px";
+  touchEl.parentNode.insertBefore(placeholder, touchEl);
+  Object.assign(touchEl.style, { position: "fixed", zIndex: "9999", width: rect.width + "px", top: rect.top + "px", left: rect.left + "px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.5)", pointerEvents: "none" });
+  document.body.style.overflow = "hidden";
+}
+function handleTouchMove(e) {
+  if (draggedIndex === null) return;
+  e.preventDefault();
+  const y = e.touches[0].clientY;
+  touchEl.style.top = (y - touchEl.offsetHeight / 2) + "px";
+  const target = document.elementFromPoint(e.touches[0].clientX, y);
+  document.querySelectorAll(".tournage-item").forEach((n) => n.classList.remove("drag-over"));
+  const over = target && target.closest(".tournage-item:not(.placeholder)");
+  if (over) over.classList.add("drag-over");
+}
+function handleTouchEnd(e) {
+  if (draggedIndex === null) return;
+  document.body.style.overflow = "";
+  const t = e.changedTouches[0];
+  const target = document.elementFromPoint(t.clientX, t.clientY);
+  const over = target && target.closest(".tournage-item:not(.placeholder)");
+  const from = draggedIndex;
+  draggedIndex = null; touchEl = null;
+  if (placeholder) { placeholder.remove(); placeholder = null; }
+  if (over) moveTournageItem(from, parseInt(over.getAttribute("data-index"), 10));
+  render();
+}
+
+// --- ÉVÉNEMENTS FIXES ---
+document.getElementById("avis").append(...AVIS.map((a) => el("option", { value: a, text: a })));
+document.getElementById("avis").addEventListener("change", (e) => { lastAvis = e.target.value; });
+document.getElementById("btnSave").addEventListener("click", () => {
+  if (activeSeq === null) return;
+  const com = document.getElementById("com");
+  saveTake(activeSeq, activePlan, document.getElementById("avis").value, com.value);
+  com.value = "";
+});
+document.getElementById("btnClap").addEventListener("click", () => { if (activeSeq !== null) playClap(activeSeq, activePlan); });
+document.getElementById("btnPdfTournage").addEventListener("click", () => exportPDF("tournage"));
+document.getElementById("btnPdfDecoupage").addEventListener("click", () => exportPDF("decoupage"));
+document.getElementById("btnModeDecoupage").addEventListener("click", () => setViewMode("decoupage"));
+document.getElementById("btnModeTournage").addEventListener("click", () => setViewMode("tournage"));
+document.getElementById("btnAddSeq").addEventListener("click", addSequence);
+
+// Une mise à jour venue d'ailleurs ne remplace pas le champ en cours de saisie :
+// elle est appliquée dès que l'on quitte le champ
+function isTyping() {
+  const a = document.activeElement;
+  return !!(a && a.classList && a.classList.contains("header-input"));
+}
+document.addEventListener("focusout", () => {
+  setTimeout(() => {
+    if (pendingRemote && !isTyping()) { state = pendingRemote; pendingRemote = null; render(); }
+  }, 0);
+});
+
+OneAppAPI.onDataChange((data) => {
+  clearTimeout(saveTimer); saveTimer = null;
+  const next = normalize(data);
+  if (isTyping()) { pendingRemote = next; return; }
+  state = next;
+  render();
+});
+OneAppAPI.onModeChange((value) => { saveNow(); readOnly = value; render(); });
+OneAppAPI.onNameChange && OneAppAPI.onNameChange(() => render());
+
+OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
+  state = normalize(app_data);
+  readOnly = value;
+  openSeq = state.sequences.length ? state.sequences[0].id : null;
+  render();
+});
+</script>
+</body>
+</html>

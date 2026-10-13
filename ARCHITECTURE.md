@@ -36,6 +36,7 @@ Choix assumés :
 | `Launcher.pdf` | Copié dans le Drive (`#Ouvrir One App.pdf`) : liens pour ouvrir One App depuis Drive, et `?download` qui ouvre la fenêtre d'installation |
 | `confidentialite.html` | Règles de confidentialité (lien discret dans One App, URL à donner à Google) |
 | `tests/` | Banc d'essai : Chromium + faux Google Drive (voir `tests/README.md`) |
+| `apps/` | Apps maintenues avec One App (ex. `apps/cinema-script/` : code à coller dans One App, doc, instructions de l'extension Premiere), testées par le banc d'essai |
 
 ## 3. Organisation dans Google Drive
 

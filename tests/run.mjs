@@ -1098,6 +1098,121 @@ await test("Conflit : copie de secours puis mode lecture ; le crayon permet de r
   eq(await page.evaluate(() => isAppReadOnly), false, 'réouverture en édition');
 });
 
+// --- Cinema Script (apps/cinema-script) ---
+const CINEMA = fs.readFileSync(path.join(ROOT, 'apps', 'cinema-script', 'cinema-script.html'), 'utf8');
+const cinemaData = () => JSON.parse(files.doc1.content).app_data;
+async function openCinema(page, data) {
+  files.app1.content = CINEMA;
+  if (data !== undefined) files.doc1.content = JSON.stringify({ oneapp_metadata: { app_name: 'Cinema Script', source_app_drive_id: 'app1' }, app_data: data });
+  await page.evaluate(() => openAppEnvironment('app1', 'Cinema Script', 'doc1', 'Doc'));
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForSelector('.acc-seq');
+  return frame;
+}
+const SHOOT = { v: 1, sequences: [{ id: 1, info: 'Cuisine' }, { id: 2, info: 'Rue' }],
+  plans: [{ seqId: 1, id: 1, impro: 0, info: 'Plan large', temps: '' }, { seqId: 2, id: 1, impro: 0, info: 'Travelling', temps: '' }],
+  takes: [], tournageList: [{ type: 'sep', text: 'Lundi' }, { type: 'plan', seqId: 2, planId: 1 }, { type: 'plan', seqId: 1, planId: 1 }] };
+
+await test("Cinema Script : clap identique à l'original (code et son)", async (page) => {
+  const ref = fs.readFileSync(path.join(TESTS_DIR, 'fixtures', 'cinema-clap-original.js'), 'utf8').split('\n').slice(3).join('\n').trim();
+  const mine = CINEMA.slice(CINEMA.indexOf('class DigitalClapper'), CINEMA.indexOf('const clapper = new DigitalClapper();')).trim();
+  eq(mine === ref, true, 'code de la classe identique');
+  const same = await page.evaluate(async ([a, b]) => {
+    window.addEventListener('unhandledrejection', e => e.preventDefault());
+    const render = async (src) => {
+      const C = new Function(src + '; return DigitalClapper;')();
+      const c = new C();
+      c.audioCtx = new OfflineAudioContext(1, 48000 * 4, 48000);
+      c.play(12, 3, 4);
+      return (await c.audioCtx.startRendering()).getChannelData(0);
+    };
+    const x = await render(a), y = await render(b);
+    let energy = 0; for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return 'différent à ' + i; energy += x[i] * x[i]; }
+    return energy > 1 ? 'ok' : 'silence';
+  }, [ref, mine]);
+  eq(same, 'ok', 'son rendu identique échantillon par échantillon');
+});
+
+await test("Cinema Script : nouveau document, séquence, plan et texte enregistrés ; nom du projet = nom du fichier", async (page) => {
+  const frame = await openCinema(page);
+  eq(await frame.textContent('#projName'), 'Doc', 'nom du projet');
+  await frame.fill('.acc-seq textarea', 'Intérieur jour');
+  await frame.click('.btn-add.impro');
+  await frame.fill('.acc-plan.active textarea', 'Gros plan');
+  await frame.click('#btnAddSeq');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  const d = cinemaData();
+  eq(d.sequences.map(s => [s.id, s.info]), [[1, 'Intérieur jour'], [2, '']], 'séquences');
+  eq(d.plans.map(p => [p.seqId, p.id, p.impro, p.info]), [[1, 1, 0, ''], [1, 2, 1, 'Gros plan']], 'plans');
+  eq(d.tournageList.length, 2, 'plan de travail');
+  if ('projectName' in d) throw new Error('le nom du projet ne doit pas être dans les données');
+});
+
+await test("Cinema Script : prise depuis le plan de travail (clap + enregistrer), sans renumérotation", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  await frame.evaluate(() => { window.__claps = []; clapper.play = (...a) => window.__claps.push(a); });
+  await frame.click('#btnModeTournage');
+  await frame.click('.tournage-item:nth-child(2) .t-open');           // SÉQ 2 - P 1, 1er dans l'ordre de tournage
+  await frame.click('.shoot-panel .btn-clap');
+  await frame.selectOption('.shoot-panel select', '⭐ MASTER (Parfaite)');
+  await frame.fill('.shoot-panel input', 'raccord verre');
+  await frame.click('.shoot-panel .btn-save');
+  await frame.click('.shoot-panel .btn-save');
+  await frame.click('.shoot-panel .btn-save');
+  eq(await frame.textContent('.shoot-panel .btn-save'), 'ENREGISTRER PRISE 4', 'prise suivante');
+  page.removeAllListeners('dialog'); page.on('dialog', d => d.accept());
+  await frame.click('.shoot-panel .take-item:nth-child(2) .btn-delete'); // supprime la prise 2
+  await frame.click('.shoot-panel .btn-clap');
+  eq(await frame.evaluate(() => window.__claps), [[2, 1, 1], [2, 1, 4]], 'claps joués (séq, plan, prise)');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  const takes = cinemaData().takes;
+  eq(takes.map(t => [t.seqId, t.planId, t.prise]), [[2, 1, 1], [2, 1, 3]], 'prises (pas de renumérotation)');
+  eq(takes[0].avis, '⭐ MASTER (Parfaite)', 'avis');
+  eq(takes[0].com, 'raccord verre', 'commentaire');
+  if (!takes.every(t => t.uid && t.timestamp)) throw new Error('uid/heure manquants');
+});
+
+await test("Cinema Script : lecture seule (clap possible, aucune modification) ; textes piégés affichés en texte", async (page) => {
+  const data = structuredClone(SHOOT);
+  data.sequences[0].info = '<img src=x onerror="parent.__pwned=1">';
+  data.takes.push({ uid: 'a', seqId: 1, planId: 1, prise: 1, avis: '✅ OK (Bonne)', com: '<b onclick=x>gras</b>', timestamp: '' });
+  const frame = await openCinema(page, data);
+  await page.evaluate(() => toggleAppMode());
+  await frame.waitForFunction(() => !document.querySelector('#btnAddSeq:not([hidden])'));
+  eq(await frame.$$eval('.btn-delete, .btn-add, .inline-actions', e => e.filter(x => x.offsetParent).length), 0, "pas d'action de modification");
+  await frame.click('#btnModeTournage');
+  await frame.click('.tournage-item:nth-child(3) .t-open');
+  eq(await frame.$$eval('.shoot-panel .btn-clap', e => e.length), 1, 'clap disponible');
+  eq(await frame.$$eval('.shoot-panel .btn-save', e => e.length), 0, 'pas de prise en lecture');
+  eq(await frame.textContent('.shoot-panel .take-com'), '<b onclick=x>gras</b>', 'commentaire affiché en texte');
+  await frame.click('#btnModeDecoupage');
+  eq(await frame.inputValue('.acc-seq textarea'), '<img src=x onerror="parent.__pwned=1">', 'info en texte');
+  eq(await frame.$$eval('img, b', e => e.length), 0, 'aucune balise injectée');
+});
+
+await test("Cinema Script : une mise à jour reçue pendant la saisie n'écrase pas le champ", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  await frame.click('.acc-seq textarea');
+  await page.keyboard.type(' — nuit');
+  const remote = structuredClone(SHOOT); remote.sequences[1].info = 'Rue (modifié ailleurs)';
+  await page.evaluate((d) => postToApp('RESTORE_DATA', d), remote);
+  await wait(200);
+  eq(await frame.inputValue('.acc-seq textarea'), 'Cuisine — nuit', 'saisie conservée');
+  await frame.click('#projName');                                      // sortie du champ
+  await frame.waitForFunction(() => state.sequences[1].info === 'Rue (modifié ailleurs)');
+});
+
+await test("Cinema Script : PDF avec le nom du projet", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  await frame.evaluate(() => { window.print = () => { window.__printed = document.getElementById('printArea').textContent; }; });
+  await frame.click('#btnPdfTournage');
+  const txt = await frame.evaluate(() => window.__printed);
+  if (!txt.includes('PROJET : Doc') || !txt.includes('--- Lundi ---') || txt.indexOf('S2 - P1') > txt.indexOf('S1 - P1')) throw new Error('PDF : ' + txt);
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
