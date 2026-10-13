@@ -217,6 +217,17 @@ propose d'ajouter le document à One App s'il n'y a pas encore accès (voir ci-d
 crée des raccourcis vers l'app et le document (sauf s'ils lui appartiennent), puis ouvre
 le document. Les droits (lecture / édition) sont ceux du fichier Drive.
 
+### Écriture simultanée
+Si le document ouvert a changé ailleurs pendant qu'on le modifiait, `resolveConflict`
+crée une copie de secours, affiche la version du Cloud **et passe en mode lecture**
+(quelqu'un y écrit sans doute) ; le crayon permet de reprendre la main, et la prochaine
+ouverture repart en édition. (Pas de mode lecture pour une reprise d'envoi depuis
+l'accueil, `syncPendingDocs` : on n'est pas dans le document.)
+
+### Télécharger une copie
+Menu ⋮ du document → `downloadDocCopy` : le `.onefile` (métadonnées + dernières données
+connues) est enregistré sur l'appareil. Fonctionne hors-ligne.
+
 ## 7. Le contrat app ↔ One App
 
 Référence complète : la constante `ONEAPP_RULES` (c'est aussi le texte donné aux IA).
@@ -225,17 +236,18 @@ API disponible dans l'app (`window.OneAppAPI`, injectée par `oneAppBridge`) :
 
 | Fonction | Rôle |
 |---|---|
-| `loadData()` → `{ app_data, readOnly }` | Au démarrage ; `app_data` vaut `[]` pour un nouveau document |
+| `loadData()` → `{ app_data, readOnly, name }` | Au démarrage ; `app_data` vaut `[]` pour un nouveau document |
 | `saveData(state)` | Après chaque modification, avec l'état complet |
 | `onDataChange(cb)` | Données remplacées de l'extérieur (annuler, historique, autre appareil) |
 | `onModeChange(cb)` | Passage en lecture seule / édition |
+| `getFileName()` / `onNameChange(cb)` | Nom du document (= nom du projet), renommage |
 
 Messages `postMessage` entre l'app et One App :
 
 | Sens | Type |
 |---|---|
 | app → One App | `LOAD_DATA_REQUEST`, `SAVE_DATA_REQUEST`, `UNDO_REQUEST`, `REDO_REQUEST` |
-| One App → app | `LOAD_DATA_RESPONSE`, `RESTORE_DATA`, `SET_READ_ONLY` |
+| One App → app | `LOAD_DATA_RESPONSE`, `RESTORE_DATA`, `SET_READ_ONLY`, `SET_NAME` |
 
 Compatibilité : les anciennes apps utilisent `window.OneAppInternal_OnRestore` et
 `window.OneAppInternal_OnModeChange`. Le pont les appelle toujours.

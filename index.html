@@ -1088,6 +1088,7 @@
                         <button class="show-on-mobile" onclick="openShareModal()"><svg class="i"><use href="#u-person-add"/></svg>Partager</button>
                         <button id="btn-create-copy" onclick="duplicateActiveFile()"><svg class="i"><use href="#u-copy"/></svg><span>Créer une copie</span></button>
                         <button onclick="showDataHistory()"><svg class="i"><use href="#u-history"/></svg>Versions précédentes</button>
+                        <button id="btn-download-copy" onclick="downloadDocCopy()"><svg class="i"><use href="#u-download"/></svg>Télécharger une copie</button>
                         <button class="install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Télécharger l'App</button>
                         <hr>
                         <button onclick="closeApp()"><svg class="i"><use href="#u-close"/></svg>Fermer le document</button>
@@ -3011,6 +3012,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 });
                 console.log("MOTEUR : Nom du fichier mis à jour avec succès.");
                 currentDocInfo.fileName = newName;
+                postToApp('SET_NAME', newName); // le nom du document est le nom du projet dans l'app
             } catch (e) {
                 console.error("Erreur renommage en direct :", e);
                 alert("Le fichier n'a pas pu être renommé (" + e.message + ").");
@@ -3086,6 +3088,7 @@ One App fournit automatiquement l'objet window.OneAppAPI :
 - OneAppAPI.saveData(state) → à appeler après CHAQUE modification faite par l'utilisateur, avec l'état COMPLET. One App gère le délai, l'historique et Google Drive. Ne l'appelle pas au démarrage.
 - OneAppAPI.onDataChange(callback) → callback(data) est appelé quand les données sont remplacées de l'extérieur (Annuler/Rétablir, historique des versions, modification depuis un autre appareil). Remplace state par data et redessine tout l'écran. N'appelle pas saveData dans ce callback.
 - OneAppAPI.onModeChange(callback) → callback(readOnly) est appelé quand le mode lecture seule change. En lecture seule, désactive tout ce qui modifie les données.
+- OneAppAPI.getFileName() → nom du document ouvert (sans extension), disponible après loadData(). C'est le nom du projet : ne demande jamais de nom de projet à l'utilisateur, ne le stocke pas dans state ; utilise-le pour les titres, PDF et fichiers exportés. OneAppAPI.onNameChange(callback) → callback(nom) quand le document est renommé.
 - N'implémente pas ton propre Annuler/Rétablir : One App s'en charge (boutons et Ctrl+Z).
 
 5. SQUELETTE OBLIGATOIRE
@@ -3096,7 +3099,9 @@ window.OneAppAPI = window.OneAppAPI || {
   loadData: async () => ({ app_data: [], readOnly: false }),
   saveData: (data) => console.log("[Test] saveData", data),
   onDataChange: () => {},
-  onModeChange: () => {}
+  onModeChange: () => {},
+  getFileName: () => "Document de test",
+  onNameChange: () => {}
 };
 
 const DEFAULT_STATE = { /* structure de départ des données */ };
@@ -3186,6 +3191,8 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
         function oneAppBridge() {
             const dataListeners = [];
             const modeListeners = [];
+            const nameListeners = [];
+            let fileName = '';
             const send = (type, payload) => window.parent.postMessage({ type: type, payload: payload }, '*');
             const notify = (listeners, value) => listeners.forEach((cb) => {
                 try { cb(value); } catch (e) { console.error('[One App]', e); }
@@ -3197,6 +3204,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                         const listener = function (event) {
                             if (event.source !== window.parent || !event.data || event.data.type !== 'LOAD_DATA_RESPONSE') return;
                             window.removeEventListener('message', listener);
+                            if (event.data.payload && typeof event.data.payload.name === 'string') fileName = event.data.payload.name;
                             resolve(event.data.payload);
                         };
                         window.addEventListener('message', listener);
@@ -3209,6 +3217,9 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 },
                 onDataChange: function (cb) { if (typeof cb === 'function') dataListeners.push(cb); },
                 onModeChange: function (cb) { if (typeof cb === 'function') modeListeners.push(cb); },
+                // Nom du document ouvert (sans extension) : c'est le nom du projet
+                getFileName: function () { return fileName; },
+                onNameChange: function (cb) { if (typeof cb === 'function') nameListeners.push(cb); },
                 askGemini: function () { console.warn("[One App] askGemini n'est pas disponible."); }
             };
 
@@ -3218,6 +3229,10 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                     notify(dataListeners, event.data.payload);
                     // Compatibilité avec les apps créées avant onDataChange
                     if (typeof window.OneAppInternal_OnRestore === 'function') window.OneAppInternal_OnRestore(event.data.payload);
+                }
+                if (event.data.type === 'SET_NAME') {
+                    fileName = String(event.data.payload || '');
+                    notify(nameListeners, fileName);
                 }
                 if (event.data.type === 'SET_READ_ONLY') {
                     notify(modeListeners, event.data.payload);
@@ -3265,7 +3280,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 event.source.postMessage({
                     type: 'LOAD_DATA_RESPONSE',
                     // localContent = dernières données connues (modifs locales comprises)
-                    payload: { readOnly: isAppReadOnly || isViewingHistory, app_data: localContent !== null ? localContent : (window.currentLoadedAppData || []) }
+                    payload: { readOnly: isAppReadOnly || isViewingHistory, app_data: localContent !== null ? localContent : (window.currentLoadedAppData || []), name: currentDocInfo.fileName || '' }
                 }, '*');
             }
             else if (event.data.type === 'UNDO_REQUEST') {
@@ -3297,6 +3312,27 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
         });
 
         // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
+        function postToApp(type, payload) {
+            const iframe = document.querySelector('#iframe-container iframe');
+            if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({ type: type, payload: payload }, '*');
+        }
+
+        // Copie de sécurité du document ouvert, enregistrée sur l'appareil (fonctionne
+        // hors-ligne : ce sont les dernières données connues, modifications comprises)
+        function downloadDocCopy() {
+            document.getElementById('execution-header-menu').classList.remove('active');
+            if (!currentActiveOneFileId || !currentOneFileMetadata) return;
+            const data = localContent !== null ? localContent : (window.currentLoadedAppData || []);
+            const json = JSON.stringify({ oneapp_metadata: currentOneFileMetadata, app_data: data }, null, 2);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+            a.download = (currentDocInfo.fileName || 'Document') + '.onefile';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        }
+
         function appUndo() {
             if (isAppReadOnly || isViewingHistory || appDataCurrentIndex <= 0) return;
             appDataCurrentIndex--;
@@ -3509,7 +3545,16 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             if (fileId !== currentActiveOneFileId) return;
             applyRemoteData(freshOneFileJson.app_data || [], remote);
 
-            alert("Copie de secours créée. Vous visualisez maintenant la dernière version du Cloud.");
+            // Quelqu'un d'autre écrit en même temps : on passe en lecture pour suivre son
+            // avancée sans réécrire par-dessus. Le crayon permet de reprendre la main ;
+            // à la prochaine ouverture du document, on est de nouveau en édition.
+            if (docCanEdit && !isAppReadOnly) {
+                isAppReadOnly = true;
+                renderModeButton();
+                postToApp('SET_READ_ONLY', true);
+            }
+
+            alert("Copie de secours créée. Vous voyez maintenant la dernière version du Cloud, en lecture : quelqu'un d'autre y écrit peut-être en ce moment. Appuyez sur le crayon pour modifier à nouveau.");
         }
 
         // Enregistre immédiatement ce qui est en attente. Renvoie false si

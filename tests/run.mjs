@@ -1051,6 +1051,53 @@ await test("App : téléchargement d'un export et fenêtre d'impression autoris�
   eq(await frame.evaluate(() => { try { return String(parent.document.title); } catch (e) { return 'bloqué'; } }), 'bloqué', 'accès à One App');
 });
 
+// --- Nom du document, copie téléchargée, lecture après conflit ---
+await test("API : nom du document disponible dans l'app et mis à jour au renommage", async (page) => {
+  const frame = await openDoc(page);
+  eq(await frame.evaluate(() => OneAppAPI.getFileName()), 'Doc', 'nom au chargement');
+  await frame.evaluate(() => { window.__names = []; OneAppAPI.onNameChange(n => window.__names.push(n)); });
+  await page.fill('#running-file-title', 'Tournage Lundi');
+  await page.evaluate(() => renameActiveFile());
+  await frame.waitForFunction(() => window.__names.length === 1);
+  eq(await frame.evaluate(() => [OneAppAPI.getFileName(), window.__names]), ['Tournage Lundi', ['Tournage Lundi']], 'après renommage');
+});
+
+await test("Télécharger une copie : .onefile complet, même hors-ligne", async (page) => {
+  const frame = await openDoc(page);
+  await save(frame, ['non-envoyé']);
+  await page.context().setOffline(true);
+  const dl = page.waitForEvent('download', { timeout: 3000 });
+  await page.evaluate(() => downloadDocCopy());
+  const d = await dl;
+  eq(d.suggestedFilename(), 'Doc.onefile', 'nom du fichier');
+  const json = JSON.parse(fs.readFileSync(await d.path(), 'utf8'));
+  eq(json.app_data, ['non-envoyé'], 'données (modifications locales comprises)');
+  eq(json.oneapp_metadata.source_app_drive_id, 'app1', 'métadonnées');
+  await page.context().setOffline(false);
+});
+
+await test("Conflit : copie de secours puis mode lecture ; le crayon permet de réécrire", async (page) => {
+  const frame = await openSkeleton(page);
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: { count: 7 } }));
+  await frame.click('#b');
+  await page.waitForFunction(() => isAppReadOnly === true, null, { timeout: 8000 });
+  if (!Object.values(files).some(f => f.name.includes('secours'))) throw new Error('pas de copie de secours');
+  eq(await frame.evaluate(() => [document.body.dataset.count, document.body.dataset.ro]), ['7', 'true'], 'version du Cloud, en lecture');
+  await frame.click('#b');                // ignoré en lecture
+  await wait(300);
+  eq(JSON.parse(files.doc1.content).app_data, { count: 7 }, 'rien écrit en lecture');
+  await page.click('#toggle-readonly-btn');
+  await frame.waitForFunction(() => document.body.dataset.ro === 'false', null, { timeout: 2000 }).catch(() => {});
+  eq(await frame.evaluate(() => document.body.dataset.ro), 'false', 'édition après le crayon');
+  await frame.click('#b');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  // (l'app de test incrémente son état local même en lecture, sans l'envoyer : 7 → 8 → 9)
+  eq(JSON.parse(files.doc1.content).app_data, { count: 9 }, 'écriture reprise');
+  await openSkeleton(page);
+  eq(await page.evaluate(() => isAppReadOnly), false, 'réouverture en édition');
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
