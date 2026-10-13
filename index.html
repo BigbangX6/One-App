@@ -250,6 +250,8 @@
         .rec-head h2 > span:not(.app-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rec-head h2 .app-icon { width: 30px; height: 30px; border-radius: 9px; font-size: 16px; }
         .rec-head .acts { display: flex; gap: 8px; }
+        .quiet-link { border: none; background: none; color: var(--muted); font-size: 12px; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; opacity: 0.8; }
+        .quiet-link:hover { color: var(--fg); opacity: 1; }
         .pill { height: 34px; border-radius: 17px; border: none; padding: 0 14px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
         .pill .i { width: 17px; height: 17px; margin-left: -3px; }
         .pill.fill { background: var(--accent); color: var(--on-accent); }
@@ -1088,7 +1090,7 @@
                         <button class="show-on-mobile" onclick="openShareModal()"><svg class="i"><use href="#u-person-add"/></svg>Partager</button>
                         <button id="btn-create-copy" onclick="duplicateActiveFile()"><svg class="i"><use href="#u-copy"/></svg><span>Créer une copie</span></button>
                         <button onclick="showDataHistory()"><svg class="i"><use href="#u-history"/></svg>Versions précédentes</button>
-                        <button id="btn-download-copy" onclick="downloadDocCopy()"><svg class="i"><use href="#u-download"/></svg>Télécharger une copie</button>
+                        <button id="btn-download-copy" onclick="downloadDocCopy()"><svg class="i"><use href="#u-download"/></svg>Exporter le document (.onefile)</button>
                         <button class="install-link" onclick="openInstallSheet()"><svg class="i"><use href="#u-install"/></svg>Télécharger l'App</button>
                         <hr>
                         <button onclick="closeApp()"><svg class="i"><use href="#u-close"/></svg>Fermer le document</button>
@@ -2453,7 +2455,7 @@
             let fromDevice = isOffline();
             if (!fromDevice) {
                 try {
-                    data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`);
+                    data = await driveJson(`${DRIVE_API_URL}?q=${query}&fields=files(id, name, parents, description, mimeType, shortcutDetails, appProperties)&orderBy=${encodeURIComponent('viewedByMeTime desc, modifiedTime desc')}`);
                 } catch (e) {
                     console.error("Erreur chargement des applications :", e);
                     if (!isNetworkError(e)) {
@@ -2507,6 +2509,8 @@
                     icon: file.description || '',
                     folderId: file.parents ? file.parents[0] : null,
                     shared: shared,
+                    // App « pointeur » : code sur GitHub ('github') ou app d'un autre utilisateur ('drive')
+                    source: (file.appProperties && file.appProperties.oneapp_source) || null,
                     // Hors-ligne, une app jamais ouverte sur cet appareil n'est pas disponible
                     available: !availableApps || availableApps.has(id)
                 };
@@ -2647,7 +2651,9 @@
                         h('button', { class: 'x-btn', title: 'Tous les documents', 'aria-label': 'Revenir à tous les documents', onclick: () => selectApp(app.id) }, icon('close'))),
                     h('div', { class: 'acts' },
                         h('button', { class: 'pill fill', id: 'new-doc-btn', onclick: () => createNewFile(app.id, app.name, app.folderId) }, icon('add'), 'Nouveau document'),
-                        app.shared ? null : h('button', { class: 'pill soft', id: 'edit-app-btn', onclick: () => openAppEditor(app.id, app.name) }, icon('code'), "Modifier l'app")));
+                        h('button', { class: 'pill soft', id: 'edit-app-btn', onclick: () => openAppEditor(app.id, app.name) }, icon('code'), "Modifier l'app"),
+                        // Rarement utile : avec drive.file, un .onefile ajouté à la main dans Drive est invisible
+                        home.fromDevice ? null : h('button', { class: 'quiet-link', id: 'import-doc-btn', title: 'Importer un fichier .onefile dans cette app', onclick: () => importDocFile(app) }, 'Importer…')));
             } else {
                 head.replaceChildren(h('h2', {}, h('span', { id: 'rec-title', text: home.fromDevice ? 'Sur cet appareil' : 'Récents' })));
             }
@@ -2889,6 +2895,8 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                 const result = h('div');
                 const go = h('button', { class: 'btn fill', id: 'create-app-go', disabled: true }, "Créer l'app");
                 let html = null;
+                let github = null;   // app publiée sur GitHub : lien collé à la place du code
+                let pasteSeq = 0;
 
                 copyBtn.addEventListener('click', async () => {
                     const ok = await copyText(buildCreationPrompt());
@@ -2896,12 +2904,36 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     setTimeout(() => copyBtn.replaceChildren(icon('copy'), 'Copier les règles'), 2200);
                 });
 
-                field.addEventListener('input', () => {
+                field.addEventListener('input', async () => {
                     html = null;
+                    github = null;
+                    const seq = ++pasteSeq;
                     result.replaceChildren();
                     const text = field.value.trim();
                     go.disabled = true;
                     if (!text) return;
+                    const gh = githubSourceFromText(text);
+                    if (gh) {
+                        result.append(h('div', { class: 'found', text: 'Lecture du fichier sur GitHub…' }));
+                        let code;
+                        try { code = await fetchGithubHtml(gh.url, 15000); }
+                        catch (e) {
+                            if (seq !== pasteSeq) return;
+                            return result.replaceChildren(h('div', { class: 'err', text: `Fichier introuvable sur GitHub (${e.message}). Le dépôt doit être public.` }));
+                        }
+                        if (seq !== pasteSeq) return;
+                        result.replaceChildren();
+                        if (!/<!doctype html|<html[\s>]/i.test(code)) return result.append(h('div', { class: 'err', text: "Ce fichier GitHub n'est pas une page HTML." }));
+                        html = code;
+                        github = gh;
+                        go.disabled = false;
+                        const info = readAppMeta(html);
+                        result.append(h('div', { class: 'found' }, appIconEl({ id: info.name, icon: info.icon }, false),
+                            h('span', {}, "App GitHub trouvée : ", h('b', { text: info.name }), h('br'), h('small', { text: 'Elle suivra les mises à jour publiées sur GitHub.' }))));
+                        const problems = checkAppHtml(html);
+                        if (problems.length) result.append(h('div', { class: 'warn' }, h('b', { text: 'Attention' }), h('ul', {}, problems.map(p => h('li', { text: p })))));
+                        return;
+                    }
                     const extracted = extractAppHtml(text);
                     if (!/<!doctype html|<html[\s>]/i.test(extracted)) {
                         result.append(h('div', { class: 'err', text: "Je ne trouve pas de code d'app dans ce texte. Collez toute la réponse de l'IA." }));
@@ -2922,7 +2954,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     go.disabled = true;
                     go.textContent = 'Création...';
                     try {
-                        const created = await installApp(html);
+                        const created = github ? await installGithubApp(github, html) : await installApp(html);
                         close();
                         home.sel = created.id;
                         home.q = '';
@@ -2943,7 +2975,7 @@ MON BESOIN : Je veux une application de [DÉCRIVEZ VOTRE BESOIN ICI].`;
                     h('p', { class: 'lead', text: "Décrivez l'outil de vos rêves à une IA. One App l'enregistre dans votre Drive." }),
                     step(1, 'Copiez les règles de création', 'Elles expliquent à l’IA comment fabriquer une app compatible.', copyBtn),
                     step(2, 'Collez-les dans votre IA et décrivez votre app', 'ChatGPT, Claude, Gemini… Remplacez la dernière ligne par votre besoin.'),
-                    step(3, 'Collez sa réponse ici', 'Le texte autour du code est retiré tout seul.', field, result),
+                    step(3, 'Collez sa réponse ici', 'Le texte autour du code est retiré tout seul. Une app publiée sur GitHub ? Collez simplement le lien de son fichier HTML.', field, result),
                     h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: close }, 'Annuler'), go));
             });
         }
@@ -3141,7 +3173,10 @@ OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
 - Hors-ligne, seules les bibliothèques externes déjà chargées par le navigateur restent disponibles : préfère du code sans dépendance quand c'est simple.
 - Formulaires : dans l'événement "submit", appelle toujours event.preventDefault() (sinon la page de l'app se recharge).
 
-7. MÉMOIRE POUR LES FUTURES MODIFICATIONS
+7. PUBLICATION SUR GITHUB (facultatif)
+Si l'app est développée dans un dépôt GitHub PUBLIC (par exemple avec Claude Code), il suffit de donner à l'utilisateur le lien GitHub du fichier HTML, sous la forme https://github.com/<compte>/<dépôt>/blob/<branche>/<chemin>.html : il le colle dans One App (Créer une app) à la place du code. One App suit alors la branche : chaque mise à jour poussée sur GitHub est utilisée à la prochaine ouverture (après quelques minutes de cache GitHub). Le fichier doit rester un fichier HTML complet, conforme à ces règles.
+
+8. MÉMOIRE POUR LES FUTURES MODIFICATIONS
 Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : le but de l'app, la structure exacte de state, et les choix importants. Mets-le à jour à chaque modification. N'y mets aucune donnée personnelle (le code de l'app est partagé par lien).`;
 
         // Nouveau document « Sans titre », ouvert aussitôt avec son nom sélectionné
@@ -3696,21 +3731,25 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                     // Récupération du vrai nom de l'app
                     // (ownedByMe évite un doublon de raccourci si l'app m'appartient déjà)
                     // Nom de l'app : à défaut (app illisible), celui noté dans le document
-                    let appMeta = { name: appName + '.oneapp', ownedByMe: false };
+                    let appMeta = { name: appName + '.oneapp', ownedByMe: false, description: '' };
                     try {
-                        appMeta = await (await readDriveFile(sourceAppId, 'fields=name,ownedByMe')).json();
+                        appMeta = await (await readDriveFile(sourceAppId, 'fields=name,ownedByMe,description')).json();
                     } catch (e) {
                         console.warn("Nom de l'app partagée illisible :", e.message);
                     }
                     let realAppName = appMeta.name.replace('.oneapp', '');
                     let ownsApp = appMeta.ownedByMe === true;
 
-                    let appShortcutName = realAppName + ".oneapp";
                     let dataShortcutName = fileMeta.name;
 
                     if (!ownsApp) {
-                        // Raccourci de l'app dans le dossier de l'app
-                        await createShortcutIfNeeded(sourceAppId, appFolderId, appShortcutName);
+                        // L'app dans « mon » espace : un pointeur vers l'app d'origine (un raccourci
+                        // Drive est refusé avec drive.file : One App n'a pas accès au fichier)
+                        try {
+                            await ensureSharedAppPointer(sourceAppId, appFolderId, realAppName, appMeta.description || '');
+                        } catch (e) {
+                            console.error("Ajout de l'app partagée impossible :", e);
+                        }
                     }
                     
                     // Raccourci des données dans le dossier de l'app
@@ -3920,15 +3959,175 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 return cached.html;
             }
 
+            let source;
             if (hasCopy && version && cached.version === version) {
-                console.log("MOTEUR : app à jour sur l'appareil, pas de téléchargement.");
-                return cached.html;
+                if (!cached.source) {
+                    console.log("MOTEUR : app à jour sur l'appareil, pas de téléchargement.");
+                    return cached.html;
+                }
+                source = cached.source; // pointeur inchangé : le code est ailleurs (GitHub, autre Drive)
+            } else {
+                const text = await (await readDriveFile(appFileId, 'alt=media')).text();
+                source = parseAppPointer(text);
+                if (!source) {
+                    cacheAppHtml(appFileId, text, version, null);
+                    return text;
+                }
             }
-
-            const html = await (await readDriveFile(appFileId, 'alt=media')).text();
-            localStore.put('apps', { appFileId: appFileId, html: html, version: version, cachedAt: Date.now() })
-                .catch((e) => console.warn("Mise en cache de l'app impossible :", e && e.message));
+            const html = await resolveAppPointer(source, cached && cached.source ? cached.html : null);
+            cacheAppHtml(appFileId, html, version, source);
             return html;
+        }
+
+        function cacheAppHtml(appFileId, html, version, source) {
+            localStore.put('apps', { appFileId: appFileId, html: html, version: version, source: source, cachedAt: Date.now() })
+                .catch((e) => console.warn("Mise en cache de l'app impossible :", e && e.message));
+        }
+
+        // Import manuel d'un .onefile (rare) : avec drive.file, un fichier déposé à la main
+        // dans Drive est invisible pour One App. On en crée une copie dans le dossier de l'app.
+        function importDocFile(app) {
+            if (!requireOnline("Importer un document")) return;
+            const input = h('input', { type: 'file', accept: '.onefile,application/json' });
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                let json;
+                try { json = JSON.parse(await file.text()); } catch (e) { json = null; }
+                if (!json || typeof json !== 'object' || !('app_data' in json)) {
+                    return alert("Ce fichier n'est pas un document One App (.onefile).");
+                }
+                const from = json.oneapp_metadata && json.oneapp_metadata.app_name;
+                if (from && from !== app.name && !confirm(`Ce document a été créé avec « ${from} ». L'importer quand même dans « ${app.name} » ?`)) return;
+                const name = file.name.replace(/\.(onefile|json)$/i, '').trim() || 'Document importé';
+                try {
+                    await createOneFile(name, app.folderId, app.name, app.id, json.app_data);
+                    await listInstalledApps();
+                    showToast(`« ${name} » importé`);
+                } catch (e) {
+                    console.error(e);
+                    alert("L'import a échoué (" + e.message + ").");
+                }
+            });
+            input.click();
+        }
+
+        // --- APPS « POINTEUR » : CODE SUR GITHUB OU CHEZ UN AUTRE UTILISATEUR ---
+        // Un .oneapp peut contenir, au lieu du HTML, un petit JSON qui dit où est le code :
+        //   { "oneapp_pointer": 1, "source": "github", "url": "https://raw.githubusercontent.com/…", "page": "https://github.com/…" }
+        //   { "oneapp_pointer": 1, "source": "drive", "fileId": "<id du .oneapp d'un autre utilisateur>" }
+        // GitHub : la branche est suivie. À chaque ouverture, le navigateur revalide le fichier
+        // (requête conditionnelle, quasi gratuite s'il n'a pas changé) : une mise à jour publiée
+        // est prise dès que le cache de GitHub l'expose (quelques minutes). Réseau absent ou trop
+        // lent : copie de l'appareil. Drive : app partagée par lien, lue en public (clé API) ;
+        // un raccourci Drive vers elle est impossible avec drive.file.
+        // Le type est aussi noté dans les propriétés Drive du fichier (oneapp_source), pour
+        // l'accueil, sans télécharger son contenu.
+        const GITHUB_TIMEOUT_MS = 2500;
+
+        function parseAppPointer(text) {
+            const t = (text || '').trim();
+            if (!t.startsWith('{')) return null;
+            try {
+                const p = JSON.parse(t);
+                if (!p || p.oneapp_pointer !== 1) return null;
+                if (p.source === 'github' && /^https:\/\/raw\.githubusercontent\.com\//.test(p.url || '')) return p;
+                if (p.source === 'drive' && typeof p.fileId === 'string' && p.fileId) return p;
+            } catch (e) {}
+            return null;
+        }
+
+        // Lien GitHub d'un fichier HTML → adresse brute. Accepte
+        // github.com/<compte>/<dépôt>/blob/<branche>/<chemin> et raw.githubusercontent.com/…
+        function githubSourceFromText(text) {
+            const t = (text || '').trim();
+            if (/\s/.test(t)) return null;
+            let m = t.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(?:blob|raw)\/(.+\.html?)(?:[?#].*)?$/i);
+            if (m) return { oneapp_pointer: 1, source: 'github', url: `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`, page: `https://github.com/${m[1]}/${m[2]}/blob/${m[3]}` };
+            m = t.match(/^https:\/\/raw\.githubusercontent\.com\/([\w.-]+)\/([\w.-]+)\/(.+\.html?)(?:[?#].*)?$/i);
+            if (m) return { oneapp_pointer: 1, source: 'github', url: `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`, page: `https://github.com/${m[1]}/${m[2]}/blob/${m[3].replace(/^refs\/heads\//, '')}` };
+            return null;
+        }
+
+        async function fetchGithubHtml(url, timeoutMs) {
+            const ctrl = new AbortController();
+            const timer = timeoutMs ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+            try {
+                // no-cache : revalidation systématique (304 si inchangé, sans retélécharger)
+                const res = await fetch(url, { cache: 'no-cache', signal: ctrl.signal });
+                if (!res.ok) throw new DriveError(`GitHub a répondu ${res.status}`, res.status);
+                return await res.text();
+            } catch (e) {
+                if (e instanceof DriveError) throw e;
+                throw new DriveError("GitHub injoignable", 0);
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        async function resolveAppPointer(source, fallbackHtml) {
+            if (source.source === 'drive') return loadAppHtml(source.fileId);
+            try {
+                return await fetchGithubHtml(source.url, fallbackHtml ? GITHUB_TIMEOUT_MS : 0);
+            } catch (e) {
+                if (!fallbackHtml) throw e;
+                console.warn("GitHub indisponible, copie de l'appareil utilisée :", e.message);
+                return fallbackHtml;
+            }
+        }
+
+        // Crée un .oneapp pointeur dans « One App/<nom> » et le rend lisible par lien
+        async function createPointerApp(name, icon, source, folderId) {
+            const metadata = {
+                name: `${name}.oneapp`, mimeType: 'application/json', parents: [folderId || await getOrCreateFolder(name, rootFolderId)], description: icon || '',
+                appProperties: source.source === 'drive' ? { oneapp_source: 'drive', oneapp_target: source.fileId } : { oneapp_source: 'github' }
+            };
+            const created = await driveCreateFile(metadata, JSON.stringify(source), 'application/json');
+            await makeFilePublic(created.id);
+            return created;
+        }
+
+        // Installe une app publiée sur GitHub : seul le lien est enregistré dans Drive
+        async function installGithubApp(source, html) {
+            const info = readAppMeta(html);
+            const created = await createPointerApp(info.name, info.icon, source, null);
+            cacheAppHtml(created.id, html, null, source); // première ouverture immédiate
+            return { id: created.id, name: info.name };
+        }
+
+        // App partagée par un autre utilisateur : pointeur vers son .oneapp (une fois par app)
+        async function ensureSharedAppPointer(sourceAppId, folderId, name, icon) {
+            const q = encodeURIComponent(`appProperties has { key='oneapp_target' and value='${escapeDriveQuery(sourceAppId)}' } and trashed = false`);
+            const existing = await driveJson(`${DRIVE_API_URL}?q=${q}&fields=files(id)`);
+            if (existing.files && existing.files.length) return existing.files[0].id;
+            const created = await createPointerApp(name, icon, { oneapp_pointer: 1, source: 'drive', fileId: sourceAppId }, folderId);
+            return created.id;
+        }
+
+        // Modifier une app qui n'est pas à soi (GitHub, app partagée) : on propose une copie
+        function confirmOwnCopy(app) {
+            const where = app.source === 'github' ? 'est publiée sur GitHub' : "appartient à un autre utilisateur";
+            return new Promise((resolve) => {
+                openDialog((dialog, close) => {
+                    const done = (v) => { close(); resolve(v); };
+                    dialog.append(
+                        dialogTitle("Modifier l'app", () => done(false)),
+                        h('p', { class: 'lead', text: `« ${app.name} » ${where} : vous ne pouvez pas la modifier directement. Créez votre propre copie, enregistrée dans votre Drive ; vous pourrez la modifier librement.` }),
+                        h('div', { class: 'actions' },
+                            h('button', { class: 'btn ghost', onclick: () => done(false) }, 'Annuler'),
+                            h('button', { class: 'btn fill', id: 'own-copy-go', onclick: () => done(true) }, icon('copy'), 'Créer ma copie')));
+                });
+            });
+        }
+
+        async function createOwnAppCopy(app) {
+            const html = await loadAppHtml(app.id);
+            const name = `${app.name} (copie)`;
+            const safe = name.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            const renamed = /<title[^>]*>[\s\S]*?<\/title>/i.test(html)
+                ? html.replace(/<title([^>]*)>[\s\S]*?<\/title>/i, `<title$1>${safe}</title>`)
+                : html.replace(/<head([^>]*)>/i, `<head$1><title>${safe}</title>`);
+            return installApp(renamed);
         }
 
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
@@ -4521,6 +4720,24 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
 
         async function openAppEditor(fileId, appName) {
             if (!requireOnline("Modifier une app")) return;
+            const app = appById(fileId);
+            if (app && (app.shared || app.source)) {
+                if (!(await confirmOwnCopy(app))) return;
+                document.getElementById('loading-apps').innerText = "Création de votre copie...";
+                document.getElementById('loading-apps').style.display = 'block';
+                try {
+                    const created = await createOwnAppCopy(app);
+                    home.sel = created.id;
+                    await listInstalledApps();
+                    showToast(`« ${created.name} » est dans votre Drive`);
+                    fileId = created.id;
+                    appName = created.name;
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('loading-apps').style.display = 'none';
+                    return alert("La copie n'a pas pu être créée (" + e.message + ").");
+                }
+            }
             console.log(`Ouverture de l'éditeur pour : ${appName}`);
             editingAppFileId = fileId;
             editorHistory = [];

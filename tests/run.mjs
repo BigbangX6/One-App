@@ -39,7 +39,7 @@ const server = http.createServer((req, res) => {
 let files, seq, rev, ctl, log;
 function reset() {
   seq = 0; rev = 0; log = [];
-  ctl = { patchDelay: 0, failPatch: 0, force401: 0, validToken: 'tok1' };
+  ctl = { patchDelay: 0, failPatch: 0, force401: 0, validToken: 'tok1', github: {}, githubDown: false, githubHits: 0 };
   files = {};
   add({ id: 'root1', name: 'One App', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] });
   add({ id: 'fold1', name: "L'agenda", mimeType: 'application/vnd.google-apps.folder', parents: ['root1'] });
@@ -96,8 +96,10 @@ async function handleDrive(route) {
     if (q.includes("contains '.oneapp'")) list = list.filter(f => f.name.includes('.oneapp'));
     if (q.includes("contains '.onefile'")) list = list.filter(f => f.name.includes('.onefile'));
     const par = q.match(/'([^']+)' in parents/); if (par) list = list.filter(f => (f.parents || []).includes(par[1]));
-    if (q.includes('shortcut')) list = [];
-    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime, description: f.description, shortcutDetails: f.shortcutDetails })) });
+    if (q.includes('shortcut')) list = list.filter(f => f.shortcutDetails && q.includes(`'${f.shortcutDetails.targetId}'`));
+    const ap = q.match(/appProperties has \{ key='([^']+)' and value='([^']+)' \}/);
+    if (ap) list = list.filter(f => f.appProperties && f.appProperties[ap[1]] === ap[2]);
+    return json({ files: list.map(f => ({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, mimeType: f.mimeType, modifiedTime: f.modifiedTime, description: f.description, shortcutDetails: f.shortcutDetails, appProperties: f.appProperties })) });
   }
   if (!id && method === 'POST') {
     let meta, content = '';
@@ -106,6 +108,8 @@ async function handleDrive(route) {
       meta = JSON.parse(parts[0].split('\r\n\r\n').slice(1).join('\r\n\r\n'));
       content = parts[1].split('\r\n\r\n').slice(1).join('\r\n\r\n');
     } else meta = JSON.parse(req.postData());
+    // Comme Drive en drive.file : raccourci refusé vers un fichier inaccessible à One App
+    if (meta.shortcutDetails && (!files[meta.shortcutDetails.targetId] || files[meta.shortcutDetails.targetId].noAccess)) return json({ error: { message: 'File not found' } }, 404);
     const f = add({ id: 'new' + (++seq), ...meta, content });
     return json({ id: f.id, name: f.name });
   }
@@ -145,6 +149,14 @@ async function test(name, fn, contextOptions = {}) {
   await context.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, body: '' }));
   await context.route('https://www.googleapis.com/**', handleDrive);
   await context.route('https://apis.google.com/**', r => r.fulfill({ status: 200, body: '' }));
+  // Faux GitHub (fichiers bruts) : ctl.github['compte/dépôt/branche/chemin'] = contenu
+  await context.route('https://raw.githubusercontent.com/**', r => {
+    ctl.githubHits++;
+    if (ctl.githubDown) return r.abort();
+    const key = new URL(r.request().url()).pathname.slice(1);
+    return key in ctl.github ? r.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: ctl.github[key] })
+      : r.fulfill({ status: 404, headers: { 'access-control-allow-origin': '*' }, body: '404: Not Found' });
+  });
   // Choisir un fichier dans le Picker donne l'accès à One App (drive.file)
   await context.exposeFunction('__grantAccess', (id) => { if (files[id]) delete files[id].noAccess; });
   await context.addInitScript(() => {
@@ -693,7 +705,10 @@ await test("drive.file : lien partagé → « Ajouter à One App » → Picker �
   eq(await frame.evaluate(() => window.shown), ['partagé'], "affiché dans l'app");
   if (!log.some(l => l.includes('/files/otherapp?alt=media') && l.includes('key=testkey'))) throw new Error("app non lue par la clé API");
   const shortcuts = Object.values(files).filter(f => f.mimeType === 'application/vnd.google-apps.shortcut').map(f => f.shortcutDetails.targetId).sort();
-  eq(shortcuts, ['otherapp', 'otherdoc'], 'raccourcis créés');
+  eq(shortcuts, ['otherdoc'], 'raccourci du document');
+  const pointer = Object.values(files).find(f => f.appProperties && f.appProperties.oneapp_target === 'otherapp');
+  if (!pointer) throw new Error("pas de pointeur vers l'app partagée");
+  eq([pointer.name, pointer.description], ['Budget.oneapp', '💰'], 'pointeur (nom, icône)');
   await save(frame, ['modifié']);
   await page.evaluate(() => closeApp());
   eq(JSON.parse(files.otherdoc.content).app_data, ['modifié'], 'modification enregistrée sur le document partagé');
@@ -889,7 +904,10 @@ await test("drive.file : écran d'ajout masqué pendant le Picker, accès effect
   eq(await page.isVisible('#access-modal-overlay'), false, 'écran d\'ajout masqué pendant le Picker');
   await page.waitForFunction(() => document.querySelector('#iframe-container iframe'), null, { timeout: 15000 });
   const shortcuts = Object.values(files).filter(f => f.mimeType === 'application/vnd.google-apps.shortcut').map(f => f.shortcutDetails.targetId).sort();
-  eq(shortcuts, ['otherapp', 'otherdoc'], 'raccourcis créés');
+  eq(shortcuts, ['otherdoc'], 'raccourci du document');
+  const pointer = Object.values(files).find(f => f.appProperties && f.appProperties.oneapp_target === 'otherapp');
+  if (!pointer) throw new Error("pas de pointeur vers l'app partagée");
+  eq([pointer.name, pointer.description], ['Budget.oneapp', '💰'], 'pointeur (nom, icône)');
 });
 
 await test("drive.file : Picker qui renvoie un autre identifiant → l'accès réel est vérifié, document ouvert", async (page) => {
@@ -1211,6 +1229,108 @@ await test("Cinema Script : PDF avec le nom du projet", async (page) => {
   await frame.click('#btnPdfTournage');
   const txt = await frame.evaluate(() => window.__printed);
   if (!txt.includes('PROJET : Doc') || !txt.includes('--- Lundi ---') || txt.indexOf('S2 - P1') > txt.indexOf('S1 - P1')) throw new Error('PDF : ' + txt);
+});
+
+// --- Apps publiées sur GitHub, apps partagées, copie avant modification, import ---
+const GH_KEY = 'BigbangX6/demo/main/apps/demo.html';
+const GH_URL = 'https://github.com/BigbangX6/demo/blob/main/apps/demo.html';
+const ghApp = (v) => `<!DOCTYPE html><html><head><title>Appli GitHub</title><meta name="oneapp-icon" content="🐙"></head><body><script>
+window.ver = ${v}; window.shown = null;
+OneAppAPI.loadData().then(r => { window.shown = r.app_data; });
+<\/script></body></html>`;
+async function installFromGithub(page) {
+  ctl.github[GH_KEY] = ghApp(1);
+  page.evaluate(() => openCreateDialog());
+  await page.waitForSelector('#paste-app');
+  await page.fill('#paste-app', GH_URL);
+  await page.waitForFunction(() => !document.getElementById('create-app-go').disabled);
+  await page.click('#create-app-go');
+  await page.waitForFunction(() => home.apps.some(a => a.name === 'Appli GitHub'));
+  return Object.values(files).find(f => f.name === 'Appli GitHub.oneapp');
+}
+async function openGhDoc(page, appId) {
+  await page.evaluate((id) => openAppEnvironment(id, 'Appli GitHub', 'ghdoc', 'Doc GitHub'), appId);
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  return frame;
+}
+
+await test("GitHub : coller le lien installe l'app (seul le lien est dans Drive)", async (page) => {
+  const app = await installFromGithub(page);
+  const pointer = JSON.parse(app.content);
+  eq([pointer.oneapp_pointer, pointer.source, pointer.url], [1, 'github', 'https://raw.githubusercontent.com/' + GH_KEY], 'pointeur');
+  eq([app.appProperties.oneapp_source, app.description], ['github', '🐙'], 'propriétés Drive, icône');
+  if (!log.some(l => l.includes(`/files/${app.id}/permissions`))) throw new Error('pointeur non rendu public');
+});
+
+await test("GitHub : une mise à jour publiée est utilisée à l'ouverture suivante ; GitHub injoignable → copie de l'appareil", async (page) => {
+  const app = await installFromGithub(page);
+  add({ id: 'ghdoc', name: 'Doc GitHub.onefile', mimeType: 'application/json', parents: app.parents,
+        content: JSON.stringify({ oneapp_metadata: { app_name: 'Appli GitHub', source_app_drive_id: app.id }, app_data: ['gh'] }) });
+  let frame = await openGhDoc(page, app.id);
+  eq(await frame.evaluate(() => [window.ver, window.shown]), [1, ['gh']], 'version 1');
+  await page.evaluate(() => closeApp());
+  ctl.github[GH_KEY] = ghApp(2);                     // push sur GitHub
+  frame = await openGhDoc(page, app.id);
+  eq(await frame.evaluate(() => window.ver), 2, 'nouvelle version prise, pas la copie locale');
+  await page.evaluate(() => closeApp());
+  ctl.githubDown = true;
+  frame = await openGhDoc(page, app.id);
+  eq(await frame.evaluate(() => window.ver), 2, "copie de l'appareil quand GitHub est injoignable");
+});
+
+await test("Coller du HTML : fonctionnement habituel, l'app est enregistrée dans Drive", async (page) => {
+  page.evaluate(() => openCreateDialog());
+  await page.waitForSelector('#paste-app');
+  await page.fill('#paste-app', 'Voici :\n```html\n' + ghApp(5).replace('Appli GitHub', 'Appli collée') + '\n```');
+  await page.waitForFunction(() => !document.getElementById('create-app-go').disabled);
+  await page.click('#create-app-go');
+  await page.waitForFunction(() => home.apps.some(a => a.name === 'Appli collée'));
+  const app = Object.values(files).find(f => f.name === 'Appli collée.oneapp');
+  if (!app.content.startsWith('<!DOCTYPE html>') || app.appProperties) throw new Error('app HTML attendue');
+  eq(ctl.githubHits, 0, 'aucun appel à GitHub');
+});
+
+await test("Modifier une app GitHub ou partagée : proposition de copie, puis éditeur sur la copie", async (page) => {
+  await installFromGithub(page);
+  const app = await page.evaluate(() => home.apps.find(a => a.name === 'Appli GitHub'));
+  page.evaluate((a) => openAppEditor(a.id, a.name), app);
+  await page.click('#own-copy-go');
+  await page.waitForFunction(() => document.getElementById('edit-app-view').style.display === 'flex');
+  const copy = Object.values(files).find(f => f.name === 'Appli GitHub (copie).oneapp');
+  if (!copy || !copy.content.includes('<title>Appli GitHub (copie)</title>')) throw new Error('copie HTML attendue');
+  eq(await page.inputValue('#editor-full-code') === copy.content, true, "l'éditeur montre la copie");
+  eq(JSON.parse(Object.values(files).find(f => f.name === 'Appli GitHub.oneapp').content).source, 'github', "l'app GitHub est intacte");
+});
+
+await test("Lien partagé (autre compte) : l'app reste dans l'accueil après fermeture et rouvre le document", async (page) => {
+  addSharedFromOther();
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  await page.evaluate(() => closeApp());
+  await page.waitForFunction(() => home.apps.some(a => a.name === 'Budget') && home.docs.some(d => d.id === 'otherdoc'));
+  const doc = await page.evaluate(() => home.docs.find(d => d.id === 'otherdoc'));
+  eq(await page.evaluate((id) => home.apps.find(a => a.id === id).source, doc.appId), 'drive', "le document est rattaché à l'app partagée");
+  await page.evaluate((d) => openHomeDoc(d), doc);
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.shown), ['partagé'], 'document rouvert');
+});
+
+await test("Importer un .onefile dans une app (bouton discret)", async (page) => {
+  await page.evaluate(() => selectApp('app1'));
+  const chooser = page.waitForEvent('filechooser');
+  await page.click('#import-doc-btn');
+  await (await chooser).setFiles({ name: 'Sauvegarde.onefile', mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'ancien' }, app_data: ['importé'] })) });
+  await page.waitForFunction(() => home.docs.some(d => d.name === 'Sauvegarde'));
+  const f = Object.values(files).find(x => x.name === 'Sauvegarde.onefile');
+  const json = JSON.parse(f.content);
+  eq([f.parents[0], json.oneapp_metadata.source_app_drive_id, json.app_data], ['fold1', 'app1', ['importé']], 'document créé dans l\'app');
 });
 
 await browser.close();

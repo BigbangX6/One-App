@@ -218,6 +218,34 @@ propose d'ajouter le document à One App s'il n'y a pas encore accès (voir ci-d
 crée des raccourcis vers l'app et le document (sauf s'ils lui appartiennent), puis ouvre
 le document. Les droits (lecture / édition) sont ceux du fichier Drive.
 
+### Apps « pointeur » : GitHub et apps partagées
+Un `.oneapp` contient normalement le HTML de l'app (coller du HTML dans « Créer une app »
+fonctionne toujours ainsi). Il peut aussi contenir un petit JSON qui dit où est le code :
+
+| `source` | Contenu | Créé quand |
+|---|---|---|
+| `github` | `{ "oneapp_pointer": 1, "source": "github", "url": "https://raw.githubusercontent.com/…", "page": "…" }` | On colle un lien GitHub (`github.com/<compte>/<dépôt>/blob/<branche>/<chemin>.html`) dans « Créer une app » |
+| `drive` | `{ "oneapp_pointer": 1, "source": "drive", "fileId": "<.oneapp d'un autre utilisateur>" }` | On ouvre le lien d'un document partagé dont on n'a pas l'app (un raccourci Drive vers l'app est refusé avec `drive.file`) |
+
+Le type est aussi dans les propriétés Drive du fichier (`appProperties.oneapp_source`, et
+`oneapp_target` pour `drive`) : l'accueil le connaît sans lire le contenu.
+
+`loadAppHtml` : métadonnées du `.oneapp` comme avant ; s'il n'a pas changé et que la copie de
+l'appareil est un pointeur, on résout le pointeur (`resolveAppPointer`) :
+- **GitHub** : `fetch(url, { cache: 'no-cache' })` à chaque ouverture : le navigateur revalide
+  (304 sans retéléchargement si rien n'a changé), donc **une mise à jour poussée sur la branche
+  est prise à l'ouverture suivante** (après le cache de GitHub, quelques minutes). Réseau absent
+  ou plus de 2,5 s : copie de l'appareil.
+- **Drive** : `loadAppHtml(fileId)` sur l'app d'origine (lue en public par la clé API).
+
+« Modifier l'app » sur une app GitHub, partagée (pointeur `drive` ou ancien raccourci) :
+proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis éditeur sur la copie.
+
+### Importer un document
+Quand une app est sélectionnée sur l'accueil, lien discret « Importer… » (`importDocFile`) :
+un `.onefile` de l'appareil est recréé dans le dossier de l'app (avec `drive.file`, un fichier
+déposé à la main dans Drive est invisible pour One App).
+
 ### Écriture simultanée
 Si le document ouvert a changé ailleurs pendant qu'on le modifiait, `resolveConflict`
 crée une copie de secours, affiche la version du Cloud **et passe en mode lecture**
@@ -225,8 +253,8 @@ crée une copie de secours, affiche la version du Cloud **et passe en mode lectu
 ouverture repart en édition. (Pas de mode lecture pour une reprise d'envoi depuis
 l'accueil, `syncPendingDocs` : on n'est pas dans le document.)
 
-### Télécharger une copie
-Menu ⋮ du document → `downloadDocCopy` : le `.onefile` (métadonnées + dernières données
+### Exporter le document
+Menu ⋮ du document → « Exporter le document (.onefile) », `downloadDocCopy` : le `.onefile` (métadonnées + dernières données
 connues) est enregistré sur l'appareil. Fonctionne hors-ligne.
 
 ## 7. Le contrat app ↔ One App

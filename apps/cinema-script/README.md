@@ -9,6 +9,19 @@ puis tout retrouver au montage grâce à l'extension Premiere Pro.
 - Extension Premiere Pro : dossier `Pr Extension/` du même dépôt ; adaptation décrite dans
   [`EXTENSION_PREMIERE.md`](EXTENSION_PREMIERE.md).
 
+## Installer dans One App
+
+One App → « Créer une app » → coller ce lien (rien d'autre) :
+
+```
+https://github.com/BigbangX6/cinema_script/blob/main/oneapp/cinema-script.html
+```
+
+One App enregistre seulement ce lien dans Drive et suit la branche `main` : chaque mise à jour
+poussée sur GitHub est utilisée par tout le monde à l'ouverture suivante (après le cache de
+GitHub, environ 5 minutes) ; sinon l'app se charge depuis la copie de l'appareil. Coller le
+contenu du fichier HTML marche aussi, mais l'app ne suit alors plus les mises à jour.
+
 ## Un projet = un document
 
 Chaque projet est un document `.onefile` dans `Mon Drive/One App/Cinema Script/`.
