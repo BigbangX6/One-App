@@ -238,6 +238,12 @@ l'appareil est un pointeur, on résout le pointeur (`resolveAppPointer`) :
   ou plus de 2,5 s : copie de l'appareil.
 - **Drive** : `loadAppHtml(fileId)` sur l'app d'origine (lue en public par la clé API).
 
+Partage d'une app GitHub : le destinataire enregistre **le lien GitHub**, jamais un pointeur
+vers le Drive de l'auteur. Le lien est lu dans le document (`oneapp_metadata.source_app`,
+ajouté par `createOneFile` pour les apps GitHub), sinon dans le `.oneapp` (public) de
+l'auteur (`sharedAppGithubSource`). Un ancien pointeur `drive` dont la cible s'avère être sur
+GitHub est converti en pointeur GitHub à l'ouverture (`upgradePointerToGithub`).
+
 « Modifier l'app » sur une app GitHub, partagée (pointeur `drive` ou ancien raccourci) :
 proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis éditeur sur la copie.
 

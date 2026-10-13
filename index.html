@@ -1825,6 +1825,10 @@
                 },
                 app_data: appData
             };
+            // App publiée sur GitHub : son lien voyage avec le document (voir checkSharedLink)
+            let cachedApp = null;
+            try { cachedApp = await localStore.get('apps', appFileId); } catch (e) {}
+            if (cachedApp && cachedApp.source && cachedApp.source.source === 'github') oneFile.oneapp_metadata.source_app = cachedApp.source;
             const metadata = { name: `${fileName}.onefile`, mimeType: "application/json", parents: [folderId] };
             return driveCreateFile(metadata, JSON.stringify(oneFile), 'application/json');
         }
@@ -3721,6 +3725,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 let oneFileJson = await driveJson(`${DRIVE_API_URL}/${safeFileId}?alt=media`);
                 
                 let sourceAppId = oneFileJson.oneapp_metadata.source_app_drive_id;
+                let localAppId = null; // app ajoutée dans « mon » espace (pointeur)
                 let appName = oneFileJson.oneapp_metadata.app_name;
 
                 // Fichier d'un autre utilisateur : on l'ajoute à "mon" espace via des raccourcis
@@ -3743,10 +3748,14 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                     let dataShortcutName = fileMeta.name;
 
                     if (!ownsApp) {
-                        // L'app dans « mon » espace : un pointeur vers l'app d'origine (un raccourci
-                        // Drive est refusé avec drive.file : One App n'a pas accès au fichier)
+                        // L'app dans « mon » espace. Publiée sur GitHub : on enregistre le lien
+                        // GitHub (pas de lecture du Drive de l'auteur ensuite). Sinon : un pointeur
+                        // vers l'app d'origine (un raccourci Drive est refusé avec drive.file).
                         try {
-                            await ensureSharedAppPointer(sourceAppId, appFolderId, realAppName, appMeta.description || '');
+                            const gh = await sharedAppGithubSource(oneFileJson.oneapp_metadata, sourceAppId);
+                            localAppId = gh
+                                ? await ensureGithubPointer(gh, appFolderId, realAppName, appMeta.description || '')
+                                : await ensureSharedAppPointer(sourceAppId, appFolderId, realAppName, appMeta.description || '');
                         } catch (e) {
                             console.error("Ajout de l'app partagée impossible :", e);
                         }
@@ -3759,7 +3768,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 // Nettoyage URL
                 window.history.pushState(null, '', window.location.pathname);
                 
-                await openAppEnvironment(sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
+                await openAppEnvironment(localAppId || sourceAppId, appName, sharedFileId, fileMeta.name.replace('.onefile', ''), fileMeta.capabilities);
             } catch(e) {
                 console.error(e);
                 alert("Impossible d'ouvrir ce fichier partagé. Il a peut-être été supprimé ou vous n'avez pas les droits.\n\n(" + e.message + ")");
@@ -3975,6 +3984,14 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 }
             }
             const html = await resolveAppPointer(source, cached && cached.source ? cached.html : null);
+            if (source.source === 'drive') {
+                let target = null;
+                try { target = await localStore.get('apps', source.fileId); } catch (e) {}
+                if (target && target.source && target.source.source === 'github') {
+                    const newVersion = await upgradePointerToGithub(appFileId, target.source);
+                    if (newVersion !== undefined) { source = target.source; version = newVersion; }
+                }
+            }
             cacheAppHtml(appFileId, html, version, source);
             return html;
         }
@@ -4093,6 +4110,47 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             const created = await createPointerApp(info.name, info.icon, source, null);
             cacheAppHtml(created.id, html, null, source); // première ouverture immédiate
             return { id: created.id, name: info.name };
+        }
+
+        // L'app d'un document partagé est-elle publiée sur GitHub ? D'abord le lien porté par le
+        // document, sinon le contenu (public, minuscule) du .oneapp de l'auteur
+        async function sharedAppGithubSource(metadata, sourceAppId) {
+            const fromDoc = metadata && metadata.source_app;
+            if (fromDoc && fromDoc.source === 'github' && parseAppPointer(JSON.stringify({ ...fromDoc, oneapp_pointer: 1 }))) return { ...fromDoc, oneapp_pointer: 1 };
+            try {
+                const p = parseAppPointer(await (await readDriveFile(sourceAppId, 'alt=media')).text());
+                return p && p.source === 'github' ? p : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Pointeur GitHub dans le dossier de l'app (réutilisé s'il existe déjà)
+        async function ensureGithubPointer(source, folderId, name, icon) {
+            const q = encodeURIComponent(`'${escapeDriveQuery(folderId)}' in parents and appProperties has { key='oneapp_source' and value='github' } and trashed = false`);
+            const existing = await driveJson(`${DRIVE_API_URL}?q=${q}&fields=files(id)`);
+            if (existing.files && existing.files.length) return existing.files[0].id;
+            const created = await createPointerApp(name, icon, source, folderId);
+            return created.id;
+        }
+
+        // Ancien pointeur Drive vers une app qui s'avère publiée sur GitHub : on le remplace
+        // par le lien GitHub (le Drive de l'auteur n'est plus lu ensuite)
+        async function upgradePointerToGithub(appFileId, source) {
+            try {
+                const updated = await driveJson(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(appFileId)}?uploadType=media&fields=md5Checksum,headRevisionId,modifiedTime`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(source)
+                });
+                await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(appFileId)}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ appProperties: { oneapp_source: 'github', oneapp_target: null } })
+                });
+                console.log("MOTEUR : app partagée convertie en lien GitHub.");
+                return updated.md5Checksum ? 'md5:' + updated.md5Checksum : updated.headRevisionId ? 'rev:' + updated.headRevisionId : null;
+            } catch (e) {
+                console.warn("Conversion en lien GitHub impossible :", e.message);
+                return undefined;
+            }
         }
 
         // App partagée par un autre utilisateur : pointeur vers son .oneapp (une fois par app)

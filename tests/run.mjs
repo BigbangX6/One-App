@@ -1333,6 +1333,47 @@ await test("Importer un .onefile dans une app (bouton discret)", async (page) =>
   eq([f.parents[0], json.oneapp_metadata.source_app_drive_id, json.app_data], ['fold1', 'app1', ['importé']], 'document créé dans l\'app');
 });
 
+const GH_POINTER = JSON.stringify({ oneapp_pointer: 1, source: 'github', url: 'https://raw.githubusercontent.com/' + GH_KEY, page: GH_URL });
+
+await test("Partage d'une app GitHub : le destinataire enregistre le lien GitHub, pas un pointeur Drive", async (page) => {
+  addSharedFromOther();
+  files.otherapp.content = GH_POINTER;                 // l'app de l'auteur est un lien GitHub
+  ctl.github[GH_KEY] = ghApp(3);
+  await page.goto(`http://localhost:${PORT}/index.html?file=otherdoc`);
+  await page.waitForFunction(() => document.getElementById('access-modal-overlay').style.display === 'flex');
+  await page.click('#access-modal-add');
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.ver), 3, 'app chargée depuis GitHub');
+  const mine = Object.values(files).filter(f => f.name.endsWith('.oneapp') && f.id !== 'otherapp' && f.id !== 'app1');
+  eq(mine.length, 1, 'une seule app ajoutée');
+  eq([JSON.parse(mine[0].content).source, mine[0].appProperties.oneapp_source], ['github', 'github'], 'lien GitHub enregistré');
+});
+
+await test("Ancien pointeur Drive vers une app GitHub : converti en lien GitHub à l'ouverture", async (page) => {
+  addSharedFromOther();
+  delete files.otherdoc.noAccess;
+  files.otherapp.content = GH_POINTER;
+  ctl.github[GH_KEY] = ghApp(4);
+  add({ id: 'ptr', name: 'Budget.oneapp', mimeType: 'application/json', parents: ['fold1'], description: '💰',
+        appProperties: { oneapp_source: 'drive', oneapp_target: 'otherapp' }, content: JSON.stringify({ oneapp_pointer: 1, source: 'drive', fileId: 'otherapp' }) });
+  await page.evaluate(() => openAppEnvironment('ptr', 'Budget', 'otherdoc', 'Budget 2026'));
+  await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
+  const frame = page.frames().find(f => f !== page.mainFrame());
+  await frame.waitForFunction(() => window.shown !== null);
+  eq(await frame.evaluate(() => window.ver), 4, 'app chargée');
+  eq(JSON.parse(files.ptr.content).source, 'github', 'pointeur converti');
+  eq(files.ptr.appProperties.oneapp_source, 'github', 'propriété Drive mise à jour');
+});
+
+await test("Document créé avec une app GitHub : le lien GitHub voyage avec le document", async (page) => {
+  const app = await installFromGithub(page);
+  const created = await page.evaluate((a) => createOneFile('Nouveau', a.parents[0], 'Appli GitHub', a.id, []), app);
+  const meta = JSON.parse(files[created.id].content).oneapp_metadata;
+  eq([meta.source_app_drive_id, meta.source_app && meta.source_app.url], [app.id, 'https://raw.githubusercontent.com/' + GH_KEY], 'métadonnées');
+});
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent');
