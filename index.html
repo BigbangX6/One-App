@@ -1949,7 +1949,12 @@
             });
         }
 
-        const VIDEO_MIME_TYPES = 'video/mp4,video/quicktime,video/x-m4v,video/webm,video/x-matroska,video/x-msvideo,video/3gpp,video/mpeg,video/MP2T';
+        const PICK_TYPES = {
+            video: { mimes: 'video/mp4,video/quicktime,video/x-m4v,video/webm,video/x-matroska,video/x-msvideo,video/3gpp,video/mpeg,video/MP2T', all: 'DOCS_VIDEOS', title: 'Choisir une vidéo' },
+            image: { mimes: 'image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,image/svg+xml', all: 'DOCS_IMAGES', title: 'Choisir une image' },
+            pdf: { mimes: 'application/pdf', all: null, title: 'Choisir un PDF' }
+        };
+        const PICK_CONTENT_MAX = 10 * 1024 * 1024; // contenu renvoyé à l'app : 10 Mo au plus
 
         // Choisir un fichier pour une app (vidéo de référence...). Le Picker donne à One App
         // l'accès à ce fichier (drive.file) ; l'app reçoit son id, son nom et une miniature.
@@ -1957,21 +1962,23 @@
             if (!API_KEY) throw new Error("Clé API absente : ajoutez GOOGLE_API_KEY dans config.js.");
             await loadPicker();
             if (isTokenExpired()) await renewToken();
-            const video = options.type === 'video';
+            const kind = PICK_TYPES[options.type] || null;
+            const mimes = typeof options.mimeTypes === 'string' && options.mimeTypes ? options.mimeTypes
+                : Array.isArray(options.mimeTypes) && options.mimeTypes.length ? options.mimeTypes.join(',') : kind ? kind.mimes : null;
             const doc = await new Promise((resolve) => {
                 const P = google.picker;
                 // On navigue dans ses dossiers (Mon Drive), en ne voyant que les fichiers utiles ;
                 // onglets : Mon Drive (dossiers), tous les fichiers de ce type, partagés avec moi
-                const typed = (v) => (video ? v.setMimeTypes(VIDEO_MIME_TYPES) : v);
+                const typed = (v) => (mimes ? v.setMimeTypes(mimes) : v);
                 const myDrive = typed(new P.DocsView(P.ViewId.DOCS)).setParent('root').setIncludeFolders(true).setMode(P.DocsViewMode.LIST);
-                const all = video ? new P.DocsView(P.ViewId.DOCS_VIDEOS).setMode(P.DocsViewMode.GRID) : new P.DocsView(P.ViewId.DOCS).setMode(P.DocsViewMode.LIST);
+                const all = kind && kind.all ? new P.DocsView(P.ViewId[kind.all]).setMode(P.DocsViewMode.GRID) : typed(new P.DocsView(P.ViewId.DOCS)).setMode(P.DocsViewMode.LIST);
                 const shared = typed(new P.DocsView(P.ViewId.DOCS)).setOwnedByMe(false).setIncludeFolders(true).setMode(P.DocsViewMode.LIST);
                 new P.PickerBuilder()
                     .setAppId(APP_ID)
                     .setOAuthToken(globalAccessToken)
                     .setDeveloperKey(API_KEY)
                     .setLocale('fr')
-                    .setTitle(video ? 'Choisir une vidéo' : 'Choisir un fichier')
+                    .setTitle(kind ? kind.title : 'Choisir un fichier')
                     .enableFeature(P.Feature.SUPPORT_DRIVES)
                     .addView(myDrive)
                     .addView(all)
@@ -1991,8 +1998,20 @@
                 mimeType: doc[google.picker.Document.MIME_TYPE] || '',
                 thumb: null
             };
-            try { file.thumb = await driveThumbnail(file.id); }
-            catch (e) { console.warn("Miniature indisponible :", e.message); }
+            if (options.thumbnail !== false) {
+                try { file.thumb = await driveThumbnail(file.id); }
+                catch (e) { console.warn("Miniature indisponible :", e.message); }
+            }
+            // Contenu du fichier, si l'app le demande : 'text' (texte) ou 'dataurl' (data:URL)
+            if (options.content === 'text' || options.content === 'dataurl') {
+                if (/^application\/vnd\.google-apps\./.test(file.mimeType)) throw new Error("Ce fichier Google (Docs, Sheets…) ne peut pas être lu directement.");
+                if (!(await waitForFileAccess(file.id, 4))) throw new Error("Accès au fichier refusé.");
+                const blob = await (await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(file.id)}?alt=media`)).blob();
+                if (blob.size > PICK_CONTENT_MAX) throw new Error("Fichier trop lourd (10 Mo au plus).");
+                file.size = blob.size;
+                file.content = options.content === 'text' ? await blob.text()
+                    : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+            }
             return file;
         }
 
@@ -2471,12 +2490,32 @@
             return svg;
         }
 
-        // Teinte stable par app (fond pastel de son icône)
+        // Couleur de fond de l'icône d'une app : 12 teintes bien distinctes. Chaque app a sa
+        // place préférée (empreinte de son id) ; si elle est prise par une autre app de la
+        // liste, la suivante libre. Deux apps n'ont la même couleur qu'au-delà de 12 apps.
+        const APP_HUES = [265, 205, 145, 25, 330, 180, 45, 290, 110, 0, 230, 160];
+        let appHueMap = new Map();
+
+        function hueSlot(key) {
+            let h = 2166136261; // FNV-1a : bien réparti, même pour des ids qui se ressemblent
+            for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+            return (h >>> 0) % APP_HUES.length;
+        }
+
+        function assignAppHues(apps) {
+            const map = new Map(), used = new Set();
+            [...apps].sort((a, b) => String(a.id).localeCompare(String(b.id))).forEach((a) => {
+                let slot = hueSlot(String(a.id));
+                for (let k = 0; k < APP_HUES.length && used.has(slot); k++) slot = (slot + 1) % APP_HUES.length;
+                used.add(slot);
+                map.set(a.id, APP_HUES[slot]);
+            });
+            appHueMap = map;
+        }
+
         function appHue(app) {
-            const key = String(app.id || app.name || '');
-            let hash = 0;
-            for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) % 360;
-            return hash;
+            if (appHueMap.has(app.id)) return appHueMap.get(app.id);
+            return APP_HUES[hueSlot(String(app.id || app.name || ''))];
         }
 
         // Contenu de l'icône (stockée dans la description du .oneapp) : emoji en texte,
@@ -2589,6 +2628,7 @@
                 };
             });
             home.fromDevice = fromDevice;
+            assignAppHues(home.apps);
             home.docs = await loadHomeDocs(fromDevice);
             if (home.sel && !appById(home.sel)) home.sel = null;
             home.loading = false;
@@ -3193,7 +3233,7 @@ One App fournit automatiquement l'objet window.OneAppAPI :
 - OneAppAPI.saveData(state) → à appeler après CHAQUE modification faite par l'utilisateur, avec l'état COMPLET. One App gère le délai, l'historique et Google Drive. Ne l'appelle pas au démarrage.
 - OneAppAPI.onDataChange(callback) → callback(data) est appelé quand les données sont remplacées de l'extérieur (Annuler/Rétablir, historique des versions, modification depuis un autre appareil). Remplace state par data et redessine tout l'écran. N'appelle pas saveData dans ce callback.
 - OneAppAPI.onModeChange(callback) → callback(readOnly) est appelé quand le mode lecture seule change. En lecture seule, désactive tout ce qui modifie les données.
-- OneAppAPI.pickDriveFile({ type: "video" }) → Promise : ouvre le sélecteur de Google Drive et renvoie { id, name, mimeType, thumb } (thumb = miniature en data:URL, ou null), ou null si l'utilisateur annule ; rejette (message en français) si c'est impossible (hors-ligne, lecture seule). Garde dans state l'id, le nom et la miniature. Sans type : tout fichier.
+- OneAppAPI.pickDriveFile(options) → Promise : ouvre le sélecteur de Google Drive (dossiers de l'utilisateur) et renvoie { id, name, mimeType, thumb } (thumb = miniature en data:URL, ou null), ou null si l'utilisateur annule ; rejette avec un message en français si c'est impossible (pas d'Internet, document en lecture seule) : affiche-le. Options : type ("video", "image", "pdf" ; sans type : tout fichier) ou mimeTypes (liste), content: "text" ou "dataurl" pour recevoir aussi le contenu dans file.content (10 Mo au plus), thumbnail: false pour ne pas chercher de miniature. Garde dans state ce qui est utile (id, nom, miniature, ou le contenu lu), jamais un lien calculé.
 - OneAppAPI.driveFileLink(id) → lien à mettre dans un <a target="_blank"> pour ouvrir le fichier dans l'app Google Drive (fonctionne hors-ligne si le fichier y est disponible ; lien adapté à l'iPhone). Calcule-le à l'affichage, ne le stocke pas.
 - OneAppAPI.getFileName() → nom du document ouvert (sans extension), disponible après loadData(). C'est le nom du projet : ne demande jamais de nom de projet à l'utilisateur, ne le stocke pas dans state ; utilise-le pour les titres, PDF et fichiers exportés. OneAppAPI.onNameChange(callback) → callback(nom) quand le document est renommé.
 - N'implémente pas ton propre Annuler/Rétablir : One App s'en charge (boutons et Ctrl+Z).
@@ -3250,10 +3290,16 @@ OneAppAPI.loadData().then(({ app_data, readOnly: value }) => {
 - Hors-ligne, seules les bibliothèques externes déjà chargées par le navigateur restent disponibles : préfère du code sans dépendance quand c'est simple.
 - Formulaires : dans l'événement "submit", appelle toujours event.preventDefault() (sinon la page de l'app se recharge).
 
-7. PUBLICATION SUR GITHUB (facultatif)
+7. FICHIERS DE L'UTILISATEUR
+- Fichier de Google Drive : OneAppAPI.pickDriveFile (voir 4). Demande Internet : prévois le message d'erreur hors-ligne.
+- Fichier de l'appareil : un <input type="file"> classique fonctionne toujours, même hors-ligne (lis-le avec file.text() ou FileReader). Propose les deux quand c'est utile (ex. « Depuis Google Drive » / « Depuis l'appareil »).
+- Ouvrir un fichier Drive dans l'app Google Drive : <a href="OneAppAPI.driveFileLink(id)" target="_blank">.
+- Exporter : <a download> avec un Blob (voir 6).
+
+8. PUBLICATION SUR GITHUB (facultatif)
 Si l'app est développée dans un dépôt GitHub PUBLIC (par exemple avec Claude Code), il suffit de donner à l'utilisateur le lien GitHub du fichier HTML, sous la forme https://github.com/<compte>/<dépôt>/blob/<branche>/<chemin>.html : il le colle dans One App (Créer une app) à la place du code. One App suit alors la branche : chaque mise à jour poussée sur GitHub est utilisée à la prochaine ouverture (après quelques minutes de cache GitHub). Le fichier doit rester un fichier HTML complet, conforme à ces règles.
 
-8. MÉMOIRE POUR LES FUTURES MODIFICATIONS
+9. MÉMOIRE POUR LES FUTURES MODIFICATIONS
 Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : le but de l'app, la structure exacte de state, et les choix importants. Mets-le à jour à chaque modification. N'y mets aucune donnée personnelle (le code de l'app est partagé par lien).`;
 
         // Nouveau document « Sans titre », ouvert aussitôt avec son nom sélectionné

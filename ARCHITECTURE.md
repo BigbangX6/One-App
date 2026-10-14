@@ -251,6 +251,15 @@ proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis 
 `OneAppAPI.pickDriveFile({ type: 'video' })` → message `PICK_FILE_REQUEST` → `pickDriveFileForApp` :
 Google Picker (Mon Drive avec ses dossiers filtrés sur le type, tous les fichiers du type, partagés avec moi), accès drive.file au fichier choisi, miniature (`driveThumbnail` :
 `thumbnailLink` réduit à 320 px, data:URL JPEG) → `{ id, name, mimeType, thumb }`.
+Options : `type` (`video`, `image`, `pdf`) ou `mimeTypes`, `content: 'text' | 'dataurl'` (contenu
+dans `file.content`, 10 Mo au plus, pas les fichiers Google Docs/Sheets), `thumbnail: false`.
+Sans Internet ou en lecture seule : la promesse est rejetée avec un message à afficher.
+Un fichier de l'appareil reste possible dans l'app avec `<input type="file">` (hors-ligne aussi).
+
+### Couleurs des apps
+`assignAppHues` (à chaque chargement de la liste) : 12 teintes distinctes (`APP_HUES`) ; chaque
+app prend la place donnée par l'empreinte FNV-1a de son id, ou la suivante libre. Pas de doublon
+jusqu'à 12 apps, et une app garde sa couleur tant que la liste ne change pas.
 `OneAppAPI.driveFileLink(id)` (calculé dans l'iframe) : lien Drive, ou `googledrive://` + lien sur
 iOS (testé : ouvre l'app Drive, y compris hors-ligne ; voir plus bas).
 

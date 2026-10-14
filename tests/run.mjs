@@ -211,9 +211,10 @@ async function test(name, fn, contextOptions = {}) {
           window.__pickerOpen = false;
           if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
           // Choix libre (ex. vidéo de référence) : window.__pickVideo = { id, name, mimeType }
-          if (window.__pickVideo && window.__pickerForVideo) {
-            await window.__grantAccess(window.__pickVideo.id);
-            return cb({ action: 'picked', docs: [window.__pickVideo] });
+          const free = window.__pickFile || (window.__pickerForVideo && window.__pickVideo);
+          if (free) {
+            await window.__grantAccess(free.id);
+            return cb({ action: 'picked', docs: [free] });
           }
           const ids = window.__pickerFileIds;
           if (window.__grantDelay) setTimeout(() => window.__grantAccess(ids), window.__grantDelay);
@@ -1316,6 +1317,40 @@ await test("Cinema Script : PDF, colonnes étroites pour les numéros et le temp
   const w = await frame.evaluate(() => [...document.querySelectorAll('#cs-print th')].map(th => Math.round(th.getBoundingClientRect().width)));
   await page.emulateMedia({ media: 'screen' });
   if (!(w[1] > w[0] * 3 && w[1] > w[2] * 3)) throw new Error('largeurs : ' + w);
+});
+
+await test("API : une app choisit un fichier Drive (Picker) et reçoit son contenu ; hors-ligne → message", async (page) => {
+  add({ id: 'csv1', name: 'liste.csv', mimeType: 'text/csv', parents: ['autre'], content: 'nom;rôle\nMarie;scripte' });
+  files.csv1.noAccess = true;
+  const frame = await openDoc(page);
+  await page.evaluate(() => { window.__pickFile = { id: 'csv1', name: 'liste.csv', mimeType: 'text/csv' }; });
+  const f = await frame.evaluate(() => OneAppAPI.pickDriveFile({ content: 'text', thumbnail: false }));
+  eq([f.id, f.name, f.content], ['csv1', 'liste.csv', 'nom;rôle\nMarie;scripte'], 'fichier et contenu');
+  await page.context().setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  const err = await frame.evaluate(() => OneAppAPI.pickDriveFile({}).then(() => 'ok', e => e.message));
+  await page.context().setOffline(false);
+  if (!/Internet/.test(err)) throw new Error('message attendu, obtenu : ' + err);
+});
+
+await test("App : fichier de l'appareil (<input type=file>) lisible dans l'iframe", async (page) => {
+  const frame = await openDoc(page);
+  await frame.evaluate(() => { const i = document.createElement('input'); i.type = 'file'; i.id = 'f'; document.body.append(i); });
+  await frame.setInputFiles('#f', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('bonjour') });
+  eq(await frame.evaluate(() => document.getElementById('f').files[0].text()), 'bonjour', 'contenu lu');
+});
+
+await test("Accueil : couleurs d'apps toutes différentes jusqu'à 12 apps, stables", async (page) => {
+  const r = await page.evaluate(() => {
+    const ids = ['1Wh0TQqgNYSp7NMC6s2ErJKQYVt48468n', '1UKLJ1yY298wySyeM8JJlDYHTBDexP2lg', '17WPAZkLvrfMH2ZlqsD_5i1LA1HH5rSh8',
+      '1hido4uqHExAUkWdAjeG0_9Ejyp-an0u6', '1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab', '1zzzzz', '1zzzzy'];
+    assignAppHues(ids.map(id => ({ id })));
+    const a = ids.map(id => appHue({ id }));
+    assignAppHues(ids.map(id => ({ id })).reverse());
+    const b = ids.map(id => appHue({ id }));
+    return { distinct: new Set(a).size, same: JSON.stringify(a) === JSON.stringify(b) };
+  });
+  eq(r, { distinct: 8, same: true }, 'teintes');
 });
 
 await test("API : lien Drive spécial sur iPhone (googledrive://)", async (page) => {
