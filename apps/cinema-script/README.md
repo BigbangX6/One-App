@@ -27,41 +27,53 @@ contenu du fichier HTML marche aussi, mais l'app ne suit alors plus les mises à
 Chaque projet est un document `.onefile` dans `Mon Drive/One App/Cinema Script/`.
 **Le nom du projet est le nom du document** (renommer le document renomme le projet,
 titres des PDF compris). Synchronisation, hors-ligne, partage à l'équipe, Annuler/Rétablir,
-versions précédentes et « Télécharger une copie » sont fournis par One App.
+versions précédentes et « Exporter le document » sont fournis par One App.
 
 En équipe : **une personne écrit** (la scripte), les autres suivent en lecture (lien partagé
 en lecture, ou bouton crayon → Lecture). Si deux personnes écrivent en même temps, One App
 garde la version de Drive, crée une copie de secours et passe en lecture.
 
-## Les deux modes
+## L'interface (v4)
 
-**📖 Découpage (scénario)** — séquences (infos : lieu, personnages…) contenant des plans
-(découpage technique). Insérer avant, supprimer, renuméroter une séquence, ajouter un plan
-« impro » (orange) décidé sur le plateau. Un appui sur un plan le rend actif : le tableau de bord
-affiche `SÉQ | PLAN | PRISE n`, avec clap et enregistrement de la prise.
+- **En haut** : titre (nom du projet), 📄 PDF Découpage, 📄 PDF Feuille de service, **Pr**
+  (présentation de l'extension Premiere), et **affichage normal / cahier** (même contenu,
+  mise en page de scénario de tournage en Courier). Le choix est gardé avec le projet (`ui`).
+- **Barre collée** : 📖 Scénario | 🗓️ Tournage, 🔍 recherche (mot, personnage, décor, ou `5` /
+  `5.3`), et le bouton **claquette**.
+- **Scénario** : séquences (numéros libres, ils peuvent sauter) et leurs plans, toujours numérotés
+  1, 2, 3… dans la séquence. Toucher un texte le modifie et fait apparaître ses outils
+  (N° ✎ pour renuméroter ou déplacer « 2.3 », vidéo de référence, supprimer). Les boutons
+  « + Séquence » / « + Plan » se **glissent** à l'endroit voulu.
+- **Tournage (feuille de service)** : journées repliables (« + Journée » à glisser), plans
+  réordonnés à la poignée ⠿, temps par plan et total par journée.
+- **Claquette** (téléphone : en haut ; ordinateur : colonne de gauche) : toucher un plan de la
+  liste le prend. SÉQ / PLAN / PRISE, 🎬 Clap, commentaire, et **un appui sur un avis enregistre
+  la prise** (avec « Annuler » quelques secondes). ⚡ Impro crée un plan improvisé numéroté en fin
+  de séquence. « 📍 Dernière prise » et « ▶ À suivre » guident dans l'ordre de tournage.
 
-**🎥 Plan de travail (tournage)** — tous les plans dans l'ordre de tournage, réorganisables
-par glisser-déposer (poignée ☰, souris ou doigt), avec des séparateurs (« Lundi matin ») et un
-temps par plan. **Sur le plateau, un appui sur un plan ouvre son panneau de prise**, dans
-l'ordre des gestes : 🎬 Clap · prise n → avis + commentaire → ENREGISTRER PRISE n.
-Un second appui le referme.
+## Vidéo de référence
+
+Outil d'un plan → 🎞️ **Vidéo de référence** : le sélecteur de Google Drive s'ouvre (vidéos).
+L'app garde l'**id** du fichier, son **nom** et une **miniature** (image ~320 px dans le
+document, visible hors-ligne). Un appui sur la vignette ouvre la vidéo dans l'**app Google Drive**
+(lien normal ; `googledrive://…` sur iPhone/iPad, sinon la vidéo s'ouvrirait dans une page
+intégrée). Hors connexion, cela marche si la vidéo est « disponible hors connexion » dans l'app
+Drive du téléphone. Pour l'équipe : la vidéo doit leur être partagée dans Drive.
 
 ## Prises
 
 Avis possibles (libellés lus par l'extension, **ne pas les modifier**) :
 `❓ À vérifier`, `✅ OK (Bonne)`, `⭐ MASTER (Parfaite)`, `😐 Moyen`, `😕 Bof`, `❌ KO (Ratée)`.
 
-- La prise suivante est **le plus grand numéro + 1**. Supprimer une prise **ne renumérote
-  plus** les suivantes : leur clap a déjà été joué avec leur numéro (l'ancienne version
-  renumérotait, ce qui cassait la synchronisation au montage).
-- Insérer une séquence ou un plan avant, ou renuméroter une séquence, décale les numéros :
-  si des prises existent déjà sur les éléments décalés, l'app demande confirmation (leur clap
+- La prise suivante est **le plus grand numéro + 1** ; les numéros de prise ne sont jamais
+  renumérotés (leur clap a déjà été joué).
+- Changer le numéro de plans ou de séquences **déjà tournés** demande confirmation (leur clap
   garde l'ancien numéro).
 
 ## PDF
 
-Deux impressions (choisir « Enregistrer au format PDF ») : **feuille de service** (plan de
-travail, séparateurs, temps) et **découpage technique**. Titre : nom du projet et date.
+Deux impressions (choisir « Enregistrer au format PDF ») : **découpage technique** et **feuille
+de service**. Tableau en affichage normal, mise en page de scénario en affichage cahier.
 
 ## Format des données (contrat avec l'extension Premiere)
 
@@ -73,10 +85,12 @@ Le `.onefile` est du JSON :
   "app_data": {
     "v": 1,
     "sequences":    [ { "id": 1, "info": "Cuisine, jour" } ],
-    "plans":        [ { "seqId": 1, "id": 1, "impro": 0, "info": "Plan large", "temps": "20 min" } ],
+    "plans":        [ { "seqId": 1, "id": 1, "impro": 0, "info": "Plan large", "temps": "20 min",
+                        "video": { "id": "<id Drive>", "name": "repetition.mp4", "thumb": "data:image/jpeg;base64,…" } } ],
     "takes":        [ { "uid": "lq3k9x2a1b", "seqId": 1, "planId": 1, "prise": 1,
                         "avis": "✅ OK (Bonne)", "com": "raccord verre", "timestamp": "2026-10-13T09:12:00.000Z" } ],
-    "tournageList": [ { "type": "sep", "text": "Lundi matin" }, { "type": "plan", "seqId": 1, "planId": 1 } ]
+    "tournageList": [ { "type": "sep", "text": "Lundi matin" }, { "type": "plan", "seqId": 1, "planId": 1 } ],
+    "ui": { "style": "normal", "view": "scenario", "clap": false, "active": null }
   }
 }
 ```
@@ -84,6 +98,8 @@ Le `.onefile` est du JSON :
 - `app_data` est vide (`[]`) pour un projet jamais modifié : l'app part alors d'une séquence 1 / plan 1.
 - `uid` : identifiant stable d'une prise (ne change pas si les numéros changent).
 - Une prise est identifiée au montage par **(seqId, planId, prise)**, les numéros joués par le clap.
+- `video` : `null` ou la vidéo de référence (id Drive, nom, miniature). `ui` : l'affichage où l'on
+  en était (ignoré par l'extension).
 - Il n'y a plus de `projectName` (nom du fichier) ni de colonne `rushes` (gérée par l'extension, à part).
 
 ## Le clap audio
@@ -107,6 +123,12 @@ refaire les essais à deux appareils.
   (montée/descente de 5 ms).
 - Au montage, `analyze.py` (extension) lit les 100 premières secondes de chaque rush, décode
   le message et prend comme **point de synchronisation le `*` qui suit le `#`**.
+- **Puis le claquement** : après la fin du signal et **0,5 s de silence**, un vrai « clac » de
+  claquette (bruit bref filtré sous 7 kHz + corps boisé), pour l'oreille de l'équipe et en secours
+  au montage. Il est joué par une fonction à part (`playSlateSound`) : la classe du signal n'est pas
+  modifiée, et le décodeur s'arrête au `*` final, avant le claquement. Le banc d'essai vérifie que le
+  signal est identique à l'original échantillon par échantillon, que la pause est silencieuse et
+  que le claquement n'a pas d'énergie dans la bande du signal.
 - Sur iPhone, ce son ne sort pas si le bouton silencieux est activé (Web Audio).
 
 ## Ce qui a été retiré par rapport à la version GitHub Pages

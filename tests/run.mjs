@@ -119,7 +119,7 @@ async function handleDrive(route) {
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
     // hideParents : comme Drive en drive.file quand One App n'a pas accès au dossier parent
-    return json({ id: f.id, name: f.name, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: !f.readOnly, canShare: true } });
+    return json({ id: f.id, name: f.name, thumbnailLink: f.thumbnailLink, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: !f.readOnly, canShare: true } });
   }
   if (method === 'PATCH' && isUpload) {
     if (ctl.patchDelay) await new Promise(r => setTimeout(r, ctl.patchDelay));
@@ -149,6 +149,9 @@ async function test(name, fn, contextOptions = {}) {
   await context.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, body: '' }));
   await context.route('https://www.googleapis.com/**', handleDrive);
   await context.route('https://apis.google.com/**', r => r.fulfill({ status: 200, body: '' }));
+  // Miniatures Drive (thumbnailLink) : une petite image PNG
+  await context.route('https://lh3.googleusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' },
+    body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNQaDgARwzEcQAyUhYB52C8wAAAAABJRU5ErkJggg==', 'base64') }));
   // Faux GitHub (fichiers bruts) : ctl.github['compte/dépôt/branche/chemin'] = contenu
   await context.route('https://raw.githubusercontent.com/**', r => {
     ctl.githubHits++;
@@ -185,12 +188,12 @@ async function test(name, fn, contextOptions = {}) {
     // Faux Google Picker, piloté par window.__pickerMode ('pick' ou 'cancel')
     window.__pickerMode = 'pick'; window.__pickerFileIds = null;
     window.gapi = { load: (name, cfg) => setTimeout(cfg.callback, 10) };
-    const P = { Response: { ACTION: 'action', DOCUMENTS: 'docs' }, Action: { PICKED: 'picked', CANCEL: 'cancel' }, Document: { ID: 'id' },
-      ViewId: { DOCS: 'all' }, DocsViewMode: { LIST: 'list' } };
-    P.DocsView = function () { this.setFileIds = (ids) => { window.__pickerFileIds = ids; return this; }; this.setMode = () => this; };
+    const P = { Response: { ACTION: 'action', DOCUMENTS: 'docs' }, Action: { PICKED: 'picked', CANCEL: 'cancel' }, Document: { ID: 'id', NAME: 'name', MIME_TYPE: 'mimeType' },
+      ViewId: { DOCS: 'all', DOCS_VIDEOS: 'videos' }, DocsViewMode: { LIST: 'list', GRID: 'grid' } };
+    P.DocsView = function (viewId) { window.__pickerView = viewId; this.setFileIds = (ids) => { window.__pickerFileIds = ids; return this; }; this.setMode = () => this; this.setIncludeFolders = () => this; };
     P.PickerBuilder = function () {
       let cb; const b = this;
-      ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView'].forEach(m => { b[m] = () => b; });
+      ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView', 'setTitle'].forEach(m => { b[m] = () => b; });
       b.setCallback = (f) => { cb = f; return b; };
       // Comme le vrai Picker : action 'loaded' d'abord. Options pour reproduire les cas réels :
       // __pickerDelay (temps passé dans le Picker), __grantDelay (accès effectif après un délai),
@@ -201,6 +204,11 @@ async function test(name, fn, contextOptions = {}) {
         setTimeout(async () => {
           window.__pickerOpen = false;
           if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
+          // Choix libre (ex. vidéo de référence) : window.__pickVideo = { id, name, mimeType }
+          if (window.__pickVideo && window.__pickerView === 'videos') {
+            await window.__grantAccess(window.__pickVideo.id);
+            return cb({ action: 'picked', docs: [window.__pickVideo] });
+          }
           const ids = window.__pickerFileIds;
           if (window.__grantDelay) setTimeout(() => window.__grantAccess(ids), window.__grantDelay);
           else await window.__grantAccess(ids);
@@ -1125,110 +1133,144 @@ async function openCinema(page, data) {
   await page.evaluate(() => openAppEnvironment('app1', 'Cinema Script', 'doc1', 'Doc'));
   await page.waitForFunction(() => document.querySelector('#iframe-container iframe'));
   const frame = page.frames().find(f => f !== page.mainFrame());
-  await frame.waitForSelector('.acc-seq');
+  await frame.waitForSelector('.seq-head');
   return frame;
 }
-const SHOOT = { v: 1, sequences: [{ id: 1, info: 'Cuisine' }, { id: 2, info: 'Rue' }],
-  plans: [{ seqId: 1, id: 1, impro: 0, info: 'Plan large', temps: '' }, { seqId: 2, id: 1, impro: 0, info: 'Travelling', temps: '' }],
-  takes: [], tournageList: [{ type: 'sep', text: 'Lundi' }, { type: 'plan', seqId: 2, planId: 1 }, { type: 'plan', seqId: 1, planId: 1 }] };
+const SHOOT = { v: 1, sequences: [{ id: 1, info: 'INT. CUISINE – JOUR' }, { id: 2, info: 'EXT. RUE – NUIT' }],
+  plans: [{ seqId: 1, id: 1, impro: 0, info: 'Plan large', temps: '20 min', video: null }, { seqId: 2, id: 1, impro: 0, info: 'Travelling', temps: '', video: null }],
+  takes: [{ uid: 'a', seqId: 1, planId: 1, prise: 1, avis: '✅ OK (Bonne)', com: '', timestamp: '2026-10-14T08:00:00Z' },
+          { uid: 'b', seqId: 1, planId: 1, prise: 3, avis: '😕 Bof (Ratée)', com: '', timestamp: '2026-10-14T08:10:00Z' }],
+  tournageList: [{ type: 'sep', text: 'Lundi' }, { type: 'plan', seqId: 2, planId: 1 }, { type: 'plan', seqId: 1, planId: 1 }] };
 
-await test("Cinema Script : clap identique à l'original (code et son)", async (page) => {
+await test("Cinema Script : signal du clap identique à l'original, puis pause et claquement", async (page) => {
   const ref = fs.readFileSync(path.join(TESTS_DIR, 'fixtures', 'cinema-clap-original.js'), 'utf8').split('\n').slice(3).join('\n').trim();
-  const mine = CINEMA.slice(CINEMA.indexOf('class DigitalClapper'), CINEMA.indexOf('const clapper = new DigitalClapper();')).trim();
+  const mine = CINEMA.slice(CINEMA.indexOf('class DigitalClapper'), CINEMA.indexOf('CS.clapper = new DigitalClapper();')).trim();
   eq(mine === ref, true, 'code de la classe identique');
-  const same = await page.evaluate(async ([a, b]) => {
+  const frame = await openCinema(page, SHOOT);
+  const r = await frame.evaluate(async (refSrc) => {
     window.addEventListener('unhandledrejection', e => e.preventDefault());
-    const render = async (src) => {
-      const C = new Function(src + '; return DigitalClapper;')();
-      const c = new C();
-      c.audioCtx = new OfflineAudioContext(1, 48000 * 4, 48000);
-      c.play(12, 3, 4);
-      return (await c.audioCtx.startRendering()).getChannelData(0);
-    };
-    const x = await render(a), y = await render(b);
-    let energy = 0; for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return 'différent à ' + i; energy += x[i] * x[i]; }
-    return energy > 1 ? 'ok' : 'silence';
-  }, [ref, mine]);
-  eq(same, 'ok', 'son rendu identique échantillon par échantillon');
+    const RATE = 48000, LEN = RATE * 6;
+    // Original : la classe d'origine seule
+    const C = new Function(refSrc + '; return DigitalClapper;')();
+    const o = new C(); o.audioCtx = new OfflineAudioContext(1, LEN, RATE); o.play(2, 1, 1);
+    const orig = (await o.audioCtx.startRendering()).getChannelData(0);
+    // App : CS.clap() sur le plan 2.1 (prise 1)
+    CS.active = { seqId: 2, planId: 1 };
+    CS.clapper.audioCtx = new OfflineAudioContext(1, LEN, RATE);
+    CS.clap();
+    const mine = (await CS.clapper.audioCtx.startRendering()).getChannelData(0);
+    const end = Math.floor(CS.signalEnd(0, 2, 1, 1) * RATE), slate = end + Math.floor(CS.SLATE_PAUSE * RATE);
+    for (let i = 0; i < slate; i++) if (orig[i] !== mine[i]) return 'signal différent à ' + i;
+    let pause = 0; for (let i = end; i < slate; i++) pause += mine[i] * mine[i];
+    let clap = 0; for (let i = slate; i < slate + RATE * 0.3; i++) clap += mine[i] * mine[i];
+    // Énergie du claquement dans la bande du signal (10,6–12,6 kHz), par Goertzel
+    const band = (f) => { const k = 2 * Math.cos(2 * Math.PI * f / RATE); let s1 = 0, s2 = 0;
+      for (let i = slate; i < slate + RATE * 0.3; i++) { const s0 = mine[i] + k * s1 - s2; s2 = s1; s1 = s0; }
+      return (s1 * s1 + s2 * s2 - k * s1 * s2) / (RATE * 0.3); };
+    const inBand = [10697, 10941, 12209, 12477].reduce((a, f) => a + band(f), 0);
+    const ref1k = band(2200);
+    return { pause, clap, ratio: inBand / ref1k };
+  }, ref);
+  if (typeof r === 'string') throw new Error(r);
+  eq(r.pause, 0, 'silence entre le signal et le claquement');
+  if (!(r.clap > 50)) throw new Error('claquement trop faible : ' + r.clap);
+  if (!(r.ratio < 0.02)) throw new Error('claquement présent dans la bande du signal : ' + r.ratio);
 });
 
-await test("Cinema Script : nouveau document, séquence, plan et texte enregistrés ; nom du projet = nom du fichier", async (page) => {
+await test("Cinema Script : nouveau document, texte enregistré ; nom du projet = nom du fichier", async (page) => {
   const frame = await openCinema(page);
-  eq(await frame.textContent('#projName'), 'Doc', 'nom du projet');
-  await frame.fill('.acc-seq textarea', 'Intérieur jour');
-  await frame.click('.btn-add.impro');
-  await frame.fill('.acc-plan.active textarea', 'Gros plan');
-  await frame.click('#btnAddSeq');
+  eq(await frame.textContent('#proj'), 'Doc', 'nom du projet');
+  await frame.fill('.seq-head textarea', 'INT. JOUR');
+  await frame.fill('.plan textarea', 'Gros plan');
   await page.waitForFunction(() => isDirty === true);
   await page.evaluate(() => closeApp());
   const d = cinemaData();
-  eq(d.sequences.map(s => [s.id, s.info]), [[1, 'Intérieur jour'], [2, '']], 'séquences');
-  eq(d.plans.map(p => [p.seqId, p.id, p.impro, p.info]), [[1, 1, 0, ''], [1, 2, 1, 'Gros plan']], 'plans');
-  eq(d.tournageList.length, 2, 'plan de travail');
+  eq([d.sequences[0].info, d.plans[0].info], ['INT. JOUR', 'Gros plan'], 'textes');
   if ('projectName' in d) throw new Error('le nom du projet ne doit pas être dans les données');
 });
 
-await test("Cinema Script : prise depuis le plan de travail (clap + enregistrer), sans renumérotation", async (page) => {
+await test("Cinema Script : claquette sur le plan de travail, avis = prise enregistrée, sans renumérotation", async (page) => {
   const frame = await openCinema(page, SHOOT);
-  await frame.evaluate(() => { window.__claps = []; clapper.play = (...a) => window.__claps.push(a); });
-  await frame.click('#btnModeTournage');
-  await frame.click('.tournage-item:nth-child(2) .t-open');           // SÉQ 2 - P 1, 1er dans l'ordre de tournage
-  await frame.click('.shoot-panel .btn-clap');
-  await frame.selectOption('.shoot-panel select', '⭐ MASTER (Parfaite)');
-  await frame.fill('.shoot-panel input', 'raccord verre');
-  await frame.click('.shoot-panel .btn-save');
-  await frame.click('.shoot-panel .btn-save');
-  await frame.click('.shoot-panel .btn-save');
-  eq(await frame.textContent('.shoot-panel .btn-save'), 'ENREGISTRER PRISE 4', 'prise suivante');
-  page.removeAllListeners('dialog'); page.on('dialog', d => d.accept());
-  await frame.click('.shoot-panel .take-item:nth-child(2) .btn-delete'); // supprime la prise 2
-  await frame.click('.shoot-panel .btn-clap');
-  eq(await frame.evaluate(() => window.__claps), [[2, 1, 1], [2, 1, 4]], 'claps joués (séq, plan, prise)');
+  await frame.evaluate(() => { window.__claps = []; CS.clapper.play = (...a) => window.__claps.push(a); });
+  await frame.click('[data-view="tournage"]');
+  await frame.click('#bClap');
+  await frame.click('.row[data-key="1.1"]');
+  eq(await frame.textContent('.cl-nums .take b'), '4', 'prise suivante après 1 et 3');
+  await frame.click('.cl-clap');
+  await frame.fill('#com', 'raccord verre');
+  await frame.click('.av.k-master');
+  await frame.click('.row[data-key="2.1"]');
+  await frame.click('.av.k-ok');
+  eq(await frame.evaluate(() => window.__claps), [[1, 1, 4]], 'clap joué (séq, plan, prise)');
   await page.waitForFunction(() => isDirty === true);
   await page.evaluate(() => closeApp());
-  const takes = cinemaData().takes;
-  eq(takes.map(t => [t.seqId, t.planId, t.prise]), [[2, 1, 1], [2, 1, 3]], 'prises (pas de renumérotation)');
-  eq(takes[0].avis, '⭐ MASTER (Parfaite)', 'avis');
-  eq(takes[0].com, 'raccord verre', 'commentaire');
-  if (!takes.every(t => t.uid && t.timestamp)) throw new Error('uid/heure manquants');
+  const t = cinemaData().takes;
+  eq(t.map(x => [x.seqId, x.planId, x.prise, x.avis, x.com]), [[1, 1, 1, '✅ OK (Bonne)', ''], [1, 1, 3, '😕 Bof (Ratée)', ''],
+    [1, 1, 4, '⭐ MASTER (Parfaite)', 'raccord verre'], [2, 1, 1, '✅ OK (Bonne)', '']], 'prises');
+  if (!t.every(x => x.uid && x.timestamp)) throw new Error('uid/heure manquants');
 });
 
-await test("Cinema Script : lecture seule (clap possible, aucune modification) ; textes piégés affichés en texte", async (page) => {
+await test("Cinema Script : lecture seule (claquette consultable, rien de modifiable) ; textes piégés affichés en texte", async (page) => {
   const data = structuredClone(SHOOT);
   data.sequences[0].info = '<img src=x onerror="parent.__pwned=1">';
-  data.takes.push({ uid: 'a', seqId: 1, planId: 1, prise: 1, avis: '✅ OK (Bonne)', com: '<b onclick=x>gras</b>', timestamp: '' });
+  data.takes[0].com = '<b onclick=x>gras</b>';
   const frame = await openCinema(page, data);
   await page.evaluate(() => toggleAppMode());
-  await frame.waitForFunction(() => !document.querySelector('#btnAddSeq:not([hidden])'));
-  eq(await frame.$$eval('.btn-delete, .btn-add, .inline-actions', e => e.filter(x => x.offsetParent).length), 0, "pas d'action de modification");
-  await frame.click('#btnModeTournage');
-  await frame.click('.tournage-item:nth-child(3) .t-open');
-  eq(await frame.$$eval('.shoot-panel .btn-clap', e => e.length), 1, 'clap disponible');
-  eq(await frame.$$eval('.shoot-panel .btn-save', e => e.length), 0, 'pas de prise en lecture');
-  eq(await frame.textContent('.shoot-panel .take-com'), '<b onclick=x>gras</b>', 'commentaire affiché en texte');
-  await frame.click('#btnModeDecoupage');
-  eq(await frame.inputValue('.acc-seq textarea'), '<img src=x onerror="parent.__pwned=1">', 'info en texte');
-  eq(await frame.$$eval('img, b', e => e.length), 0, 'aucune balise injectée');
+  await frame.waitForFunction(() => CS.readOnly === true);
+  eq(await frame.$$eval('.adder, textarea', e => e.length), 0, 'pas de création ni de saisie');
+  eq(await frame.textContent('.seq-head .ro'), '<img src=x onerror="parent.__pwned=1">', 'info en texte');
+  await frame.click('#bClap');
+  await frame.click('.plan[data-seq="1"][data-plan="1"]');
+  eq(await frame.$$eval('.av', e => e.every(b => b.disabled)), true, 'avis désactivés');
+  eq(await frame.$$eval('img, b[onclick]', e => e.length), 0, 'aucune balise injectée');
 });
 
 await test("Cinema Script : une mise à jour reçue pendant la saisie n'écrase pas le champ", async (page) => {
   const frame = await openCinema(page, SHOOT);
-  await frame.click('.acc-seq textarea');
-  await page.keyboard.type(' — nuit');
-  const remote = structuredClone(SHOOT); remote.sequences[1].info = 'Rue (modifié ailleurs)';
+  await frame.click('.seq-head textarea');
+  await page.keyboard.press('End');
+  await page.keyboard.type(' (nuit)');
+  const remote = structuredClone(SHOOT); remote.sequences[1].info = 'EXT. RUE – AUBE';
   await page.evaluate((d) => postToApp('RESTORE_DATA', d), remote);
   await wait(200);
-  eq(await frame.inputValue('.acc-seq textarea'), 'Cuisine — nuit', 'saisie conservée');
-  await frame.click('#projName');                                      // sortie du champ
-  await frame.waitForFunction(() => state.sequences[1].info === 'Rue (modifié ailleurs)');
+  eq(await frame.inputValue('.seq-head textarea'), 'INT. CUISINE – JOUR (nuit)', 'saisie conservée');
+  await frame.click('#proj');
+  await frame.waitForFunction(() => CS.state.sequences[1].info === 'EXT. RUE – AUBE');
 });
 
-await test("Cinema Script : PDF avec le nom du projet", async (page) => {
+await test("Cinema Script : PDF avec le nom du projet, dans l'ordre de tournage", async (page) => {
   const frame = await openCinema(page, SHOOT);
-  await frame.evaluate(() => { window.print = () => { window.__printed = document.getElementById('printArea').textContent; }; });
-  await frame.click('#btnPdfTournage');
+  await frame.evaluate(() => { window.print = () => { window.__printed = document.getElementById('cs-print').textContent; }; });
+  await frame.click('#bPdfF');
   const txt = await frame.evaluate(() => window.__printed);
   if (!txt.includes('PROJET : Doc') || !txt.includes('--- Lundi ---') || txt.indexOf('S2 - P1') > txt.indexOf('S1 - P1')) throw new Error('PDF : ' + txt);
+});
+
+await test("Cinema Script : vidéo de référence choisie dans Drive (miniature gardée, lien Drive)", async (page) => {
+  add({ id: 'vid1', name: 'repet_cuisine.mp4', mimeType: 'video/mp4', parents: ['autre'], thumbnailLink: 'https://lh3.googleusercontent.com/drive-thumb/vid1=s220' });
+  files.vid1.noAccess = true;
+  const frame = await openCinema(page, SHOOT);
+  await page.evaluate(() => { window.__pickVideo = { id: 'vid1', name: 'repet_cuisine.mp4', mimeType: 'video/mp4' }; });
+  await frame.click('.plan[data-seq="1"] textarea');
+  await frame.click('.plan[data-seq="1"] .tool:has-text("Vidéo de référence")');
+  await frame.waitForFunction(() => (CS.plan(1, 1).video && CS.plan(1, 1).video.thumb) || document.querySelector('.cs-toast'), null, { timeout: 10000 });
+  const toast = await frame.evaluate(() => { const t = document.querySelector('.cs-toast'); return t && !CS.plan(1, 1).video ? t.textContent : null; });
+  if (toast) throw new Error('message : ' + toast);
+  const v = await frame.evaluate(() => CS.plan(1, 1).video);
+  eq([v.id, v.name, v.thumb.startsWith('data:image/jpeg')], ['vid1', 'repet_cuisine.mp4', true], 'vidéo enregistrée');
+  eq(await frame.getAttribute('.plan[data-seq="1"] a.vid', 'href'), 'https://drive.google.com/file/d/vid1/view', 'lien Drive');
+  eq(await frame.$$eval('.plan[data-seq="1"] a.vid img', e => e.length), 1, 'miniature affichée');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  eq(cinemaData().plans.find(p => p.seqId === 1).video.id, 'vid1', 'dans le document');
+});
+
+await test("API : lien Drive spécial sur iPhone (googledrive://)", async (page) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1' }); });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('.app-tile'));
+  const frame = await openDoc(page);
+  eq(await frame.evaluate(() => OneAppAPI.driveFileLink('vid1')), 'googledrive://https://drive.google.com/file/d/vid1/view', 'lien iOS');
 });
 
 // --- Apps publiées sur GitHub, apps partagées, copie avant modification, import ---

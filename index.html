@@ -1949,6 +1949,66 @@
             });
         }
 
+        // Choisir un fichier pour une app (vidéo de référence...). Le Picker donne à One App
+        // l'accès à ce fichier (drive.file) ; l'app reçoit son id, son nom et une miniature.
+        async function pickDriveFileForApp(options) {
+            if (!API_KEY) throw new Error("Clé API absente : ajoutez GOOGLE_API_KEY dans config.js.");
+            await loadPicker();
+            if (isTokenExpired()) await renewToken();
+            const video = options.type === 'video';
+            const doc = await new Promise((resolve) => {
+                const view = new google.picker.DocsView(video ? google.picker.ViewId.DOCS_VIDEOS : google.picker.ViewId.DOCS)
+                    .setIncludeFolders(true)
+                    .setMode(video ? google.picker.DocsViewMode.GRID : google.picker.DocsViewMode.LIST);
+                new google.picker.PickerBuilder()
+                    .setAppId(APP_ID)
+                    .setOAuthToken(globalAccessToken)
+                    .setDeveloperKey(API_KEY)
+                    .setLocale('fr')
+                    .setTitle(video ? 'Choisir une vidéo' : 'Choisir un fichier')
+                    .addView(view)
+                    .setCallback((data) => {
+                        const action = data[google.picker.Response.ACTION];
+                        if (action === google.picker.Action.PICKED) resolve((data[google.picker.Response.DOCUMENTS] || [])[0] || null);
+                        else if (action !== 'loaded') resolve(null);
+                    })
+                    .build()
+                    .setVisible(true);
+            });
+            if (!doc) return null;
+            const file = {
+                id: doc[google.picker.Document.ID],
+                name: doc[google.picker.Document.NAME] || '',
+                mimeType: doc[google.picker.Document.MIME_TYPE] || '',
+                thumb: null
+            };
+            try { file.thumb = await driveThumbnail(file.id); }
+            catch (e) { console.warn("Miniature indisponible :", e.message); }
+            return file;
+        }
+
+        // Miniature d'un fichier Drive, réduite (320 px) et encodée en data:URL (JPEG),
+        // pour être gardée dans le document et affichée hors-ligne
+        async function driveThumbnail(fileId) {
+            let meta = null;
+            for (let i = 0; i < 4 && !(meta && meta.thumbnailLink); i++) {
+                if (i) await new Promise(r => setTimeout(r, 900 * i)); // accès ou miniature pas encore prêts
+                try { meta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=thumbnailLink`); } catch (e) { meta = null; }
+            }
+            if (!meta || !meta.thumbnailLink) return null;
+            const link = meta.thumbnailLink.replace(/=s\d+$/, '=s640');
+            let res;
+            try { res = await fetch(link); } catch (e) { res = null; }
+            if (!res || !res.ok) res = await fetch(link, { headers: { 'Authorization': `Bearer ${globalAccessToken}` } });
+            if (!res.ok) throw new Error('miniature ' + res.status);
+            const bitmap = await createImageBitmap(await res.blob());
+            const w = Math.min(320, bitmap.width), hgt = Math.round(bitmap.height * w / bitmap.width);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = hgt;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, w, hgt);
+            return canvas.toDataURL('image/jpeg', 0.75);
+        }
+
         // Vérifie auprès de Drive que One App peut lire le fichier. Après le Picker,
         // l'accès peut mettre quelques secondes à devenir effectif : on réessaie.
         async function waitForFileAccess(fileId, attempts) {
@@ -3124,6 +3184,8 @@ One App fournit automatiquement l'objet window.OneAppAPI :
 - OneAppAPI.saveData(state) → à appeler après CHAQUE modification faite par l'utilisateur, avec l'état COMPLET. One App gère le délai, l'historique et Google Drive. Ne l'appelle pas au démarrage.
 - OneAppAPI.onDataChange(callback) → callback(data) est appelé quand les données sont remplacées de l'extérieur (Annuler/Rétablir, historique des versions, modification depuis un autre appareil). Remplace state par data et redessine tout l'écran. N'appelle pas saveData dans ce callback.
 - OneAppAPI.onModeChange(callback) → callback(readOnly) est appelé quand le mode lecture seule change. En lecture seule, désactive tout ce qui modifie les données.
+- OneAppAPI.pickDriveFile({ type: "video" }) → Promise : ouvre le sélecteur de Google Drive et renvoie { id, name, mimeType, thumb } (thumb = miniature en data:URL, ou null), ou null si l'utilisateur annule ; rejette (message en français) si c'est impossible (hors-ligne, lecture seule). Garde dans state l'id, le nom et la miniature. Sans type : tout fichier.
+- OneAppAPI.driveFileLink(id) → lien à mettre dans un <a target="_blank"> pour ouvrir le fichier dans l'app Google Drive (fonctionne hors-ligne si le fichier y est disponible ; lien adapté à l'iPhone). Calcule-le à l'affichage, ne le stocke pas.
 - OneAppAPI.getFileName() → nom du document ouvert (sans extension), disponible après loadData(). C'est le nom du projet : ne demande jamais de nom de projet à l'utilisateur, ne le stocke pas dans state ; utilise-le pour les titres, PDF et fichiers exportés. OneAppAPI.onNameChange(callback) → callback(nom) quand le document est renommé.
 - N'implémente pas ton propre Annuler/Rétablir : One App s'en charge (boutons et Ctrl+Z).
 
@@ -3137,7 +3199,9 @@ window.OneAppAPI = window.OneAppAPI || {
   onDataChange: () => {},
   onModeChange: () => {},
   getFileName: () => "Document de test",
-  onNameChange: () => {}
+  onNameChange: () => {},
+  pickDriveFile: async () => null,
+  driveFileLink: (id) => "https://drive.google.com/file/d/" + id + "/view"
 };
 
 const DEFAULT_STATE = { /* structure de départ des données */ };
@@ -3258,6 +3322,30 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 onModeChange: function (cb) { if (typeof cb === 'function') modeListeners.push(cb); },
                 // Nom du document ouvert (sans extension) : c'est le nom du projet
                 getFileName: function () { return fileName; },
+                // Choisir un fichier dans Google Drive (Picker) : { type: 'video' } pour les vidéos.
+                // Renvoie { id, name, mimeType, thumb } (thumb : image en data:URL, ou null),
+                // null si l'utilisateur annule ; rejette en cas d'impossibilité (hors-ligne...).
+                pickDriveFile: function (options) {
+                    return new Promise(function (resolve, reject) {
+                        const requestId = 'pick' + Date.now() + Math.random().toString(36).slice(2);
+                        const listener = function (event) {
+                            if (event.source !== window.parent || !event.data || event.data.type !== 'PICK_FILE_RESPONSE' || event.data.payload.requestId !== requestId) return;
+                            window.removeEventListener('message', listener);
+                            if (event.data.payload.error) reject(new Error(event.data.payload.error));
+                            else resolve(event.data.payload.file || null);
+                        };
+                        window.addEventListener('message', listener);
+                        send('PICK_FILE_REQUEST', { requestId: requestId, options: options || {} });
+                    });
+                },
+                // Lien qui ouvre un fichier Drive dans l'app Google Drive (y compris hors-ligne
+                // si le fichier y est disponible) : lien normal, schéma googledrive:// sur iPhone/iPad
+                driveFileLink: function (fileId) {
+                    const web = 'https://drive.google.com/file/d/' + encodeURIComponent(fileId) + '/view';
+                    const ua = navigator.userAgent;
+                    const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+                    return ios ? 'googledrive://' + web : web;
+                },
                 onNameChange: function (cb) { if (typeof cb === 'function') nameListeners.push(cb); },
                 askGemini: function () { console.warn("[One App] askGemini n'est pas disponible."); }
             };
@@ -3268,6 +3356,15 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                     notify(dataListeners, event.data.payload);
                     // Compatibilité avec les apps créées avant onDataChange
                     if (typeof window.OneAppInternal_OnRestore === 'function') window.OneAppInternal_OnRestore(event.data.payload);
+                }
+                // One App va fermer ou changer de document : la saisie en cours est validée
+                // (blur → événement change des champs), les apps peuvent aussi écouter
+                // l'événement « oneapp-flush » ; puis on répond, après leurs saveData
+                if (event.data.type === 'FLUSH_REQUEST') {
+                    const a = document.activeElement;
+                    if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+                    try { window.dispatchEvent(new Event('oneapp-flush')); } catch (e) {}
+                    setTimeout(function () { send('FLUSH_DONE', event.data.payload); }, 0);
                 }
                 if (event.data.type === 'SET_NAME') {
                     fileName = String(event.data.payload || '');
@@ -3322,8 +3419,20 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                     payload: { readOnly: isAppReadOnly || isViewingHistory, app_data: localContent !== null ? localContent : (window.currentLoadedAppData || []), name: currentDocInfo.fileName || '' }
                 }, '*');
             }
+            else if (event.data.type === 'FLUSH_DONE') {
+                const done = flushWaiters.get(event.data.payload);
+                if (done) setTimeout(done, 0); // après les saveData envoyés juste avant
+            }
             else if (event.data.type === 'UNDO_REQUEST') {
                 appUndo();
+            }
+            else if (event.data.type === 'PICK_FILE_REQUEST') {
+                const payload = event.data.payload || {};
+                const source = event.source;
+                const answer = (file, error) => source.postMessage({ type: 'PICK_FILE_RESPONSE', payload: { requestId: payload.requestId, file: file || null, error: error || null } }, '*');
+                if (isAppReadOnly || isViewingHistory) return answer(null, "Document en lecture seule.");
+                if (isOffline()) return answer(null, "Choisir un fichier dans Drive demande Internet.");
+                pickDriveFileForApp(payload.options || {}).then((file) => answer(file), (e) => answer(null, e.message || String(e)));
             }
             else if (event.data.type === 'REDO_REQUEST') {
                 appRedo();
@@ -3351,6 +3460,21 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
         });
 
         // --- COMMANDES DU MOTEUR VERS L'IFRAME ---
+        // Avant de fermer ou de changer de document : l'app enregistre ce qu'elle gardait en
+        // attente (texte en cours de saisie...). Réponse attendue 500 ms au plus.
+        const flushWaiters = new Map();
+        function requestAppFlush() {
+            const iframe = document.querySelector('#iframe-container iframe');
+            if (!iframe || !iframe.contentWindow || isAppReadOnly || isViewingHistory) return Promise.resolve();
+            const id = 'f' + Date.now() + Math.random().toString(36).slice(2);
+            return new Promise((resolve) => {
+                const done = () => { flushWaiters.delete(id); resolve(); };
+                flushWaiters.set(id, done);
+                setTimeout(done, 500);
+                iframe.contentWindow.postMessage({ type: 'FLUSH_REQUEST', payload: id }, '*');
+            });
+        }
+
         function postToApp(type, payload) {
             const iframe = document.querySelector('#iframe-container iframe');
             if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({ type: type, payload: payload }, '*');
@@ -4190,6 +4314,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
 
         async function openAppEnvironment(appFileId, appName, oneFileId, oneFileName, capabilities = null) {
             // Un fichier est déjà ouvert : on enregistre ce qui est en attente avant de changer
+            if (currentActiveOneFileId) await requestAppFlush();
             if (currentActiveOneFileId && !(await flushSync())) return;
             if (isOffline()) return openFromDevice(appFileId, appName, oneFileId, oneFileName);
 
@@ -4282,6 +4407,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
         }
 
         async function closeApp() {
+            await requestAppFlush();
             // On n'abandonne jamais des modifications sans le dire
             if (!(await flushSync())) return;
 

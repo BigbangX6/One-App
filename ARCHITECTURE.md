@@ -247,6 +247,18 @@ GitHub est converti en pointeur GitHub à l'ouverture (`upgradePointerToGithub`)
 « Modifier l'app » sur une app GitHub, partagée (pointeur `drive` ou ancien raccourci) :
 proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis éditeur sur la copie.
 
+### Fichiers Drive pour les apps (vidéo de référence…)
+`OneAppAPI.pickDriveFile({ type: 'video' })` → message `PICK_FILE_REQUEST` → `pickDriveFileForApp` :
+Google Picker (vue vidéos), accès drive.file au fichier choisi, miniature (`driveThumbnail` :
+`thumbnailLink` réduit à 320 px, data:URL JPEG) → `{ id, name, mimeType, thumb }`.
+`OneAppAPI.driveFileLink(id)` (calculé dans l'iframe) : lien Drive, ou `googledrive://` + lien sur
+iOS (testé : ouvre l'app Drive, y compris hors-ligne ; voir plus bas).
+
+### Saisie en attente avant de fermer
+`requestAppFlush` (fermeture, changement de document) : message `FLUSH_REQUEST` ; le pont
+retire le focus du champ actif (événement `change`) et émet `oneapp-flush`, puis répond
+`FLUSH_DONE` (500 ms au plus). Une app qui enregistre après une pause de frappe ne perd rien.
+
 ### Importer un document
 Quand une app est sélectionnée sur l'accueil, lien discret « Importer… » (`importDocFile`) :
 un `.onefile` de l'appareil est recréé dans le dossier de l'app (avec `drive.file`, un fichier
