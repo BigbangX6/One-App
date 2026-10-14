@@ -1949,6 +1949,8 @@
             });
         }
 
+        const VIDEO_MIME_TYPES = 'video/mp4,video/quicktime,video/x-m4v,video/webm,video/x-matroska,video/x-msvideo,video/3gpp,video/mpeg,video/MP2T';
+
         // Choisir un fichier pour une app (vidéo de référence...). Le Picker donne à One App
         // l'accès à ce fichier (drive.file) ; l'app reçoit son id, son nom et une miniature.
         async function pickDriveFileForApp(options) {
@@ -1957,16 +1959,23 @@
             if (isTokenExpired()) await renewToken();
             const video = options.type === 'video';
             const doc = await new Promise((resolve) => {
-                const view = new google.picker.DocsView(video ? google.picker.ViewId.DOCS_VIDEOS : google.picker.ViewId.DOCS)
-                    .setIncludeFolders(true)
-                    .setMode(video ? google.picker.DocsViewMode.GRID : google.picker.DocsViewMode.LIST);
-                new google.picker.PickerBuilder()
+                const P = google.picker;
+                // On navigue dans ses dossiers (Mon Drive), en ne voyant que les fichiers utiles ;
+                // onglets : Mon Drive (dossiers), tous les fichiers de ce type, partagés avec moi
+                const typed = (v) => (video ? v.setMimeTypes(VIDEO_MIME_TYPES) : v);
+                const myDrive = typed(new P.DocsView(P.ViewId.DOCS)).setParent('root').setIncludeFolders(true).setMode(P.DocsViewMode.LIST);
+                const all = video ? new P.DocsView(P.ViewId.DOCS_VIDEOS).setMode(P.DocsViewMode.GRID) : new P.DocsView(P.ViewId.DOCS).setMode(P.DocsViewMode.LIST);
+                const shared = typed(new P.DocsView(P.ViewId.DOCS)).setOwnedByMe(false).setIncludeFolders(true).setMode(P.DocsViewMode.LIST);
+                new P.PickerBuilder()
                     .setAppId(APP_ID)
                     .setOAuthToken(globalAccessToken)
                     .setDeveloperKey(API_KEY)
                     .setLocale('fr')
                     .setTitle(video ? 'Choisir une vidéo' : 'Choisir un fichier')
-                    .addView(view)
+                    .enableFeature(P.Feature.SUPPORT_DRIVES)
+                    .addView(myDrive)
+                    .addView(all)
+                    .addView(shared)
                     .setCallback((data) => {
                         const action = data[google.picker.Response.ACTION];
                         if (action === google.picker.Action.PICKED) resolve((data[google.picker.Response.DOCUMENTS] || [])[0] || null);

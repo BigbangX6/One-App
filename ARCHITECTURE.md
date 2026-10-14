@@ -249,7 +249,7 @@ proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis 
 
 ### Fichiers Drive pour les apps (vidéo de référence…)
 `OneAppAPI.pickDriveFile({ type: 'video' })` → message `PICK_FILE_REQUEST` → `pickDriveFileForApp` :
-Google Picker (vue vidéos), accès drive.file au fichier choisi, miniature (`driveThumbnail` :
+Google Picker (Mon Drive avec ses dossiers filtrés sur le type, tous les fichiers du type, partagés avec moi), accès drive.file au fichier choisi, miniature (`driveThumbnail` :
 `thumbnailLink` réduit à 320 px, data:URL JPEG) → `{ id, name, mimeType, thumb }`.
 `OneAppAPI.driveFileLink(id)` (calculé dans l'iframe) : lien Drive, ou `googledrive://` + lien sur
 iOS (testé : ouvre l'app Drive, y compris hors-ligne ; voir plus bas).

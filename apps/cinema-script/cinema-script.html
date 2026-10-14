@@ -120,11 +120,24 @@ body.clap .clapper { display: block; position: sticky; top: 0; z-index: 25; padd
 .cs-edit:focus { outline: none; }
 .ro { white-space: pre-wrap; line-height: 1.5; font-size: 1.06rem; padding: 2px 0; }
 .seq-head .ro { font-weight: 700; font-size: 1.1rem; }
-.vid { display: inline-flex; gap: 8px; align-items: center; border: none; background: var(--panel-2); border-radius: 8px; padding: 4px 10px 4px 4px; font-size: .85rem; max-width: 100%; justify-self: start; }
+.vid { display: inline-flex; gap: 8px; align-items: center; border: none; background: var(--panel-2); border-radius: 8px; padding: 4px 10px 4px 4px; font-size: .85rem; max-width: 100%; min-width: 0; overflow: hidden; justify-self: start; text-align: left; }
+.pmain, .smain, .rtext { min-width: 0; }
 .vid i { width: 40px; height: 24px; border-radius: 4px; background: linear-gradient(135deg, #0f2027, #2c5364); color: #fff; display: grid; place-items: center; font-style: normal; font-size: .7rem; flex: none; }
 .vid span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vid img { width: 48px; height: 28px; border-radius: 4px; object-fit: cover; flex: none; background: #000; }
-a.vid { color: inherit; text-decoration: none; }
+.vid span { min-width: 0; }
+.cs-video { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; width: 100%; border-radius: 12px; background: #000 center / cover no-repeat; text-decoration: none; overflow: hidden; }
+.cs-video .play { width: 64px; height: 64px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; font-size: 1.6rem; padding-left: 4px; box-shadow: 0 0 0 3px rgba(255,255,255,.85); }
+.cs-video:active .play { transform: scale(.94); }
+.cs-vname { color: var(--text) !important; font-weight: 700; overflow-wrap: anywhere; }
+.cs-vhint { font-size: .9rem; }
+/* Prises d'un plan */
+.takes-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 14px; padding: 2px 8px; font-size: .78rem; font-weight: 700; color: var(--text); }
+.cs-takes { display: grid; gap: 8px; }
+.cs-take { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; border-left: 4px solid var(--av); background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
+.cs-take-main { display: grid; gap: 2px; min-width: 0; }
+.cs-take-main small { color: var(--muted); overflow-wrap: anywhere; }
+.cs-del { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; width: 40px; height: 40px; font-size: 1.1rem; }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--av); }
 .empty { color: var(--muted); font-style: italic; padding: 8px 2px; }
@@ -228,6 +241,7 @@ body.cahier .plan.impro, body.cahier .row.impro { box-shadow: none; }
 body.cahier .plan.impro .num .k, body.cahier .row.impro .code { color: var(--orange); }
 body.cahier .tool, body.cahier .vid { border-radius: 0; background: none; border: 1px solid var(--line); }
 body.cahier .vid i, body.cahier .vid img { display: none; }
+body.cahier .takes-btn, body.cahier .cs-take, body.cahier .cs-del, body.cahier .cs-video { border-radius: 0; }
 body.cahier .vid { text-decoration: underline; border: none; padding: 0; color: var(--muted); }
 body.cahier .day-head { border-bottom: 2px solid var(--text); border-top: none; padding-bottom: 4px; }
 body.cahier .day-head .cs-edit, body.cahier .day-head .dname { text-transform: uppercase; font-size: 1rem; }
@@ -557,8 +571,9 @@ let saveTimer = null;
 CS.render = () => renderFn();
 function save() { S().ui.active = CS.active; OneAppAPI.saveData(CS.state); }
 CS.commit = function () { if (CS.readOnly) return; clearTimeout(saveTimer); saveTimer = null; renderFn(); save(); };
-// Préférence d'affichage (enregistrée avec le projet, comme le reste)
-CS.setUI = function (patch) { Object.assign(S().ui, patch); if (!CS.readOnly) { clearTimeout(saveTimer); saveTimer = null; save(); } renderFn(); };
+// Affichage (claquette, liste, style, plan pris) : simple changement d'écran, rien n'est envoyé
+// à Drive. L'état d'affichage part avec la prochaine vraie modification du projet.
+CS.setUI = function (patch) { Object.assign(S().ui, patch); renderFn(); };
 CS.saveSoon = function () { if (CS.readOnly) return; clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveTimer = null; save(); }, 800); };
 CS.saveNow = function () { if (!saveTimer) return; clearTimeout(saveTimer); saveTimer = null; if (!CS.readOnly) save(); };
 CS.projectName = () => (OneAppAPI.getFileName && OneAppAPI.getFileName()) || "Projet";
@@ -816,12 +831,51 @@ CS.pickVideo = async function (p) {
   CS.toast("Vidéo de référence ajoutée au plan " + CS.key(p));
 };
 CS.videoLink = (v) => (OneAppAPI.driveFileLink ? OneAppAPI.driveFileLink(v.id) : "https://drive.google.com/file/d/" + encodeURIComponent(v.id) + "/view");
-// Lien vers la vidéo : un appui l'ouvre dans l'app Google Drive (hors-ligne si elle y est disponible)
+// Vignette de la vidéo : ouvre sa fenêtre (miniature, lecture dans Google Drive, changer, retirer)
 CS.videoChip = function (p, extra) {
   const v = p.video;
-  return CS.el("a", { class: "vid", href: CS.videoLink(v), target: "_blank", rel: "noopener", title: "Ouvrir dans Google Drive : " + v.name,
-      style: extra || null, onclick: (e) => e.stopPropagation() },
+  return CS.el("button", { class: "vid", type: "button", title: v.name, style: extra || null,
+      onclick: (e) => { e.stopPropagation(); CS.previewVideo(p); } },
     v.thumb ? CS.el("img", { src: v.thumb, alt: "" }) : CS.el("i", { text: "▶" }), CS.el("span", { text: v.name }));
+};
+// Fenêtre de la vidéo : ▶ ouvre la vidéo dans l'app Google Drive (hors-ligne si elle y est disponible)
+CS.previewVideo = function (p) {
+  const v = p.video;
+  CS.modal("Plan " + CS.key(p) + " · vidéo de référence", (close) => [
+    CS.el("a", { class: "cs-video", href: CS.videoLink(v), target: "_blank", rel: "noopener", "aria-label": "Lire la vidéo dans Google Drive",
+        style: v.thumb ? "background-image:url(" + JSON.stringify(v.thumb) + ")" : null },
+      CS.el("span", { class: "play", text: "▶" })),
+    CS.el("p", { class: "cs-vname", text: v.name }),
+    CS.el("p", { class: "cs-vhint", text: "▶ ouvre la vidéo dans Google Drive." }),
+    CS.el("div", { class: "cs-actions" },
+      CS.readOnly ? null : CS.el("button", { class: "cs-btn danger", type: "button", text: "Retirer", onclick: () => { close(); CS.removeVideo(p); } }),
+      CS.readOnly ? null : CS.el("button", { class: "cs-btn", type: "button", text: "Changer", onclick: () => { close(); CS.pickVideo(p); } }),
+      CS.el("button", { class: "cs-btn primary", type: "button", text: "Fermer", onclick: close }))
+  ]);
+};
+// Prises d'un plan : liste, et suppression (avec avertissement)
+CS.takesDialog = function (p) {
+  CS.modal("Plan " + CS.key(p) + " · prises", (close) => {
+    const list = CS.el("div", { class: "cs-takes" });
+    const fill = () => {
+      const takes = CS.takesOf(p.seqId, p.id);
+      list.replaceChildren(...(takes.length ? takes.map((t) => CS.el("div", { class: "cs-take", style: "--av:var(--av-" + CS.avisKey(t.avis) + ")" },
+        CS.el("b", { text: "Prise " + t.prise }),
+        CS.el("div", { class: "cs-take-main" }, CS.el("span", { text: t.avis }),
+          t.com ? CS.el("small", { text: t.com }) : null,
+          t.timestamp ? CS.el("small", { class: "when", text: new Date(t.timestamp).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) }) : null),
+        CS.readOnly ? null : CS.el("button", { class: "cs-del", type: "button", "aria-label": "Supprimer la prise " + t.prise, title: "Supprimer la prise " + t.prise, text: "🗑",
+          onclick: async () => {
+            const ok = await CS.ask("Supprimer la prise " + t.prise + " ?",
+              "Son avis et son commentaire seront effacés. Les autres prises gardent leur numéro (leur clap a déjà été joué). Au montage, un rush de cette prise ne retrouvera plus ses notes.",
+              "Supprimer la prise", true);
+            if (ok) { CS.deleteTake(t.uid); fill(); }
+          } })))
+        : [CS.el("p", { class: "empty", text: "Pas encore de prise." })]));
+    };
+    fill();
+    return [list, CS.el("div", { class: "cs-actions" }, CS.el("button", { class: "cs-btn primary", type: "button", text: "Fermer", onclick: close }))];
+  });
 };
 CS.removeVideo = function (p) { p.video = null; CS.commit(); };
 
@@ -1082,13 +1136,15 @@ CS.exportPDF = function (kind) {
         if (i.type === "sep") body.append(el("tr", {}, el("td", { colspan: 3, class: "p-sep", text: "--- " + (i.text || "JOURNÉE") + " ---" })));
         else { const p = CS.plan(i.seqId, i.planId); if (p) body.append(el("tr", {}, el("td", {}, el("strong", { text: "S" + p.seqId + " - P" + p.id }), p.impro ? " (Impro)" : ""), el("td", { text: p.info || "" }), el("td", { text: p.temps || "" }))); }
       });
-      area.replaceChildren(...head, el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "SÉQ - PLAN" }), el("th", { text: "DESCRIPTION" }), el("th", { text: "TEMPS" }))), body));
+      area.replaceChildren(...head, el("table", {}, el("colgroup", {}, el("col", { class: "c-num" }), el("col"), el("col", { class: "c-temps" })),
+        el("thead", {}, el("tr", {}, el("th", { text: "SÉQ - PLAN" }), el("th", { text: "DESCRIPTION" }), el("th", { text: "TEMPS" }))), body));
     } else {
       CS.seqs().forEach((s) => {
         body.append(el("tr", { class: "p-seq" }, el("td", { text: String(s.id) }), el("td"), el("td", { text: s.info || "" })));
         CS.plansOf(s.id).forEach((p) => body.append(el("tr", {}, el("td"), el("td", { text: String(p.id) + (p.impro ? " (Impro)" : "") }), el("td", { text: p.info || "" }))));
       });
-      area.replaceChildren(...head, el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "SÉQ" }), el("th", { text: "PLAN" }), el("th", { text: "DESCRIPTION" }))), body));
+      area.replaceChildren(...head, el("table", {}, el("colgroup", {}, el("col", { class: "c-small" }), el("col", { class: "c-small" }), el("col")),
+        el("thead", {}, el("tr", {}, el("th", { text: "SÉQ" }), el("th", { text: "PLAN" }), el("th", { text: "DESCRIPTION" }))), body));
     }
   }
   window.print();
@@ -1101,7 +1157,10 @@ document.head.append(el("style", {}, `
     #cs-print { display: block !important; font-family: system-ui, sans-serif; padding: 20px; color: #000; }
     #cs-print .p-title { color: #d0021b; text-align: center; font-size: 26px; text-transform: uppercase; }
     #cs-print .p-sub { text-align: center; color: #555; margin: 4px 0 24px; font-size: 13px; }
-    #cs-print table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #cs-print table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    #cs-print col.c-num { width: 13%; }
+    #cs-print col.c-temps { width: 11%; }
+    #cs-print col.c-small { width: 7%; }
     #cs-print th { background: #222 !important; color: #fff !important; padding: 8px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     #cs-print td { border: 1px solid #ccc; padding: 8px; vertical-align: top; white-space: pre-wrap; }
     #cs-print tr { page-break-inside: avoid; }
@@ -1180,7 +1239,13 @@ function render() {
 function txt(obj, key, ph) {
   return clapOpen() || CS.readOnly ? el("div", { class: "ro", text: obj[key] || "…" }) : CS.textField(obj, key, ph);
 }
-const dots = (p) => { const t = CS.takesOf(p.seqId, p.id); return t.length ? el("span", { class: "dots" }, t.map((x) => el("i", { style: "--av:var(--av-" + CS.avisKey(x.avis) + ")" }))) : null; };
+// Prises du plan : 🎬 n + une pastille par prise ; un appui ouvre la liste (suppression possible)
+const dots = (p) => {
+  const t = CS.takesOf(p.seqId, p.id);
+  return t.length ? el("button", { class: "takes-btn", type: "button", title: "Voir les prises du plan " + CS.key(p), "aria-label": t.length + " prise(s) : voir",
+      onclick: (e) => { e.stopPropagation(); CS.takesDialog(p); } },
+    "🎬 " + t.length, el("span", { class: "dots" }, t.map((x) => el("i", { style: "--av:var(--av-" + CS.avisKey(x.avis) + ")" })))) : null;
+};
 const take = (p) => { CS.active = { seqId: p.seqId, planId: p.id }; CS.setUI({}); };
 const editable = () => !clapOpen() && !CS.readOnly;
 
@@ -1460,7 +1525,8 @@ function premiere() {
 
 // ---------- ÉVÉNEMENTS ----------
 // Les outils d'un plan n'apparaissent que tant que son texte a le focus : les toucher ne doit pas le lui retirer
-document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".tool")) e.preventDefault(); }, true);
+// (et ouvrir les prises ou la vidéo d'un plan ne doit pas le mettre en modification)
+document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".tool, .takes-btn, .vid")) e.preventDefault(); }, true);
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => { window.scrollTo(0, 0); CS.setUI({ view: b.dataset.view }); }));
 $("bSearch").addEventListener("click", () => { searchOn = !searchOn; if (!searchOn) { query = ""; $("q").value = ""; } render(); if (searchOn) $("q").focus(); });
 $("q").addEventListener("input", (e) => { query = e.target.value; render(); });

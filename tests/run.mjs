@@ -190,10 +190,16 @@ async function test(name, fn, contextOptions = {}) {
     window.gapi = { load: (name, cfg) => setTimeout(cfg.callback, 10) };
     const P = { Response: { ACTION: 'action', DOCUMENTS: 'docs' }, Action: { PICKED: 'picked', CANCEL: 'cancel' }, Document: { ID: 'id', NAME: 'name', MIME_TYPE: 'mimeType' },
       ViewId: { DOCS: 'all', DOCS_VIDEOS: 'videos' }, DocsViewMode: { LIST: 'list', GRID: 'grid' } };
-    P.DocsView = function (viewId) { window.__pickerView = viewId; this.setFileIds = (ids) => { window.__pickerFileIds = ids; return this; }; this.setMode = () => this; this.setIncludeFolders = () => this; };
+    P.Feature = { SUPPORT_DRIVES: 'sd' };
+    P.DocsView = function (viewId) {
+      this.setFileIds = (ids) => { window.__pickerFileIds = ids; return this; };
+      this.setMimeTypes = (m) => { if (/video/.test(m)) window.__pickerForVideo = true; return this; };
+      ['setMode', 'setIncludeFolders', 'setParent', 'setOwnedByMe'].forEach(m => { this[m] = () => this; });
+      if (viewId === 'videos') window.__pickerForVideo = true;
+    };
     P.PickerBuilder = function () {
       let cb; const b = this;
-      ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView', 'setTitle'].forEach(m => { b[m] = () => b; });
+      ['setAppId', 'setOAuthToken', 'setDeveloperKey', 'setLocale', 'addView', 'setTitle', 'enableFeature'].forEach(m => { b[m] = () => b; });
       b.setCallback = (f) => { cb = f; return b; };
       // Comme le vrai Picker : action 'loaded' d'abord. Options pour reproduire les cas réels :
       // __pickerDelay (temps passé dans le Picker), __grantDelay (accès effectif après un délai),
@@ -205,7 +211,7 @@ async function test(name, fn, contextOptions = {}) {
           window.__pickerOpen = false;
           if (window.__pickerMode !== 'pick') return cb({ action: 'cancel' });
           // Choix libre (ex. vidéo de référence) : window.__pickVideo = { id, name, mimeType }
-          if (window.__pickVideo && window.__pickerView === 'videos') {
+          if (window.__pickVideo && window.__pickerForVideo) {
             await window.__grantAccess(window.__pickVideo.id);
             return cb({ action: 'picked', docs: [window.__pickVideo] });
           }
@@ -1258,11 +1264,47 @@ await test("Cinema Script : vidéo de référence choisie dans Drive (miniature 
   if (toast) throw new Error('message : ' + toast);
   const v = await frame.evaluate(() => CS.plan(1, 1).video);
   eq([v.id, v.name, v.thumb.startsWith('data:image/jpeg')], ['vid1', 'repet_cuisine.mp4', true], 'vidéo enregistrée');
-  eq(await frame.getAttribute('.plan[data-seq="1"] a.vid', 'href'), 'https://drive.google.com/file/d/vid1/view', 'lien Drive');
-  eq(await frame.$$eval('.plan[data-seq="1"] a.vid img', e => e.length), 1, 'miniature affichée');
+  eq(await frame.$$eval('.plan[data-seq="1"] .vid img', e => e.length), 1, 'miniature affichée');
+  await frame.click('.plan[data-seq="1"] .vid');
+  eq(await frame.getAttribute('.cs-modal a.cs-video', 'href'), 'https://drive.google.com/file/d/vid1/view', 'lecture : lien Drive');
+  eq(await frame.textContent('.cs-modal .cs-vname'), 'repet_cuisine.mp4', 'nom dans la fenêtre');
+  await frame.click('.cs-modal .cs-btn.primary');
   await page.waitForFunction(() => isDirty === true);
   await page.evaluate(() => closeApp());
   eq(cinemaData().plans.find(p => p.seqId === 1).video.id, 'vid1', 'dans le document');
+});
+
+await test("Cinema Script : prises d'un plan (liste, suppression avec avertissement) ; l'affichage ne s'enregistre pas", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  const before = log.filter(l => l.startsWith('PATCH')).length;
+  await frame.click('[data-view="tournage"]');
+  await frame.click('#bClap');
+  await frame.click('.row[data-key="2.1"]');
+  await frame.click('.cl-x');
+  await frame.click('[data-view="scenario"]');
+  await wait(4000);
+  eq(await page.evaluate(() => isDirty), false, 'rien en attente');
+  eq(log.filter(l => l.startsWith('PATCH')).length, before, "aucun envoi à Drive pour l'affichage");
+  await frame.click('.plan[data-seq="1"][data-plan="1"] .takes-btn');
+  eq(await frame.$$eval('.cs-take', e => e.length), 2, 'deux prises listées');
+  await frame.click('.cs-take:first-child .cs-del');
+  await frame.waitForSelector('.cs-modal-back:last-child .cs-btn.danger');
+  await frame.click('.cs-modal-back:last-child .cs-btn.danger');
+  await frame.waitForFunction(() => document.querySelectorAll('.cs-take').length === 1);
+  eq(await frame.textContent('.cs-take b'), 'Prise 3', 'la prise 3 garde son numéro');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  eq(cinemaData().takes.map(t => t.prise), [3], 'prise supprimée dans le document');
+});
+
+await test("Cinema Script : PDF, colonnes étroites pour les numéros et le temps", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  await frame.evaluate(() => { window.print = () => {}; });
+  await frame.click('#bPdfF');
+  await page.emulateMedia({ media: 'print' });              // mise en page d'impression réelle
+  const w = await frame.evaluate(() => [...document.querySelectorAll('#cs-print th')].map(th => Math.round(th.getBoundingClientRect().width)));
+  await page.emulateMedia({ media: 'screen' });
+  if (!(w[1] > w[0] * 3 && w[1] > w[2] * 3)) throw new Error('largeurs : ' + w);
 });
 
 await test("API : lien Drive spécial sur iPhone (googledrive://)", async (page) => {

@@ -37,7 +37,8 @@ garde la version de Drive, crée une copie de secours et passe en lecture.
 
 - **En haut** : titre (nom du projet), 📄 PDF Découpage, 📄 PDF Feuille de service, **Pr**
   (présentation de l'extension Premiere), et **affichage normal / cahier** (même contenu,
-  mise en page de scénario de tournage en Courier). Le choix est gardé avec le projet (`ui`).
+  mise en page de scénario de tournage en Courier). Changer d'affichage, de liste ou ouvrir la
+claquette n'envoie rien à Drive : l'affichage (`ui`) part avec la prochaine vraie modification.
 - **Barre collée** : 📖 Scénario | 🗓️ Tournage, 🔍 recherche (mot, personnage, décor, ou `5` /
   `5.3`), et le bouton **claquette**.
 - **Scénario** : séquences (numéros libres, ils peuvent sauter) et leurs plans, toujours numérotés
@@ -53,12 +54,14 @@ garde la version de Drive, crée une copie de secours et passe en lecture.
 
 ## Vidéo de référence
 
-Outil d'un plan → 🎞️ **Vidéo de référence** : le sélecteur de Google Drive s'ouvre (vidéos).
-L'app garde l'**id** du fichier, son **nom** et une **miniature** (image ~320 px dans le
-document, visible hors-ligne). Un appui sur la vignette ouvre la vidéo dans l'**app Google Drive**
-(lien normal ; `googledrive://…` sur iPhone/iPad, sinon la vidéo s'ouvrirait dans une page
-intégrée). Hors connexion, cela marche si la vidéo est « disponible hors connexion » dans l'app
-Drive du téléphone. Pour l'équipe : la vidéo doit leur être partagée dans Drive.
+Outil d'un plan → 🎞️ **Vidéo de référence** : le sélecteur de Google Drive s'ouvre sur **Mon Drive,
+avec ses dossiers** (seules les vidéos sont affichées) ; onglets « toutes les vidéos » et
+« partagés avec moi ». L'apparence du sélecteur est celle de Google, elle ne peut pas être changée.
+L'app garde l'**id** du fichier, son **nom** et une **miniature** (image ~320 px dans le document,
+visible hors-ligne). Un appui sur la vignette du plan ouvre une **fenêtre** : grande miniature,
+**▶ ouvre la vidéo dans l'app Google Drive** (lien normal ; `googledrive://…` sur iPhone/iPad),
+Changer, Retirer. Hors connexion, la lecture marche si la vidéo est « disponible hors connexion »
+dans l'app Drive du téléphone. Pour l'équipe : la vidéo doit leur être partagée dans Drive.
 
 ## Prises
 
@@ -67,13 +70,16 @@ Avis possibles (libellés lus par l'extension, **ne pas les modifier**) :
 
 - La prise suivante est **le plus grand numéro + 1** ; les numéros de prise ne sont jamais
   renumérotés (leur clap a déjà été joué).
+- Le bouton **🎬 n** d'un plan (avec une pastille de couleur par prise) ouvre la liste de ses prises
+  (avis, commentaire, heure) ; 🗑 supprime une prise, après un avertissement.
 - Changer le numéro de plans ou de séquences **déjà tournés** demande confirmation (leur clap
   garde l'ancien numéro).
 
 ## PDF
 
 Deux impressions (choisir « Enregistrer au format PDF ») : **découpage technique** et **feuille
-de service**. Tableau en affichage normal, mise en page de scénario en affichage cahier.
+de service**. Tableau en affichage normal (colonnes de numéro et de temps étroites, le texte prend la
+place), mise en page de scénario en affichage cahier.
 
 ## Format des données (contrat avec l'extension Premiere)
 
