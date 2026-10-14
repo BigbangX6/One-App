@@ -132,7 +132,7 @@ body.clap .clapper { display: block; position: sticky; top: 0; z-index: 25; padd
 .cs-vname { color: var(--text) !important; font-weight: 700; overflow-wrap: anywhere; }
 .cs-vhint { font-size: .9rem; }
 /* Prises d'un plan */
-.takes-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 14px; padding: 2px 8px; font-size: .78rem; font-weight: 700; color: var(--text); }
+.dots .more { font-size: .8rem; line-height: 8px; color: var(--muted); letter-spacing: -1px; }
 .cs-takes { display: grid; gap: 8px; }
 .cs-take { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; border-left: 4px solid var(--av); background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
 .cs-take-main { display: grid; gap: 2px; min-width: 0; }
@@ -241,7 +241,7 @@ body.cahier .plan.impro, body.cahier .row.impro { box-shadow: none; }
 body.cahier .plan.impro .num .k, body.cahier .row.impro .code { color: var(--orange); }
 body.cahier .tool, body.cahier .vid { border-radius: 0; background: none; border: 1px solid var(--line); }
 body.cahier .vid i, body.cahier .vid img { display: none; }
-body.cahier .takes-btn, body.cahier .cs-take, body.cahier .cs-del, body.cahier .cs-video { border-radius: 0; }
+body.cahier .cs-take, body.cahier .cs-del, body.cahier .cs-video { border-radius: 0; }
 body.cahier .vid { text-decoration: underline; border: none; padding: 0; color: var(--muted); }
 body.cahier .day-head { border-bottom: 2px solid var(--text); border-top: none; padding-bottom: 4px; }
 body.cahier .day-head .cs-edit, body.cahier .day-head .dname { text-transform: uppercase; font-size: 1rem; }
@@ -1239,12 +1239,15 @@ function render() {
 function txt(obj, key, ph) {
   return clapOpen() || CS.readOnly ? el("div", { class: "ro", text: obj[key] || "…" }) : CS.textField(obj, key, ph);
 }
-// Prises du plan : 🎬 n + une pastille par prise ; un appui ouvre la liste (suppression possible)
-const dots = (p) => {
-  const t = CS.takesOf(p.seqId, p.id);
-  return t.length ? el("button", { class: "takes-btn", type: "button", title: "Voir les prises du plan " + CS.key(p), "aria-label": t.length + " prise(s) : voir",
-      onclick: (e) => { e.stopPropagation(); CS.takesDialog(p); } },
-    "🎬 " + t.length, el("span", { class: "dots" }, t.map((x) => el("i", { style: "--av:var(--av-" + CS.avisKey(x.avis) + ")" })))) : null;
+// Une pastille colorée par prise ; au-delà de max (8 dans le scénario, 4 dans la colonne étroite
+// de la feuille de service), les dernières précédées de « … »
+const dots = (p, max) => {
+  const t = CS.takesOf(p.seqId, p.id), DOTS_MAX = max || 8;
+  if (!t.length) return null;
+  const shown = t.slice(-DOTS_MAX);
+  return el("span", { class: "dots", title: t.length + " prise" + (t.length > 1 ? "s" : "") },
+    t.length > DOTS_MAX ? el("b", { class: "more", text: "…" }) : null,
+    shown.map((x) => el("i", { style: "--av:var(--av-" + CS.avisKey(x.avis) + ")" })));
 };
 const take = (p) => { CS.active = { seqId: p.seqId, planId: p.id }; CS.setUI({}); };
 const editable = () => !clapOpen() && !CS.readOnly;
@@ -1286,6 +1289,7 @@ function planCard(p) {
       p.video ? CS.videoChip(p) : null,
       editable() ? el("div", { class: "tools" },
         el("button", { class: "tool", type: "button", text: "N° " + CS.key(p) + " ✎", onclick: () => moveDialog(p) }),
+        CS.takesOf(p.seqId, p.id).length ? el("button", { class: "tool", type: "button", text: "🎬 Prises (" + CS.takesOf(p.seqId, p.id).length + ")", onclick: () => CS.takesDialog(p) }) : null,
         el("button", { class: "tool", type: "button", text: p.video ? "🎞️ Changer la vidéo" : "🎞️ Vidéo de référence", onclick: () => CS.pickVideo(p) }),
         p.video ? el("button", { class: "tool", type: "button", text: "Retirer la vidéo", onclick: () => CS.removeVideo(p) }) : null,
         el("button", { class: "tool danger", type: "button", text: "Supprimer", onclick: () => CS.deletePlan(p.seqId, p.id) })) : null));
@@ -1346,7 +1350,7 @@ function row(p, index, last, next) {
   return el("div", { class: "row" + (p.impro ? " impro" : "") + (clapOpen() && cur ? " cur" : "") + (clapOpen() && shot && !cur ? " done" : ""),
       "data-index": index, "data-key": CS.key(p), style: "--c:" + CS.seqColor(p.seqId), onclick: clapOpen() ? () => take(p) : null },
     editable() ? el("button", { class: "handle", type: "button", "aria-label": "Déplacer le plan " + CS.key(p), text: "⠿", onpointerdown: (e) => CS.beginDrag(e, moveOpt(index, CS.key(p))) }) : el("span"),
-    el("div", { class: "code" }, el("span", { text: CS.key(p) }), dots(p)),
+    el("div", { class: "code" }, el("span", { text: CS.key(p) }), dots(p, 4)),
     el("div", { class: "rtext" },
       clapOpen() && isLast ? el("span", { class: "tag", text: "📍 Dernière prise · n° " + last.prise }) : clapOpen() && next === p ? el("span", { class: "tag next", text: "▶ À suivre" }) : null,
       p.info || "…", el("small", { text: CS.seqTitle(p.seqId) })),
@@ -1526,7 +1530,7 @@ function premiere() {
 // ---------- ÉVÉNEMENTS ----------
 // Les outils d'un plan n'apparaissent que tant que son texte a le focus : les toucher ne doit pas le lui retirer
 // (et ouvrir les prises ou la vidéo d'un plan ne doit pas le mettre en modification)
-document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".tool, .takes-btn, .vid")) e.preventDefault(); }, true);
+document.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".tool, .vid")) e.preventDefault(); }, true);
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => { window.scrollTo(0, 0); CS.setUI({ view: b.dataset.view }); }));
 $("bSearch").addEventListener("click", () => { searchOn = !searchOn; if (!searchOn) { query = ""; $("q").value = ""; } render(); if (searchOn) $("q").focus(); });
 $("q").addEventListener("input", (e) => { query = e.target.value; render(); });

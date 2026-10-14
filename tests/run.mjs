@@ -1285,7 +1285,9 @@ await test("Cinema Script : prises d'un plan (liste, suppression avec avertissem
   await wait(4000);
   eq(await page.evaluate(() => isDirty), false, 'rien en attente');
   eq(log.filter(l => l.startsWith('PATCH')).length, before, "aucun envoi à Drive pour l'affichage");
-  await frame.click('.plan[data-seq="1"][data-plan="1"] .takes-btn');
+  eq(await frame.$$eval('.plan[data-seq="1"][data-plan="1"] .dots i', e => e.length), 2, 'pastilles');
+  await frame.click('.plan[data-seq="1"][data-plan="1"] textarea');
+  await frame.click('.plan[data-seq="1"][data-plan="1"] .tool:has-text("Prises (2)")');
   eq(await frame.$$eval('.cs-take', e => e.length), 2, 'deux prises listées');
   await frame.click('.cs-take:first-child .cs-del');
   await frame.waitForSelector('.cs-modal-back:last-child .cs-btn.danger');
@@ -1295,6 +1297,15 @@ await test("Cinema Script : prises d'un plan (liste, suppression avec avertissem
   await page.waitForFunction(() => isDirty === true);
   await page.evaluate(() => closeApp());
   eq(cinemaData().takes.map(t => t.prise), [3], 'prise supprimée dans le document');
+});
+
+await test("Cinema Script : beaucoup de prises → « … » puis les 8 dernières pastilles", async (page) => {
+  const data = structuredClone(SHOOT);
+  for (let n = 4; n <= 20; n++) data.takes.push({ uid: 'x' + n, seqId: 1, planId: 1, prise: n, avis: '⭐ MASTER (Parfaite)', com: '', timestamp: '' });
+  const frame = await openCinema(page, data);
+  eq(await frame.$$eval('.plan[data-seq="1"][data-plan="1"] .dots i', e => e.length), 8, '8 pastilles');
+  eq(await frame.$$eval('.plan[data-seq="1"][data-plan="1"] .dots .more', e => e.length), 1, '« … » devant');
+  eq(await frame.$$eval('.plan[data-seq="2"] .dots .more', e => e.length), 0, 'pas de « … » sans prises en trop');
 });
 
 await test("Cinema Script : PDF, colonnes étroites pour les numéros et le temps", async (page) => {

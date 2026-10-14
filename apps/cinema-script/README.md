@@ -70,8 +70,10 @@ Avis possibles (libellés lus par l'extension, **ne pas les modifier**) :
 
 - La prise suivante est **le plus grand numéro + 1** ; les numéros de prise ne sont jamais
   renumérotés (leur clap a déjà été joué).
-- Le bouton **🎬 n** d'un plan (avec une pastille de couleur par prise) ouvre la liste de ses prises
-  (avis, commentaire, heure) ; 🗑 supprime une prise, après un avertissement.
+- Une **pastille de couleur par prise** (couleur de l'avis) à côté du numéro du plan ; s'il y en a
+  beaucoup, « … » puis les dernières (8 dans le scénario, 4 dans la feuille de service).
+- Outils d'un plan → **🎬 Prises (n)** : liste des prises (avis, commentaire, heure) ; 🗑 supprime
+  une prise, après un avertissement.
 - Changer le numéro de plans ou de séquences **déjà tournés** demande confirmation (leur clap
   garde l'ancien numéro).
 
