@@ -287,6 +287,9 @@ Les onglets partagent le stockage (IndexedDB, `localStorage`) :
 - **Jeton** : une connexion renouvelée dans un onglet (événement `storage`) débloque les envois
   qui attendaient dans les autres (`adoptStoredToken`), sans clic sur leur bandeau. Un 401 n'invalide
   le jeton enregistré que s'il s'agit de celui qui a été refusé.
+- **Expiration du jeton** : chaque onglet garde la sienne en mémoire (`globalTokenExpire`) ; le
+  `localStorage` ne sert qu'au démarrage et pour reprendre le jeton d'un autre onglet. Un vieil
+  onglet (ancienne version) qui efface l'expiration partagée ne bloque donc plus les autres.
 
 ### Écriture simultanée
 Si le document ouvert a changé ailleurs pendant qu'on le modifiait, `resolveConflict`

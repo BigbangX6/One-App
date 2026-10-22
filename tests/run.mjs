@@ -420,6 +420,17 @@ await test("Deux onglets + jeton expiré : on se reconnecte dans un nouvel ongle
   eq(saved(), ['v1', 'v2', 'v3'], 'contenu Drive');
 });
 
+await test("Vieil onglet (ancienne version) qui efface l'expiration du jeton : cet onglet continue sans bandeau", async (page) => {
+  const frame = await openDoc(page);
+  const p2 = await secondTab(page);
+  await p2.evaluate(() => localStorage.setItem('oneapp_gdrive_expire', '0'));   // ce que faisait l'ancien code après un 401
+  await page.evaluate(() => { window.__gisMode = 'fail'; });
+  await save(frame, ['toujours connecté']);
+  await wait(4500);
+  eq(saved(), ['toujours connecté'], 'contenu Drive');
+  eq(await page.isVisible('#session-banner'), false, 'pas de bandeau de reconnexion');
+});
+
 await test("Undo puis fermeture : l'annulation est enregistrée", async (page) => {
   const frame = await openDoc(page);
   await save(frame, ['x1']);

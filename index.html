@@ -1655,14 +1655,17 @@
         let tokenRenewalPromise = null;
         let tokenRenewalResolve = null;
 
+        // Expiration du jeton de CET onglet, gardée en mémoire : un autre onglet (même une
+        // ancienne version de One App) qui efface celle du localStorage ne bloque pas celui-ci
+        let globalTokenExpire = 0;
         function isTokenExpired() {
-            const expire = parseInt(localStorage.getItem('oneapp_gdrive_expire') || '0');
-            return !globalAccessToken || Date.now() > expire - 60000; // marge d'1 min
+            return !globalAccessToken || Date.now() > globalTokenExpire - 60000; // marge d'1 min
         }
 
         function storeToken(tokenResponse) {
             globalAccessToken = tokenResponse.access_token;
             const expireTime = Date.now() + (tokenResponse.expires_in * 1000);
+            globalTokenExpire = expireTime;
             localStorage.setItem('oneapp_gdrive_token', globalAccessToken);
             localStorage.setItem('oneapp_gdrive_expire', expireTime.toString());
             localStorage.setItem('oneapp_known_user', '1'); // la prochaine fois : carte simple, pas la vitrine
@@ -1733,6 +1736,7 @@
             const expire = parseInt(localStorage.getItem('oneapp_gdrive_expire') || '0');
             if (!token || token === globalAccessToken || Date.now() > expire - 60000) return false;
             globalAccessToken = token;
+            globalTokenExpire = expire;
             return true;
         }
 
@@ -1801,6 +1805,7 @@
             }
 
             if (res.status === 401 && allowRetry) {
+                if (globalAccessToken === usedToken) globalTokenExpire = 0;
                 // Un autre onglet a peut-être déjà enregistré un jeton plus récent : on ne l'invalide pas
                 if (localStorage.getItem('oneapp_gdrive_token') === usedToken) localStorage.setItem('oneapp_gdrive_expire', '0');
                 await renewToken();
@@ -2378,6 +2383,7 @@
                 if (Date.now() < parseInt(savedExpire)) {
                     console.log("Jeton Drive actif trouvé !");
                     globalAccessToken = savedToken;
+                    globalTokenExpire = parseInt(savedExpire);
                     document.getElementById('unauthenticated-view').style.display = 'none';
                     document.getElementById('authenticated-view').style.display = 'block';
                     document.getElementById('user-email').innerText = "Chargement du profil...";
