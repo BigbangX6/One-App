@@ -916,6 +916,9 @@ CS.toast = function (msg, undo) {
   toastTimer = setTimeout(() => t.remove(), undo ? 6000 : 3500);
 };
 CS.modal = function (title, build) {
+  // Le champ en cours (outils, vidéo : appui sans perte de focus) est quitté : texte enregistré,
+  // et sur téléphone le clavier se ferme au lieu de recouvrir la fenêtre
+  if (document.activeElement && document.activeElement._cs) document.activeElement.blur();
   const close = () => back.remove();
   const back = el("div", { class: "cs-modal-back", onclick: (e) => { if (e.target === back) close(); } },
     el("div", { class: "cs-modal", role: "dialog", "aria-label": title }, title ? el("h3", { text: title }) : null, build(close)));

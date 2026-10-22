@@ -1367,7 +1367,9 @@ await test("Cinema Script : vidéo de référence choisie dans Drive (miniature 
   eq(log.some(l => l.includes('/files/vid1?alt=media')), true, "vidéo lue par l'API Drive");
   eq(await frame.$$eval('.plan[data-seq="1"] .vid img, .plan[data-seq="1"] .vid i', e => e.length), 0, 'plan : pas de miniature');
   eq(await frame.textContent('.plan[data-seq="1"] .vid'), 'repet_cuisine.webm', 'plan : nom seul');
+  await frame.click('.plan[data-seq="1"] textarea');      // texte sélectionné (clavier ouvert sur téléphone)
   await frame.click('.plan[data-seq="1"] .vid');
+  eq(await frame.evaluate(() => !!(document.activeElement && document.activeElement._cs)), false, 'fenêtre : le champ est quitté (clavier fermé)');
   eq((await frame.getAttribute('.cs-modal a.cs-video', 'style') || '').includes('data:image/jpeg'), true, 'fenêtre : miniature');
   eq(await frame.getAttribute('.cs-modal a.cs-video', 'href'), 'https://drive.google.com/file/d/vid1/view', 'lecture : lien Drive');
   eq(await frame.textContent('.cs-modal .cs-vname'), 'repet_cuisine.webm', 'nom dans la fenêtre');
