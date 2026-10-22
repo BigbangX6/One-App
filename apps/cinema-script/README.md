@@ -58,10 +58,17 @@ Outil d'un plan → 🎞️ **Vidéo de référence** : le sélecteur de Google 
 avec ses dossiers** (seules les vidéos sont affichées) ; onglets « toutes les vidéos » et
 « partagés avec moi ». L'apparence du sélecteur est celle de Google, elle ne peut pas être changée.
 L'app garde l'**id** du fichier, son **nom** et une **miniature** (image ~320 px dans le document,
-visible hors-ligne). Un appui sur la vignette du plan ouvre une **fenêtre** : grande miniature,
+visible hors-ligne), tirée de la vidéo elle-même au moment du choix. Sur le plan, seul le **nom** de la
+vidéo est affiché ; un appui ouvre une **fenêtre** : grande miniature (fond bleu nuit s'il n'y en a pas),
 **▶ ouvre la vidéo dans l'app Google Drive** (lien normal ; `googledrive://…` sur iPhone/iPad),
 Changer, Retirer. Hors connexion, la lecture marche si la vidéo est « disponible hors connexion »
 dans l'app Drive du téléphone. Pour l'équipe : la vidéo doit leur être partagée dans Drive.
+
+## Saisie et mises à jour reçues
+
+Un texte est envoyé 0,8 s après la dernière frappe (pas besoin de sortir du champ). Si une
+mise à jour arrive pendant la saisie (autre appareil, Annuler, conflit), le champ en cours garde
+son texte, qui est ajouté aux nouvelles données ; l'écran est redessiné en sortant du champ.
 
 ## Prises
 

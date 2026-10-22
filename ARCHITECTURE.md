@@ -150,7 +150,9 @@ Dans l'ordre du fichier :
    - inchangée → PATCH du fichier ; `isDirty` ne repasse à `false` **que si** aucune
      modification n'est arrivée pendant l'envoi (`localRevision` identique) ;
    - changée par un autre appareil → `resolveConflict` : copie de secours des
-     modifications locales, puis affichage de la version du Cloud.
+     modifications locales, puis affichage de la version du Cloud. La copie reçoit les
+     **dernières** données (`localContent`), y compris celles arrivées pendant l'envoi
+     (attente d'une reconnexion Google...), mises à jour jusqu'au remplacement.
 5. En cas d'échec : `isDirty` reste `true`, l'icône passe au rouge, nouvel essai
    (5 s, 10 s… 60 s max).
 
@@ -250,7 +252,10 @@ proposition de **créer sa propre copie** (HTML, titre « … (copie) »), puis 
 ### Fichiers Drive pour les apps (vidéo de référence…)
 `OneAppAPI.pickDriveFile({ type: 'video' })` → message `PICK_FILE_REQUEST` → `pickDriveFileForApp` :
 Google Picker (Mon Drive avec ses dossiers filtrés sur le type, tous les fichiers du type, partagés avec moi), accès drive.file au fichier choisi, miniature (`driveThumbnail` :
-`thumbnailLink` réduit à 320 px, data:URL JPEG) → `{ id, name, mimeType, thumb }`.
+**tirée du fichier lui-même** lu par l'API Drive, image vers 1 s pour une vidéo (`videoFrame`), réduite à 320 px,
+data:URL JPEG ; vidéo ou image de 200 Mo au plus, sinon `null`) → `{ id, name, mimeType, thumb }`.
+Le `thumbnailLink` de Drive (`lh3.googleusercontent.com`) n'est **pas utilisable** : pas d'en-tête CORS,
+une page web ne peut ni le lire ni le dessiner dans un canvas (testé en octobre 2026).
 Options : `type` (`video`, `image`, `pdf`) ou `mimeTypes`, `content: 'text' | 'dataurl'` (contenu
 dans `file.content`, 10 Mo au plus, pas les fichiers Google Docs/Sheets), `thumbnail: false`.
 Sans Internet ou en lecture seule : la promesse est rejetée avec un message à afficher.
@@ -272,6 +277,16 @@ retire le focus du champ actif (événement `change`) et émet `oneapp-flush`, p
 Quand une app est sélectionnée sur l'accueil, lien discret « Importer… » (`importDocFile`) :
 un `.onefile` de l'appareil est recréé dans le dossier de l'app (avec `drive.file`, un fichier
 déposé à la main dans Drive est invisible pour One App).
+
+### Plusieurs onglets One App sur le même appareil
+Les onglets partagent le stockage (IndexedDB, `localStorage`) :
+- **Document ouvert** : verrou Web Locks partagé `oneapp-doc-<id>` tenu tant que le document est
+  ouvert (`holdOpenDocLock` / `releaseOpenDocLock`). La reprise des envois d'un autre onglet
+  (`syncPendingDocs`) ne touche à un document que si aucun onglet ne l'a ouvert
+  (`whenClosedEverywhere`) : sinon elle l'enverrait à sa place et provoquerait un faux conflit.
+- **Jeton** : une connexion renouvelée dans un onglet (événement `storage`) débloque les envois
+  qui attendaient dans les autres (`adoptStoredToken`), sans clic sur leur bandeau. Un 401 n'invalide
+  le jeton enregistré que s'il s'agit de celui qui a été refusé.
 
 ### Écriture simultanée
 Si le document ouvert a changé ailleurs pendant qu'on le modifiait, `resolveConflict`

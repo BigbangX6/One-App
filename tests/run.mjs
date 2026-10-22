@@ -119,7 +119,7 @@ async function handleDrive(route) {
   if (method === 'GET') {
     if (url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, body: f.content });
     // hideParents : comme Drive en drive.file quand One App n'a pas accès au dossier parent
-    return json({ id: f.id, name: f.name, thumbnailLink: f.thumbnailLink, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: !f.readOnly, canShare: true } });
+    return json({ id: f.id, name: f.name, mimeType: f.mimeType, size: String(f.content ? f.content.length : 0), thumbnailLink: f.thumbnailLink, parents: f.hideParents ? undefined : f.parents, description: f.description, modifiedTime: f.modifiedTime, headRevisionId: f.headRevisionId, ownedByMe: f.ownedByMe, capabilities: { canEdit: !f.readOnly, canShare: true } });
   }
   if (method === 'PATCH' && isUpload) {
     if (ctl.patchDelay) await new Promise(r => setTimeout(r, ctl.patchDelay));
@@ -149,8 +149,8 @@ async function test(name, fn, contextOptions = {}) {
   await context.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, body: '' }));
   await context.route('https://www.googleapis.com/**', handleDrive);
   await context.route('https://apis.google.com/**', r => r.fulfill({ status: 200, body: '' }));
-  // Miniatures Drive (thumbnailLink) : une petite image PNG
-  await context.route('https://lh3.googleusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' },
+  // Miniatures Drive (thumbnailLink) : comme chez Google, pas d'en-tête CORS (illisibles par une page web)
+  await context.route('https://lh3.googleusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'image/png',
     body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNQaDgARwzEcQAyUhYB52C8wAAAAABJRU5ErkJggg==', 'base64') }));
   // Faux GitHub (fichiers bruts) : ctl.github['compte/dépôt/branche/chemin'] = contenu
   await context.route('https://raw.githubusercontent.com/**', r => {
@@ -354,6 +354,70 @@ await test("Polling : mise à jour silencieuse venue d'un autre appareil", async
   await page.evaluate(() => checkCloudVersion());
   await wait(500);
   eq(await frame.evaluate(() => window.shown), ['distant'], "affiché dans l'app");
+});
+
+// Deuxième onglet One App dans le même navigateur (même stockage, même compte)
+async function secondTab(page) {
+  const p2 = await page.context().newPage();
+  p2._errors = [];
+  p2.on('pageerror', e => p2._errors.push(e.message));
+  p2.on('dialog', d => { p2._dialogs = (p2._dialogs || []).concat(d.message()); d.accept(); });
+  await p2.goto(`http://localhost:${PORT}/index.html`);
+  await p2.waitForFunction(() => document.querySelector('.app-tile'));
+  return p2;
+}
+const backups = () => Object.values(files).filter(f => f.name.includes('secours'));
+
+await test("Conflit après une longue attente (reconnexion Google) : la copie de secours a TOUTES les modifications", async (page) => {
+  const frame = await openDoc(page);
+  ctl.validToken = 'tok2';
+  await page.evaluate(() => { window.__gisMode = 'fail'; });
+  await save(frame, ['a']);
+  await wait(4500);                       // envoi bloqué : bandeau de reconnexion
+  eq(await page.isVisible('#session-banner'), true, 'bandeau visible');
+  await save(frame, ['a', 'b']);          // on continue à travailler
+  await wait(300);
+  touchContent(files.doc1, JSON.stringify({ oneapp_metadata: { app_name: "L'agenda", source_app_drive_id: 'app1' }, app_data: ['autre-appareil'] }));
+  await page.evaluate(() => { window.__gisMode = 'ok'; });
+  await page.click('#session-banner button');
+  await waitFor(async () => backups().length === 1 && !(await page.evaluate(() => isSyncing)));
+  eq(JSON.parse(backups()[0].content).app_data, ['a', 'b'], 'contenu de la copie de secours');
+  eq(saved(), ['autre-appareil'], 'Drive non écrasé');
+});
+
+await test("Deux onglets : l'accueil du 2e onglet n'envoie pas le document ouvert dans le 1er (pas de faux conflit)", async (page) => {
+  const frame = await openDoc(page);
+  await save(frame, ['onglet1-v1']);
+  await page.evaluate(() => persistOpenDoc());
+  const p2 = await secondTab(page);       // démarrage : reprise des envois en attente
+  await p2.evaluate(() => syncPendingDocs());
+  await save(frame, ['onglet1-v1', 'v2']);
+  await wait(4500);
+  eq(backups().length, 0, 'copies de secours');
+  eq((page._dialogs || []).filter(d => d.includes('Conflit')).length, 0, 'alertes de conflit');
+  eq(saved(), ['onglet1-v1', 'v2'], 'contenu Drive');
+  eq(await page.evaluate(() => isDirty), false, 'isDirty');
+  if (p2._errors.length) throw new Error('2e onglet : ' + p2._errors.join(' | '));
+});
+
+await test("Deux onglets + jeton expiré : on se reconnecte dans un nouvel onglet, le 1er reprend ses envois sans rien perdre", async (page) => {
+  const frame = await openDoc(page);
+  ctl.validToken = 'tok2';
+  await page.evaluate(() => { window.__gisMode = 'fail'; });
+  await save(frame, ['v1']);
+  await wait(4500);
+  eq(await page.isVisible('#session-banner'), true, 'bandeau visible');
+  await save(frame, ['v1', 'v2']);
+  await wait(300);
+  const p2 = await secondTab(page);       // nouvel onglet : connexion renouvelée (tok2)
+  await p2.evaluate(() => syncPendingDocs());
+  await save(frame, ['v1', 'v2', 'v3']);  // on reprend dans le 1er onglet
+  await waitFor(async () => !(await page.evaluate(() => isDirty || isSyncing)) || backups().length > 0, 15000);
+  eq(await page.isVisible('#session-banner'), false, 'reprise sans clic sur le bandeau');
+  const everywhere = [saved(), ...backups().map(b => JSON.parse(b.content).app_data)];
+  if (!everywhere.some(d => JSON.stringify(d) === JSON.stringify(['v1', 'v2', 'v3']))) throw new Error('v3 perdu : ' + JSON.stringify(everywhere));
+  eq(backups().length, 0, 'copies de secours (aucun vrai conflit)');
+  eq(saved(), ['v1', 'v2', 'v3'], 'contenu Drive');
 });
 
 await test("Undo puis fermeture : l'annulation est enregistrée", async (page) => {
@@ -1241,8 +1305,26 @@ await test("Cinema Script : une mise à jour reçue pendant la saisie n'écrase 
   await page.evaluate((d) => postToApp('RESTORE_DATA', d), remote);
   await wait(200);
   eq(await frame.inputValue('.seq-head textarea'), 'INT. CUISINE – JOUR (nuit)', 'saisie conservée');
+  await page.keyboard.type(' ext');      // on continue à taper après la mise à jour
   await frame.click('#proj');
   await frame.waitForFunction(() => CS.state.sequences[1].info === 'EXT. RUE – AUBE');
+  eq(await frame.evaluate(() => CS.state.sequences[0].info), 'INT. CUISINE – JOUR (nuit) ext', 'texte tapé gardé après la sortie du champ');
+  await page.waitForFunction(() => isDirty === true);
+  await page.evaluate(() => closeApp());
+  eq(cinemaData().sequences.map(s => s.info), ['INT. CUISINE – JOUR (nuit) ext', 'EXT. RUE – AUBE'], 'Drive : saisie + mise à jour reçue');
+});
+
+await test("Cinema Script : mise à jour reçue juste après la frappe (avant l'envoi) : la saisie est envoyée quand même", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  await frame.click('.plan textarea');
+  await page.keyboard.press('End');
+  await page.keyboard.type(' serré');
+  const remote = structuredClone(SHOOT); remote.plans[1].temps = '45 min';
+  await page.evaluate((d) => postToApp('RESTORE_DATA', d), remote);   // avant les 0,8 s
+  await wait(1500);                                                   // le champ garde le focus
+  await page.evaluate(() => closeApp());
+  const d = cinemaData();
+  eq([d.plans[0].info, d.plans[1].temps], ['Plan large serré', '45 min'], 'Drive : saisie + mise à jour reçue');
 });
 
 await test("Cinema Script : PDF avec le nom du projet, dans l'ordre de tournage", async (page) => {
@@ -1253,22 +1335,31 @@ await test("Cinema Script : PDF avec le nom du projet, dans l'ordre de tournage"
   if (!txt.includes('PROJET : Doc') || !txt.includes('--- Lundi ---') || txt.indexOf('S2 - P1') > txt.indexOf('S1 - P1')) throw new Error('PDF : ' + txt);
 });
 
-await test("Cinema Script : vidéo de référence choisie dans Drive (miniature gardée, lien Drive)", async (page) => {
-  add({ id: 'vid1', name: 'repet_cuisine.mp4', mimeType: 'video/mp4', parents: ['autre'], thumbnailLink: 'https://lh3.googleusercontent.com/drive-thumb/vid1=s220' });
+await test("Cinema Script : vidéo de référence choisie dans Drive (miniature tirée de la vidéo, lien Drive)", async (page) => {
+  // Vidéo : noir au début puis vert ; la miniature de Google (lh3) n'est pas lisible (CORS)
+  add({ id: 'vid1', name: 'repet_cuisine.webm', mimeType: 'video/webm', parents: ['autre'], thumbnailLink: 'https://lh3.googleusercontent.com/drive-thumb/vid1=s220',
+        content: fs.readFileSync(path.join(TESTS_DIR, 'fixtures', 'repetition.webm')) });
   files.vid1.noAccess = true;
   const frame = await openCinema(page, SHOOT);
-  await page.evaluate(() => { window.__pickVideo = { id: 'vid1', name: 'repet_cuisine.mp4', mimeType: 'video/mp4' }; });
+  await page.evaluate(() => { window.__pickVideo = { id: 'vid1', name: 'repet_cuisine.webm', mimeType: 'video/webm' }; });
   await frame.click('.plan[data-seq="1"] textarea');
   await frame.click('.plan[data-seq="1"] .tool:has-text("Vidéo de référence")');
   await frame.waitForFunction(() => (CS.plan(1, 1).video && CS.plan(1, 1).video.thumb) || document.querySelector('.cs-toast'), null, { timeout: 10000 });
   const toast = await frame.evaluate(() => { const t = document.querySelector('.cs-toast'); return t && !CS.plan(1, 1).video ? t.textContent : null; });
   if (toast) throw new Error('message : ' + toast);
   const v = await frame.evaluate(() => CS.plan(1, 1).video);
-  eq([v.id, v.name, v.thumb.startsWith('data:image/jpeg')], ['vid1', 'repet_cuisine.mp4', true], 'vidéo enregistrée');
-  eq(await frame.$$eval('.plan[data-seq="1"] .vid img', e => e.length), 1, 'miniature affichée');
+  eq([v.id, v.name, v.thumb.startsWith('data:image/jpeg')], ['vid1', 'repet_cuisine.webm', true], 'vidéo enregistrée');
+  const px = await frame.evaluate(async (src) => { const i = new Image(); i.src = src; await i.decode();
+    const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0);
+    return Array.from(g.getImageData(i.width >> 1, i.height >> 1, 1, 1).data.slice(0, 3)); }, v.thumb);
+  if (!(px[1] > 120 && px[0] < 100 && px[2] < 120)) throw new Error('miniature pas tirée de la vidéo (attendu vert) : ' + px);
+  eq(log.some(l => l.includes('/files/vid1?alt=media')), true, "vidéo lue par l'API Drive");
+  eq(await frame.$$eval('.plan[data-seq="1"] .vid img, .plan[data-seq="1"] .vid i', e => e.length), 0, 'plan : pas de miniature');
+  eq(await frame.textContent('.plan[data-seq="1"] .vid'), 'repet_cuisine.webm', 'plan : nom seul');
   await frame.click('.plan[data-seq="1"] .vid');
+  eq((await frame.getAttribute('.cs-modal a.cs-video', 'style') || '').includes('data:image/jpeg'), true, 'fenêtre : miniature');
   eq(await frame.getAttribute('.cs-modal a.cs-video', 'href'), 'https://drive.google.com/file/d/vid1/view', 'lecture : lien Drive');
-  eq(await frame.textContent('.cs-modal .cs-vname'), 'repet_cuisine.mp4', 'nom dans la fenêtre');
+  eq(await frame.textContent('.cs-modal .cs-vname'), 'repet_cuisine.webm', 'nom dans la fenêtre');
   await frame.click('.cs-modal .cs-btn.primary');
   await page.waitForFunction(() => isDirty === true);
   await page.evaluate(() => closeApp());

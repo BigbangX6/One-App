@@ -1727,10 +1727,32 @@
             return tokenClient;
         }
 
+        // Jeton enregistré par un autre onglet (connexion renouvelée là-bas), s'il est encore valide
+        function adoptStoredToken() {
+            const token = localStorage.getItem('oneapp_gdrive_token');
+            const expire = parseInt(localStorage.getItem('oneapp_gdrive_expire') || '0');
+            if (!token || token === globalAccessToken || Date.now() > expire - 60000) return false;
+            globalAccessToken = token;
+            return true;
+        }
+
+        // Connexion renouvelée dans un autre onglet : cet onglet reprend avec le nouveau jeton,
+        // les envois qui attendaient partent sans clic sur le bandeau
+        window.addEventListener('storage', (e) => {
+            if (e.key !== 'oneapp_gdrive_expire' || !adoptStoredToken() || !tokenRenewalResolve) return;
+            if (document.getElementById('session-banner').style.display === 'flex') announceRenewal();
+            hideSessionBanner();
+            const resolve = tokenRenewalResolve;
+            tokenRenewalResolve = null;
+            tokenRenewalPromise = null;
+            resolve();
+        });
+
         // Renvoie une promesse résolue quand un jeton valide est disponible.
         // Les sauvegardes en attente patientent au lieu d'échouer.
         function renewToken() {
             if (tokenRenewalPromise) return tokenRenewalPromise;
+            if (adoptStoredToken()) return Promise.resolve();
             tokenRenewalPromise = new Promise((resolve) => { tokenRenewalResolve = resolve; });
             // Script Google absent (One App démarré sans réseau) : on le charge d'abord
             loadGoogleScripts().then(() => {
@@ -1769,7 +1791,8 @@
             if (!navigator.onLine) throw new DriveError("Hors-ligne", 0);
             if (isTokenExpired()) await renewToken();
 
-            const headers = Object.assign({}, options.headers || {}, { 'Authorization': `Bearer ${globalAccessToken}` });
+            const usedToken = globalAccessToken;
+            const headers = Object.assign({}, options.headers || {}, { 'Authorization': `Bearer ${usedToken}` });
             let res;
             try {
                 res = await fetch(url, Object.assign({}, options, { headers }));
@@ -1778,7 +1801,8 @@
             }
 
             if (res.status === 401 && allowRetry) {
-                localStorage.setItem('oneapp_gdrive_expire', '0');
+                // Un autre onglet a peut-être déjà enregistré un jeton plus récent : on ne l'invalide pas
+                if (localStorage.getItem('oneapp_gdrive_token') === usedToken) localStorage.setItem('oneapp_gdrive_expire', '0');
                 await renewToken();
                 return driveFetch(url, options, false);
             }
@@ -2016,25 +2040,49 @@
         }
 
         // Miniature d'un fichier Drive, réduite (320 px) et encodée en data:URL (JPEG),
-        // pour être gardée dans le document et affichée hors-ligne
+        // pour être gardée dans le document et affichée hors-ligne.
+        // Les miniatures de Google (thumbnailLink, lh3.googleusercontent.com) ne sont pas lisibles
+        // par une page web (pas d'en-tête CORS) : l'image est tirée du fichier lui-même (vidéo ou image),
+        // lu par l'API Drive. Autres types (PDF...) : pas de miniature.
+        const THUMB_SOURCE_MAX = 200 * 1024 * 1024; // fichier lu pour la miniature : 200 Mo au plus
         async function driveThumbnail(fileId) {
-            let meta = null;
-            for (let i = 0; i < 4 && !(meta && meta.thumbnailLink); i++) {
-                if (i) await new Promise(r => setTimeout(r, 900 * i)); // accès ou miniature pas encore prêts
-                try { meta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=thumbnailLink`); } catch (e) { meta = null; }
+            if (!(await waitForFileAccess(fileId, 4))) return null;
+            const meta = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?fields=mimeType,size`);
+            const type = meta.mimeType || '';
+            if (!/^(video|image)\//.test(type) || !(Number(meta.size) <= THUMB_SOURCE_MAX)) return null;
+            const blob = await (await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(fileId)}?alt=media`)).blob();
+            const isVideo = type.startsWith('video/');
+            const source = isVideo ? await videoFrame(blob) : await createImageBitmap(blob);
+            try {
+                const sw = isVideo ? source.videoWidth : source.width, sh = isVideo ? source.videoHeight : source.height;
+                if (!sw || !sh) throw new Error('image vide');
+                const w = Math.min(320, sw), hgt = Math.round(sh * w / sw);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = hgt;
+                canvas.getContext('2d').drawImage(source, 0, 0, w, hgt);
+                return canvas.toDataURL('image/jpeg', 0.75);
+            } finally {
+                if (isVideo) URL.revokeObjectURL(source.src);
             }
-            if (!meta || !meta.thumbnailLink) return null;
-            const link = meta.thumbnailLink.replace(/=s\d+$/, '=s640');
-            let res;
-            try { res = await fetch(link); } catch (e) { res = null; }
-            if (!res || !res.ok) res = await fetch(link, { headers: { 'Authorization': `Bearer ${globalAccessToken}` } });
-            if (!res.ok) throw new Error('miniature ' + res.status);
-            const bitmap = await createImageBitmap(await res.blob());
-            const w = Math.min(320, bitmap.width), hgt = Math.round(bitmap.height * w / bitmap.width);
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = hgt;
-            canvas.getContext('2d').drawImage(bitmap, 0, 0, w, hgt);
-            return canvas.toDataURL('image/jpeg', 0.75);
+        }
+
+        // Vidéo prête à dessiner, sur une image prise après le début (souvent noir)
+        function videoFrame(blob) {
+            const v = document.createElement('video');
+            v.muted = true; v.playsInline = true; v.preload = 'auto';
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => fail(new Error('vidéo trop longue à lire')), 20000);
+                const done = () => { clearTimeout(timer); resolve(v); };
+                const fail = (e) => { clearTimeout(timer); URL.revokeObjectURL(v.src); reject(e); };
+                v.onerror = () => fail(new Error('format vidéo non lu par ce navigateur'));
+                v.onloadedmetadata = () => {
+                    v.onseeked = done;
+                    // Durée inconnue (certains WebM) : 1 s ; si le saut n'aboutit pas, image courante
+                    v.currentTime = isFinite(v.duration) && v.duration > 0 ? Math.min(1, v.duration / 3) : 1;
+                    setTimeout(() => { if (v.readyState >= 2) done(); }, 4000);
+                };
+                v.src = URL.createObjectURL(blob);
+            });
         }
 
         // Vérifie auprès de Drive que One App peut lire le fichier. Après le Picker,
@@ -2229,7 +2277,8 @@
                 try { records = await localStore.getAll('docs'); } catch (e) { return; }
                 for (const record of records) {
                     if (!record.dirty || record.fileId === currentActiveOneFileId) continue;
-                    const job = syncPendingDoc(record);
+                    // Ouvert dans un autre onglet : c'est cet onglet qui l'envoie (sinon faux conflit)
+                    const job = whenClosedEverywhere(record.fileId, () => syncPendingDoc(record));
                     backgroundSyncs.set(record.fileId, job);
                     try { await job; }
                     catch (e) { console.warn(`Envoi en attente de « ${record.fileName} » reporté :`, e.message); }
@@ -2239,7 +2288,27 @@
             return pendingSyncRun;
         }
 
+        // Document ouvert dans un onglet : verrou partagé (Web Locks) tenu jusqu'à sa fermeture.
+        // Les envois en arrière-plan d'un autre onglet attendent qu'aucun onglet ne l'ait ouvert.
+        let openDocLockRelease = null;
+        function holdOpenDocLock(fileId) {
+            releaseOpenDocLock();
+            if (!navigator.locks) return;
+            const held = new Promise(r => { openDocLockRelease = r; });
+            navigator.locks.request('oneapp-doc-' + fileId, { mode: 'shared' }, () => held).catch(() => {});
+        }
+        function releaseOpenDocLock() {
+            if (openDocLockRelease) { openDocLockRelease(); openDocLockRelease = null; }
+        }
+        async function whenClosedEverywhere(fileId, job) {
+            if (!navigator.locks) return job();
+            return navigator.locks.request('oneapp-doc-' + fileId, { ifAvailable: true }, (lock) => lock ? job() : null);
+        }
+
         async function syncPendingDoc(record) {
+            // Relu sous le verrou : l'onglet qui avait le document ouvert a pu l'envoyer entre-temps
+            try { record = (await localStore.get('docs', record.fileId)) || record; } catch (e) {}
+            if (!record.dirty) return;
             const remote = await driveJson(`${DRIVE_API_URL}/${encodeURIComponent(record.fileId)}?fields=modifiedTime,headRevisionId`);
 
             if (!isRemoteNewer(remote, record.base)) {
@@ -3712,7 +3781,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
                 if (fileId !== currentActiveOneFileId) return;
 
                 if (isRemoteNewer(remote)) {
-                    await resolveConflict(fileId, sentContent, remote);
+                    await resolveConflict(fileId, remote);
                 } else {
                     // --- CAS NORMAL (PATCH) ---
                     currentOneFileMetadata.version_timestamp = new Date().toISOString();
@@ -3751,16 +3820,30 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             }
         }
 
-        async function resolveConflict(fileId, myContent, remote) {
+        async function resolveConflict(fileId, remote) {
             alert("Conflit détecté : Le fichier a été modifié sur le Cloud depuis un autre appareil. Création d'une copie de secours de vos modifications...");
 
             const baseName = document.getElementById('running-file-title').value;
             const parentFolderId = await getDocFolderId(fileId, currentDocInfo.appName, currentDocInfo.folderId);
-            await createOneFile(`${baseName} - Copie de secours`, parentFolderId,
-                currentOneFileMetadata.app_name, currentOneFileMetadata.source_app_drive_id, myContent);
+            // La copie reçoit les DERNIÈRES données locales, y compris celles modifiées pendant
+            // l'envoi (ex. en attendant la reconnexion Google), et jusqu'au remplacement ci-dessous
+            let backedUp = localRevision;
+            const backup = await createOneFile(`${baseName} - Copie de secours`, parentFolderId,
+                currentOneFileMetadata.app_name, currentOneFileMetadata.source_app_drive_id, localContent);
 
             const freshOneFileJson = await driveJson(`${DRIVE_API_URL}/${fileId}?alt=media`);
             if (fileId !== currentActiveOneFileId) return;
+            while (backedUp !== localRevision) {
+                backedUp = localRevision;
+                const oneFile = JSON.parse(await (await driveFetch(`${DRIVE_API_URL}/${encodeURIComponent(backup.id)}?alt=media`)).text());
+                oneFile.app_data = localContent;
+                await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(backup.id)}?uploadType=media`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(oneFile)
+                });
+                if (fileId !== currentActiveOneFileId) return;
+            }
             applyRemoteData(freshOneFileJson.app_data || [], remote);
 
             // Quelqu'un d'autre écrit en même temps : on passe en lecture pour suivre son
@@ -4069,6 +4152,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
 
             clearTimeout(debounceTimer);
             currentActiveOneFileId = oneFileId;
+            holdOpenDocLock(oneFileId);
             currentDocInfo = {
                 appFileId: appFileId,
                 appName: appName || doc.appName,
@@ -4412,6 +4496,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
 
                 clearTimeout(debounceTimer);
                 currentActiveOneFileId = oneFileId;
+                holdOpenDocLock(oneFileId);
                 currentDocInfo = { appFileId: appFileId, appName: appName, fileName: oneFileName,
                                    folderId: knownAppFolderId(appFileId) || (localDoc && localDoc.folderId) || null };
                 lastSyncError = null;
@@ -4474,6 +4559,7 @@ Au tout début du <body>, ajoute un commentaire HTML <!-- ... --> qui décrit : 
             document.getElementById('authenticated-view').style.display = 'block';
             currentRunningApp = null;
             currentActiveOneFileId = null;
+            releaseOpenDocLock();
             currentOneFileMetadata = null;
             appDataHistory = [];
             appDataCurrentIndex = -1;
