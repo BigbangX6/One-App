@@ -1259,6 +1259,27 @@ await test("Cinema Script : signal du clap identique à l'original, puis pause e
   if (!(r.ratio < 0.02)) throw new Error('claquement présent dans la bande du signal : ' + r.ratio);
 });
 
+await test("Cinema Script : iPhone (mode silencieux, contexte audio interrompu après verrouillage)", async (page) => {
+  const frame = await openCinema(page, SHOOT);
+  const r = await frame.evaluate(async () => {
+    window.addEventListener('unhandledrejection', e => e.preventDefault());
+    const session = {}; Object.defineProperty(navigator, 'audioSession', { value: session, configurable: true });
+    const played = []; HTMLMediaElement.prototype.play = function () { played.push(this.src.slice(0, 22)); return Promise.resolve(); };
+    CS.isIOS = true;
+    CS.active = { seqId: 2, planId: 1 };
+    // Contexte laissé « interrupted » par iOS (téléphone verrouillé, appel...)
+    const old = new AudioContext(); Object.defineProperty(old, 'state', { get: () => 'interrupted' });
+    let closed = false; old.close = () => { closed = true; return Promise.resolve(); };
+    CS.clapper.audioCtx = old;
+    CS.clap();
+    const fresh = CS.clapper.audioCtx;
+    return { type: session.type, played, closed, renewed: !!fresh && fresh !== old, isAudio: fresh instanceof AudioContext };
+  });
+  eq(r.type, 'playback', 'audioSession en lecture (ignore le bouton silencieux)');
+  eq(r.played, ['data:audio/wav;base64,'], '<audio> muet joué pendant le clap');
+  eq(r.closed && r.renewed && r.isAudio, true, 'contexte interrompu remplacé par un neuf');
+});
+
 await test("Cinema Script : nouveau document, texte enregistré ; nom du projet = nom du fichier", async (page) => {
   const frame = await openCinema(page);
   eq(await frame.textContent('#proj'), 'Doc', 'nom du projet');
