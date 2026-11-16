@@ -283,6 +283,8 @@ Structure de app_data (CONTRAT avec l'extension Premiere : ne pas renommer ces c
   (OneAppAPI.driveFileLink : app Google Drive, y compris hors-ligne ; schéma spécial sur iPhone).
 - Clap : signal codé (classe d'origine, intouchable) PUIS, après une pause, un claquement audible
   (playSlateSound). Le décodeur s'arrête au « * » final du signal : le claquement ne le gêne pas.
+- iPhone : CS.prepareAudio (avant le clap) contourne le bouton silencieux et le contexte audio
+  « interrupted » après verrouillage ; la classe DigitalClapper reste intouchée.
 -->
 <div class="page" id="page">
   <header class="top">
@@ -466,10 +468,52 @@ function playSlateSound(ctx, t) {
   body.start(t); body.stop(t + 0.18);
 }
 CS.playSlateSound = playSlateSound;
+
+// --- iPhone / iPad : rendre le clap audible (sans toucher à DigitalClapper) ---
+// 1) Bouton silencieux : Safari coupe le son Web Audio quand l'iPhone est en mode silencieux.
+//    navigator.audioSession.type = "playback" (iOS 17+) le fait passer comme une vidéo ; en
+//    renfort (iOS plus anciens, iframe de One App), un <audio> muet joué pendant le clap met
+//    l'iPhone en mode « lecture ».
+// 2) Après verrouillage, appel ou changement d'app, le contexte audio passe à « interrupted »
+//    (et pas « suspended ») : la classe ne le relance pas. On repart d'un contexte neuf, que
+//    la classe recrée elle-même au même geste.
+CS.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let silentUrl = null;
+function silentWav(seconds) { // WAV 8 kHz, 8 bits, mono, silence (valeur 128)
+  const n = 8000 * seconds, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+  str(0, "RIFF"); v.setUint32(4, 36 + n, true); str(8, "WAVEfmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, "data"); v.setUint32(40, n, true);
+  b.fill(128, 44);
+  let bin = ""; for (let i = 0; i < b.length; i += 8192) bin += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+  return "data:audio/wav;base64," + btoa(bin);
+}
+CS.prepareAudio = function () {
+  if (!CS.isIOS) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+  try {
+    if (!CS.silentAudio) {
+      silentUrl = silentUrl || silentWav(8); // plus long que le signal + le claquement
+      CS.silentAudio = new Audio(silentUrl);
+      CS.silentAudio.setAttribute("playsinline", "");
+    }
+    CS.silentAudio.currentTime = 0;
+    const p = CS.silentAudio.play(); if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+  const ctx = CS.clapper.audioCtx;
+  if (ctx && (window.AudioContext || window.webkitAudioContext) && ctx instanceof (window.AudioContext || window.webkitAudioContext)
+      && (ctx.state === "interrupted" || ctx.state === "closed")) {
+    try { if (ctx.state !== "closed") ctx.close().catch(() => {}); } catch (e) {}
+    CS.clapper.audioCtx = null;
+  }
+};
+
 CS.clap = function () {
   const a = CS.active;
   if (!a) return;
   const take = CS.nextTake(a.seqId, a.planId);
+  CS.prepareAudio();
   CS.clapper.play(a.seqId, a.planId, take);           // signal de synchronisation : intouché
   const ctx = CS.clapper.audioCtx;
   if (ctx) playSlateSound(ctx, CS.signalEnd(ctx.currentTime, a.seqId, a.planId, take) + CS.SLATE_PAUSE);
